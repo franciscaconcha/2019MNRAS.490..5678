@@ -1,0 +1,24 @@
+# Parameter file for the Hartmann+ (1998) 
+
+# General parameters
+nr	    	= 512
+rmin		= 1.5e12
+rmax		= 3.0e14
+alpha		= c_func
+rot_curve_type	= keplerian
+rot_curve_mass	= 1.99e33
+ibc_pres_type	= fixed_torque
+ibc_pres_val	= c_func
+ibc_enth_type	= fixed_value
+obc_pres_type	= fixed_torque
+obc_pres_val	= c_func
+obc_enth_type	= fixed_value
+gamma		= 1.000001
+dt_tol		= 0.01
+
+# Problem-specific parameters
+R0		= 1.5e13	# initial scale radius
+nu0		= 2.37e13       # chosen so ts = R0^2/(3 nu0) = 1e5 yr
+Mdot0		= 6.3e19	# 10^-6 Msun/yr
+init_temp	= 100.0		# temperature (not important to solution)
+end_time	= 4.0		# end time of simulation, in units of t_s

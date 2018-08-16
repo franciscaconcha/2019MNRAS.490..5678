@@ -1,0 +1,1386 @@
+\documentclass[12pt]{article}
+
+\usepackage{hyperref, multirow}
+
+\setlength{\oddsidemargin}{0in}
+\setlength{\evensidemargin}{0in}
+\setlength{\textwidth}{6.5in}
+\setlength{\textheight}{8.5in}
+\setlength{\topmargin}{-0.5in}
+\setlength{\parindent}{0.5in}
+
+\newcommand{\vader}{\texttt{VADER}}
+\newcommand{\ddt}{\frac{\partial}{\partial t}}
+\newcommand{\ddr}{\frac{\partial}{\partial r}}
+
+\begin{document}
+
+\title{User's Guide for \vader\ v.~1.0}
+\author{Mark Krumholz}
+
+\maketitle
+
+\tableofcontents
+
+\clearpage
+
+\section{License and Citations}
+
+This is a guide for users of the \vader\ software package. \vader\ is distributed under the terms of the \href{http://www.gnu.org/licenses/gpl.html}{GNU General Public License v.~3}. A copy of the license notification is included in the main \vader\ directory. If you use \vader\ in any published work, please cite the paper Krumholz, M.~R., \& Forbes, J.~C., 2014, submitted to \textit{Astronomy \& Computing}.
+
+
+\section{What Does \vader\ Do?}
+
+A full description of the model system that \vader\ simulates can be found in Krumholz, M.~R., \& Forbes, J.~C., 2014, submitted to \textit{Astronomy \& Computing}. A short summary is that \vader\ solves the equations of mass, angular momentum, and energy conservation for a thin, axisymmetric, viscous disk. These equations are
+\begin{eqnarray}
+\label{eq:masscons}
+\ddt \Sigma + \frac{1}{r}\ddr \left(r v_r \Sigma\right) & = & \dot{\Sigma}_{\rm src} \\
+\label{eq:encons}
+\ddt E + \frac{1}{r}\ddr \left[rv_r\left(E+P\right)\right] - \frac{1}{r}\ddr \left(r \frac{v_\phi \mathcal{T}}{2\pi r^2}\right) & = & \dot{E}_{\rm src}.
+\end{eqnarray}
+where $v_\phi$ is the orbital velocity in the disk, $\Sigma$, $E$, and $P$ are the vertically-integrated mass per unit area, total energy per unit area (internal plus orbital plus potential), and pressure, $\mathcal{T}$ is the torque between adjacent rings of material, and $\dot{\Sigma}_{\rm src}$ and $\dot{E}_{\rm src}$ are the source terms for mass and total energy. The equations are written in a form where angular momentum conservation has already been incorporated, so a separate conservation equation is not needed for it. The radial velocity $v_r$ appear in these equations is related to the torque by
+\begin{equation}
+\label{eq:vr}
+v_r = \frac{1}{2\pi r\Sigma v_\phi (1+ \beta)} \ddr\mathcal{T},
+\end{equation}
+where $\beta = \partial \ln v_\phi /\partial \ln r$ is the index of the rotation curve, and the torque is non-dimensionalized via the standard $\alpha$ parameterization as
+\begin{equation}
+\label{eq:alphatorque}
+\mathcal{T} = -2\pi r^2 \alpha (1-\beta) P.
+\end{equation}
+Finally, the system obeys a general equation of state whereby the vertically integrated pressure is a function of the position, column density, and total internal energy,
+\begin{equation}
+P = P(r,\Sigma,E_{\rm int})
+\end{equation}
+where the internal energy is defined from the total energy and rotation curve by
+\begin{equation}
+E = \Sigma\left(\frac{v_\phi^2}{2}+\psi\right) + E_{\rm int},
+\end{equation}
+and $\psi$ is the gravitational potential. The equation of state is characterize by two partial derivatives,
+\begin{eqnarray}
+\gamma & = & 1+\left.\frac{\partial P}{\partial E_{\rm int}}\right|_{r,\Sigma} \\
+\delta & = & \frac{1}{\gamma-1} \left.\frac{\partial \ln P}{\partial \ln \Sigma}\right|_{r,E_{\rm int}}.
+\end{eqnarray}
+\vader\ solves this system of equations on an arbitrarily-arranged grid of radial cells using a second-order accurate conservative finite volume method with implicit time discretization.
+
+
+\section{Installing and Configuring \vader}
+
+\subsection{Getting \vader}
+
+The easiest way to get \vader\ is from the public bitbucket repository. On any system with git installed, \vader\ may be downloaded via the command
+\begin{verbatim}
+git clone https://krumholz@bitbucket.org/krumholz/vader.git
+\end{verbatim}
+The entire repository may also be downloaded as a zip file from \url{https://bitbucket.org/krumholz/vader/downloads}.
+
+\subsection{Dependencies and Build Requirements}
+
+\vader\ has the following dependencies:
+\begin{itemize}
+\item The core c routines require the GNU scientific library (GSL) version $\geq$ 1.12.
+\item The Python wrapper routines require Python $\geq$ 2.6 (3.x also ok)
+\item The Python wrapper routines require numPy $\geq$ 1.6.1
+\item The Python wrapper routines require sciPy $\geq$ 0.7.0
+\end{itemize}
+\vader's builtin \verb=Makefile= expects that the GSL headers will be included in \verb=C_INCLUDE_PATH=, and the object files included in \verb=LD_LIBRARY_PATH=. If this is not the case, they can be added to the build path manually by editing the file \verb=vader_csrc/Makefile=. The \vader\ build system also expects the environment variables \verb=CC= and \verb=MAKE= to be set, or to default to reasonable values.
+
+
+\section{Structure of a \texttt{VADER} Simulation}
+\label{sec:simstruct}
+
+A \texttt{VADER} simulation is generally composed of several elements. Not all of these are strictly mandatory, but they will typically be found in most simulations.
+\begin{enumerate}
+\item \textbf{Initialize the Grid.} Almost all \texttt{VADER} functions require a \hyperref[sssec:datastructures]{\texttt{struct grid}} object that defines the computational grid, the rotation curve that goes with it, and a number of ancillary quantities. In the c interface, grids can be allocated using the \hyperref[sssec:gridAlloc]{\texttt{gridAlloc}} function, and can be both allocated and initialized using the \hyperref[sssec:gridInit]{\texttt{gridInit}}, \hyperref[sssec:gridInitTabulated]{\texttt{gridInitTabulated}}, \hyperref[sssec:gridInitFlat]{\texttt{gridInitFlat}}, and \hyperref[sssec:gridInitKeplerian]{\texttt{gridInitKeplerian}}.
+\item \textbf{Allocate a Workspace.} Almost all \texttt{VADER} routines require a \hyperref[sssec:datastructures]{\texttt{struct wksp}} object that provides a workspace for computations. This is allocated by calling the \hyperref[sssec:wkspAlloc]{\texttt{wkspAlloc}} function in c.
+\item \textbf{Initialize the Data.} The user must declare and initialize arrays to contain the initial column density, vertically-integrated pressure, and, if using a complex equation of state, internal energy. These will be passed to the main simulation routine.
+\item \textbf{Initialize the Parameters.} If the simulations require any additional parameters to be passed to the user-specific routines (see \hyperref[ssec:userFunc]{Section \ref{ssec:userFunc}}), these must be stored in a data structure that can be passed by reference.
+\item \textbf{Allocate Arrays to Store Outputs.} A \texttt{VADER} simulation generally returns a series of outputs, representing snapshots of the state of the computation at a variety of times. The user must allocate memory to store these results.
+\item \textbf{Run the Simulation.} The simulation is run via a call to the \hyperref[sssec:driver]{\texttt{driver}} routine. This call runs the simulation and stores the output.
+\item \textbf{Free Memory}. In a c simulation, the final step is to free the grid and workspace via calls to \hyperref[sssec:gridFree]{\texttt{gridFree}} and \hyperref[sssec:wkspFree]{\texttt{wkspFree}}.
+\end{enumerate}
+
+Example c programs can be found in the \verb=vader_csrc/prob= directory; all files in that directory with names of the form \verb=main_PROB.c= are examples. Several of these steps can be omitted for simulations using the \hyperref[sec:python]{Python interface (Section \ref{sec:python})}, which handles most of the allocation, de-allocation, and processing of data automatically.
+
+
+\section{Setting Up a New Problem}
+
+Most users of \texttt{VADER} will likely want to set up their own simulations, defined by their own choices of viscosity, equation of state, boundary conditions, and heating and cooling rates. Routines specific to particular problems are stored in the \verb=vader_csrc/prob= subdirectory. To define a new problem, a user must create one mandatory file, and one optional file, in this directory.
+
+\subsection{The \texttt{userFunc} File}
+\label{ssec:userFunc}
+
+The mandatory file must have a name of the form \verb=userFunc_MYPROB.c=, where \verb=MYPROB= is the name the user wishes to assign to that problem. This file must define the following functions, all of which take the current state of the simulation as inputs:
+\begin{itemize}
+\item \texttt{userAlpha}: this defines the dimensionless viscosity $\alpha$ for the problem
+\item \texttt{userEOS}: this defines the equation of state parameters $\gamma$ and $\delta$
+\item \texttt{userMassSrc}: this defines the column density source function $\dot{\Sigma}_{\rm src}$
+\item \texttt{userIntEnSrc}: this defines the internal energy source function $\dot{E}_{\rm int,src}$
+\item \texttt{userIBC}: this defines the pressure and enthalpy values at the inner boundary condition
+\item \texttt{userOBC}: this defines the pressure and enthalpy values at the outer boundary condition
+\end{itemize}
+The full APIs for these functions are given in \hyperref[ssec:userC]{Section \ref{ssec:userC}}, and may also be found in the source file \verb=vader_csrc/userFunc.h=. The easiest way to create a custom \verb=userFunc_MYPROB.c= file is probably to copy the existing file \verb=vader_csrc/prob/userFunc_none.c=, which defines all the required functions as no-ops that simply print a warning message and then return.
+
+While all these functions must be defined in \verb=userFunc_MYPROB.c=, their actual implementations can be no-ops, as is the case in \verb=userFunc_none.c=. The functions are actually called only if the appropriate flags are set in calls to the \hyperref[sssec:driver]{\texttt{driver}}, \hyperref[sssec:advanceBE]{\texttt{advanceBE}}, or \hyperref[sssec:advanceCN]{\texttt{advanceCN}} routines. For example, if \hyperref[sssec:driver]{\texttt{driver}} is called but the input parameter \verb=eos_func= is set to 0, then \texttt{userEOS} will never be called, and can safely be left as a no-op function.
+
+All of the \verb=user*= routines accept an argument \verb=void *params=, as do the \hyperref[sssec:driver]{\texttt{driver}},  \hyperref[sssec:advanceBE]{\texttt{advanceBE}}, and  \hyperref[sssec:advanceCN]{\texttt{advanceCN}} routines from which they are called. The \verb=params= variable can be used to pass arbitrary data into the \verb=user*= routines, thereby allowing these functions to depend on additional parameters defined at runtime. The user must simply construct a structure containing whatever parameters he or she requires, obtain a pointer to that structure, cast it to void, pass it into \hyperref[sssec:driver]{\texttt{driver}},  \hyperref[sssec:advanceBE]{\texttt{advanceBE}}, or \hyperref[sssec:advanceCN]{\texttt{advanceCN}}, and then cast the \verb=void *params= value in the \verb=user*= routine back to whatever data type it originally  was.
+
+
+\subsection{The \texttt{main} File}
+
+The optional file has a name of the form \verb=main_MYPROB.c=, where \texttt{MYPROB} is the same as the name used for \verb=userFunc_MYPROB.c=. This file contains the \texttt{main} function for the program. It is required if the code is compiled in \hyperref[ssec:exemode]{Executable Mode} or \hyperref[ssec:debugmode]{Debug Mode}, but is ignored if the code is compiled in \hyperref[ssec:dylibmode]{Dynamically-Linked Library Mode}.
+
+The \verb=main= routine generally follows the simulation structure described in \hyperref[sec:simstruct]{Section \ref{sec:simstruct}}. Example \verb=main_MYPROB.c= files can be found in the \verb=vader_csrc/prob= subdirectory.
+
+
+\section{Compiling \texttt{VADER}}
+
+\texttt{VADER} can be compiled either as a standalone executable, or as a dynamically-linked library. In the latter mode, it can be called from the python interface described in \hyperref[sec:python]{Section \ref{sec:python}}.
+
+\subsection{Executable Mode}
+\label{ssec:exemode}
+
+To compile \texttt{VADER} in executable mode, from the main \texttt{vader} directory type
+\begin{verbatim}
+make exec PROB=MYPROB
+\end{verbatim}
+where \verb=MYPROB= is the name of the problem to be compiled. This command causes the files \verb=vader_csrc/userFunc_MYPROB.c= and \verb=vader_csrc/main_MYPROB.c= to be copied into the main \verb=vader_csrc= directory and compiled along with the core \vader\ routines. Upon successful compilation, an executable \verb=vader.ex= is placed in the \verb=bin= subdirectory. The code is compiled without debugging symbols, and with a high level of optimization.
+
+\subsection{Debug Mode}
+\label{ssec:debugmode}
+
+To compile \texttt{VADER} in debug mode, from the main \texttt{vader} directory type
+\begin{verbatim}
+make debug PROB=MYPROB
+\end{verbatim}
+where \verb=MYPROB= is the name of the problem to be compiled. The results are identical to those for compilation in \hyperref[ssec:exemode]{Executable Mode}, except that debugging symbols are enabled and optimization is disabled.
+
+\subsection{Dynamically-Linked Library Mode}
+\label{ssec:dylibmode}
+
+To compile \texttt{VADER} in dynamically-linked library mode, from the main \texttt{vader} directory type
+\begin{verbatim}
+make lib PROB=MYPROB
+\end{verbatim}
+where \verb=MYPROB= is the name of the problem to be compiled. This causes the file\\ \verb=vader_csrc/userFunc_MYPROB.c=, but \textit{not} \verb=vader_csrc/main_MYPROB.c=,  to be copied into the main \verb=vader_csrc= directory and compiled along with the core \vader\ routines. The code is compiled into a dynamically-linked library, \verb=libvader.x=, where \verb=x= is the extension appropriate for a dynamically-linked library on the system where the code is being compiled. The library is copied into the \verb=bin= subdirectory. The code is compiled at a high level of optimization. If \verb=PROB= is not specified, the default problem is \verb=none=, which causes all the \hyperref[ssec:userC]{\texttt{user*}} routines to be no-ops that just print a warning and then return. When compiled in this mode, the code can still be run on problems where no user-specific functions are used, and all quantities (viscosity, equation of state, inner and outer boundary conditions, source functions) are defined by constants.
+
+\subsection{Testing Mode}
+\label{ssec:testingMode}
+
+Testing mode is an additional option that can be combined with executable, debug, or dynamically-linked library mode. To compile in testing mode, do add the option \verb!MODE=TEST! to any of the compilation commands above, for example
+\begin{verbatim}
+make lib PROB=MYPROB MODE=TEST.
+\end{verbatim}
+This causes the \hyperref[sssec:advanceBE]{\texttt{advanceBE}}, \hyperref[sssec:advanceCN]{\texttt{advanceCN}}, and \hyperref[sssec:driver]{\texttt{driver}} routines to return extra diagnostic information.
+
+
+\section{The Python Interface}
+\label{sec:python}
+
+When compiled in \hyperref[ssec:dylibmode]{dynamically-linked library mode}, \vader\ can be accessed through a python interface, which provides a convenient method of parsing parameter files, constructing grids, running simulations, and processing the results. The Python interface to \vader\ is implemented as a Python package. From the main \texttt{vader} directory, the package may be imported via the usual Python import procedure:
+\begin{verbatim}
+import vader
+\end{verbatim}
+
+\subsection{Structure of a Python-Based \vader\ Simulation}
+
+The Python interface to \vader\ provides several convenient routines to make it easier to set up and run simulations. The \hyperref[sssec:vader.readParam]{\texttt{vader.readParam}} function can read and parse parameter files formatted as described in \hyperref[ssec:paramFiles]{Section \ref{ssec:paramFiles}}, and return a dict of parameters. This can then be passed to the \hyperref[sssec:vader.grid]{\texttt{vader.grid}} routine to construct a \hyperref[sssec:vader.grid]{\texttt{class grid}} object that contains al the grid information required to a run a simulation. Finally, once the grid has been constructed and initial conditions specified, a full simulation can be run through the \hyperref[sssec:vader.driver]{\texttt{vader.driver}} routine. This routine processes the inputs into a format suitable for passing to c, calls the c \hyperref[sssec:driver]{\texttt{driver}} routine, processes the results into convenient form, and returns them. The usual structure of a Python-based \vader\ simulation is:
+\begin{enumerate}
+\item \textbf{Import the} \texttt{VADER} \textbf{package.}
+\item \textbf{Read the parameter file.} This can be accomplished by
+\begin{verbatim}
+paramDict = vader.readParam(fileName)
+\end{verbatim}
+\item \textbf{Construct a grid.} This can be accomplished by
+\begin{verbatim}
+grd = vader.grid(paramDict)
+\end{verbatim}
+\item \textbf{Initialize the Data.} Construct \verb=numpy= arrays for the initial column density, pressure, and, if using a complex equation of state, internal energy.
+\item \textbf{Initialize Parameters for Passing to c.} If using custom \hyperref[ssec:userC]{\texttt{user*}} routines that require additional parameters, construct a pointer to them suitable for passing to c. This can be done using the standard Python \verb=ctypes= interface. In the most common case where the parameters consist of a series of real numbers, these can be stored in a \verb=numpy= array, and then a pointer to them can be obtained via
+\begin{verbatim}
+paramPtr = ctypes.byref(paramArr.ctypes.
+                        data_as(ctypes.POINTER(ctypes.c_double)).
+                        contents)
+\end{verbatim}
+where \verb=paramArr= is the \verb=numpy= array containing the parameter values.
+\item \textbf{Run the simulation.} This can be accomplished by
+\begin{verbatim}
+result = vader.driver(tState, tEnd, grd, col, pres, paramDict,
+                      nOut=nOut, c_params=paramPtr)
+\end{verbatim}
+The \verb=vader.driver= routine returns a \verb=namedtuple= containing the results of the simulation.
+\end{enumerate}
+Full APIs for all Python functions are given in \hyperref[ssec:pythonAPI]{Section \ref{ssec:pythonAPI}}.
+
+\textbf{Important warning:} in python mode, the \texttt{vader} python package creates an interface to the \vader\ library compiled in \hyperref[ssec:dylibmode]{dynamically-linked library mode} using the functionality provided by \verb=numpy.ctypeslib.load_library=. At present, \verb=numpy.ctypes= does not provide any way to ``unload" or ``reload" a library. Once a library has been loaded into a particular instance of the python kernel, there is no way to modify it even if the underlying library is recompiled. This means that, if you alter and recompile \texttt{libvader}, you will have to start a new python kernel for those changes to take effect. There is at present no way to rebuild the library and then create a new interface to the modified library without restarting the python kernel.
+
+\subsection{Parameter Files}
+\label{ssec:paramFiles}
+
+The \hyperref[sssec:vader.readParam]{\texttt{vader.readParam}} function can parse files that describe the setup of \vader\ simulations. The format of the files is a series of key-value pairs formatted as
+\begin{verbatim}
+key = value
+\end{verbatim}
+One such pair can appear per line. Blank lines, or lines for which the first non-whitespace character is \verb=#=, are treated as comments and ignored. Known keys are listed in Table \ref{tab:keys}. Additional keys not in the table can be added freely, and will be ignored by \vader, allowing users to add their own parameters as they like.
+
+Most keys map directly onto the parameters of the same name for the \hyperref[sssec:driver]{\texttt{driver}} and/or \hyperref[sssec:advanceBE]{\texttt{advanceBE}} and \hyperref[sssec:advanceCN]{\texttt{advanceCN}} routines, and control the operations of those routines as described in the \hyperref[ssec:cAPI]{c APIs} below. Some keys allow the special value \verb=c_func=. Setting this value indicates that the quantity in question is not a constant, but instead should be determined by calling the appropriate \hyperref[ssec:userFunc]{\texttt{user*}} routine that was compiled with the c code. This provides a mechanism for accessing problem-specific non-constant values of viscosity, equation of state, source functions, and boundary conditions. At an implementation level, if one of the keys that allow it is set to \verb=c_func=, then the corresponding \verb=*_func= parameter passed to the c function will be set to 1; otherwise it will be set to 0, and the corresponding \verb=*_val= parameter will be set to the numerical value specified by the key.
+
+\begin{table}
+\scriptsize
+\begin{center}
+\begin{tabular}{|l|l|l|l|}
+\hline\hline
+\textbf{Key} & \textbf{Meaning} & \textbf{Allowed values} & \textbf{Default} \\
+\hline\hline
+\texttt{nr} & Number of cells in the grid & Any \texttt{float} & None \\ \hline
+\texttt{rmin} & Inner edge of grid & Any \texttt{float} & None \\ \hline
+\texttt{rmax} & Outer edge of grid & Any \texttt{float} & None \\ \hline
+\verb=rot_curve_type= & Type of rotation curve & \verb=flat=, \verb=keplerian=, &
+\multirow{2}{*}{None}
+\\ 
+& & or \verb=tabulated= & \\ \hline
+\verb=rot_curve_velocity= & Rotation speed for \texttt{flat} rotation & Any \texttt{float} & None \\ \hline
+\verb=rot_curve_mass= & Mass of central object for \texttt{keplerian} & Any \texttt{float} &
+None \\
+& rotation & & \\ \hline
+\verb=rot_curve_file= & Name of a text file containing a table & Any \texttt{str} & None \\
+&  of $r$ $v_\phi$ values for \texttt{tabulated} rotation & & \\  \hline
+\texttt{alpha} & Dimensionless viscosity $\alpha$ & Any \texttt{float} or \verb=c_func= & None \\ \hline
+\texttt{gamma} & Equation of state $\gamma$ & Any \texttt{float} or \verb=c_func= & None \\ \hline
+\texttt{delta} & Equation of state $\delta$ & Any \texttt{float} or \verb=c_func= & 0 \\ \hline
+\verb=ibc_pres_type= & Type of pressure boundary condition & \verb=fixed_mass_flux=, & None \\
+& at grid inner edge& \verb=fixed_torque_flux=, & \\
+& & or \verb=fixed_torque= & \\ \hline
+\verb=ibc_pres_val= & Value for inner pressure boundary & Any \texttt{float} or \verb=c_func= & None \\
+& condition & & \\ \hline
+\verb=ibc_enth_type= & Type of enthalpy boundary condition & \verb=fixed_value=, & None \\
+& at grid inner edge & \verb=fixed_gradient= & \\ \hline
+\verb=ibc_enth_val= & Value for inner enthalpy boundary & Any \texttt{float} or \verb=c_func= & None \\
+& condition & & \\ \hline
+\verb=obc_pres_type= & Type of pressure boundary condition & \verb=fixed_mass_flux=, & None \\
+& at grid outer edge& \verb=fixed_torque_flux=, & \\
+& & or \verb=fixed_torque= & \\ \hline
+\verb=obc_pres_val= & Value for outer pressure boundary & Any \texttt{float} or \verb=c_func= & None \\
+& condition & & \\ \hline
+\verb=obc_enth_type= & Type of enthalpy boundary condition & \verb=fixed_value=, & None \\
+& at grid outer edge & \verb=fixed_gradient= & \\ \hline
+\verb=obc_enth_val= & Value for outer enthalpy boundary & Any \texttt{float} or \verb=c_func= & None \\
+& condition & & \\ \hline
+\verb=mass_src= & Mass source function & Any \texttt{float} or \verb=c_func= & 0.0 \\ \hline
+\verb=int_en_src= & Internal energy source function & Any \texttt{float} or \verb=c_func= & 0.0 \\ \hline
+\verb=err_tol= & Implicit solver tolerance & Any \texttt{float} & $10^{-6}$ \\ \hline
+\verb=dt_tol= & Maximum change per time step & Any \texttt{float} & 0.1 \\ \hline
+\verb=dt_start= & Starting time step & Any \texttt{float} & -1 \\ \hline
+\verb=max_iter= & Maximum implicit iterations & Any positive \texttt{int} & 40 \\ \hline
+\verb=interp_order= & Enthalpy interpolation order & 1, 2, or 3 & 2 \\ \hline
+\verb=max_dt_increase= & Maximum time step increase & Any \texttt{float} & 1.5 \\ \hline
+\verb=dt_min= & Minimum time step  & Any \texttt{float} & $10^{-15}$ \\ \hline
+\verb=max_step= & Maximum time steps & Any \texttt{int} & $-1$ \\ \hline
+\verb=method= & Advance method & \verb=CN= or \verb=BE= & \verb=CN= \\ \hline
+\verb=verbosity= & Level of verbosity & 0, 1, 2, or 3 & 0 \\ \hline
+\verb=bspline_degree= & Degree of B-spline used for & Any \verb=int= $>1$ & 6 \\
+& \verb=tabulated= rotation curves & & \\ \hline
+\verb=bspline_breakpoints= & Number of breakpoints in B-spline & Any \verb=int= $>1$ & 15 \\
+& fit for \verb=tabulated= rotation curves & & \\
+\hline\hline
+\end{tabular}
+\end{center}
+\caption{
+\label{tab:keys}
+Pre-defined keys in \vader\ parameter files. Default values indicate the values used in calls to the c routines if the corresponding key is absent.
+}
+\end{table}
+
+\section{The \texttt{VADER} Test Suite}
+
+\vader\ provides a number of tests of code accuracy and performance. These correspond to the tests published in the \vader\ method paper, Krumholz \& Forbes, 2014, submitted to \textit{Astronomy \& Computing}. The tests are all implemented through the \hyperref[sec:python]{Python interface}, and the scripts to run them are in the \verb=test= subdirectory of the main \verb=vader= directory. The test scripts provided are:
+\begin{itemize}
+\item \texttt{selfsim.py}: this tests the code against the analytic solution for evolution of a self-similar disk from Lynden-Bell \& Pringle (1974, MNRAS, 168, 603)
+\item \verb=selfsim_resolution.py=: this tests the code against the analytic solution for evolution of a self-similar disk from Lynden-Bell \& Pringle (1974, MNRAS, 168, 603), and performs a convergence study by running the simulation at a variety of resolutions
+\item \texttt{ring.py}: this tests the code against the analytic solution for evolution of an initially-singular ring from Pringle (1981, ARA\&A, 19, 137)
+\item \texttt{gidisk.py}: this tests the code against the analytic solution for a gravitational instability-dominated disk from Krumholz \& Burkert (2010, ApJ, 724, 895), as extended by Forbes, Krumholz, \& Burkert (2012, ApJ, 754, 48)
+\item \texttt{ringrad.py}: this tests the code by running the singular ring problem using a complex equation of state that includes both gas pressure- and radiation pressure-dominated regimes. No analytic solution is known for this case, but a benchmark is provided in the method paper against which future runs can be tested
+\item \texttt{performance.py}: this runs the code through a series of performance tests, using the self-similar disk and radiation pressure ring test problems; warning: this test takes a while to perform, and involves rebuilding \vader\ a number of times to test the performance of various code options that are set at compile- rather than run-time
+\end{itemize}
+All of these tests can be executed by doing
+\begin{verbatim}
+python TEST_NAME.py
+\end{verbatim}
+from the main \texttt{vader} directory. Outputs from tests are placed in the \verb=output= subdirectory of the main \verb=vader= directory. Outputs consist of plots that can be compared to the published benchmarks in the methods paper.
+
+
+\section{Full Description of All Routines and Data Structures}
+
+A general note on naming conventions of arrays. All arrays with \verb=_g= at the end of their names are arrays of \verb=grd->nr+2= elements, of which the central \verb=grd->nr= represent values at the centers of the computational grid, and elements \verb=0= and \verb=grd->nr+1= are ghost cells at the inner and outer boundary, respectively. Arrays with \verb=_h= at the end of their names are arrays of \verb=grd->nr+1= elements representing values at the edges of cells. Arrays with no subscript at the end of their names have \verb=grd->nr= elements, and represent values at cell centers with no ghost zones.
+
+\subsection{Core c Routines}
+\label{ssec:cAPI}
+
+All c routines are in the \verb=vader_csrc= directory.
+
+\subsubsection{c Data Structures}
+\label{sssec:datastructures}
+
+Data structures used throughout the code are defined in \texttt{vader.h}. These are:
+
+\begin{verbatim}
+/* Descriptor for a grid */
+typedef struct {
+  unsigned int nr;             /* Number of real cells */
+  unsigned int linear;         /* Is this a linear or logarithmic grid? */
+  double *r_g, *r_h;           /* Cell center, edge locations */
+  double *dr_g;                /* Cell sizes / log sizes */
+  double *area;                /* Area of a zone */
+  double *vphi_g, *vphi_h;     /* Rotation curve */
+  double *beta_g, *beta_h;     /* Logarithmic index of rotation curve */
+  double *psiEff_g, *psiEff_h; /* Effective gravitational potential */
+  double *g_h;                 /* Factor appearing in derivatives */
+} grid;
+\end{verbatim}
+
+and
+
+\begin{verbatim}
+/* Workspace for calculations */
+typedef struct {
+  double *pres_g, *presNew_g, *colNew, *colTmp;
+  double *alpha_g, *hint_g, *hintL_g, *hintR_g;
+  double *ppmwksp_g;
+  double *fmLast_h, *fmNew_h;
+  double *ftLast_h, *feLast_h;
+  double *massSrcLast, *massSrcNew, *intEnSrc;
+  double *eIntTmp, *eIntNew;
+  double *gammaLast, *deltaLast, *gammaNew, *deltaNew;
+  double *mSrc, *eSrc;
+  gsl_vector *ud_g, *ld_g, *diag_g, *rhs_g, *presTmp_g;
+#if AA_M > 0
+  double *colHist, *presHist, *eIntHist;
+  gsl_matrix *resid, *cov;
+  gsl_vector *constraint, *aa_wgts;
+#endif
+} wksp;
+\end{verbatim}
+
+\subsubsection{\texttt{advanceBE}}
+\label{sssec:advanceBE}
+
+Defined in \texttt{advanceBE.h} and \texttt{advanceBE.c}.
+
+\begin{verbatim}
+double 
+advanceBE(
+          /* Time step and grid */
+          const double t, const double dt, const grid *grd, 
+          /* Starting data */
+          double *col, double *pres, double *eInt,
+          /* Records of mass and energy transported off grid and added
+             by sources */
+          double *mBnd, double *eBnd, double *mSrc, double *eSrc,
+          /* Equation of state parameters */
+          const int eos_func, const double gamma_val, 
+          const double delta_val,
+          /* Dimensionless viscosity parameters */
+          const int alpha_func, const double alpha_val,
+          /* Inner boundary condition parameters */
+          const pres_bc_type pres_ibc, const enth_bc_type enth_ibc,
+          const int ibc_func, const double ibc_pres_val, 
+          const double ibc_enth_val,
+          /* Outer boundary condition parameters */
+          const pres_bc_type pres_obc, const enth_bc_type enth_obc,
+          const int obc_func, const double obc_pres_val, 
+          const double obc_enth_val,
+          /* Source function parameters */
+          const int massSrc_func, const double massSrc_val,
+          const int intEnSrc_func, const double intEnSrc_val,
+          /* Control and method parameters */
+          const double errTol, const double dtTol,
+          const unsigned int maxIter, const unsigned int interpOrder, 
+          const unsigned int noUpdate, const unsigned int verbose, 
+          const wksp *w, 
+          /* User-defined extra parameters */
+          void *params,
+          /* Diagnostic outputs */
+          unsigned int *itCount
+#ifdef TESTING_MODE
+          , double *resid, unsigned int *rtype,
+          double *advanceTime, double *nextIterTime,
+          double *userTime
+#endif
+          );
+\end{verbatim}
+
+Parameters:
+\begin{itemize}
+\item \texttt{t}: (INPUT) time at start of time step
+\item \texttt{dt}: (INPUT) size of time step
+\item \texttt{grd}: (INPUT) pointer to a \hyperref[sssec:datastructures]{\texttt{struct grid}} that describes the simulation grid
+\item \texttt{col}: (INPUT/OUTPUT) pointer to an array of \texttt{grd->nr} elements containing the column density at the start of the time step; at the end of the routine, it is updated to the new column density values
+\item \texttt{pres}: (INPUT/OUTPUT) pointer to an array of \texttt{grd->nr} elements containing the vertically-integrated pressure at the start of the time step; at the end of the routine, it is updated to the new column pressure values
+\item \texttt{eInt}: (INPUT/OUTPUT) pointer to an array of \texttt{grd->nr} elements containing the internal energy per unit area at the start of the time step; at the end of the routine, it is updated to the new internal energy values. If \verb=eos_func= is set to 0, this will not be referenced, and can be set to \texttt{NULL}.
+\item \texttt{mBnd}: (OUTPUT) pointer to a two-element array; the mass advected across the inner and outer boundaries of the simulation domain during this time step will be added to these two elements, using a sign convention whereby transport in the $+r$ direction is positive
+\item \texttt{eBnd}: (OUTPUT) pointer to a two-element array; the total energy advected across the inner and outer boundaries of the simulation domain during this time step will be added to these two elements, using a sign convention whereby transport in the $+r$ direction is positive
+\item \texttt{mSrc}: (OUTPUT) pointer to an array of \texttt{grd->nr} elements; the total mass per unit area added to/subtracted form each cell by the source terms is added to it. If \verb=massSrc_func= is 0, this array is not referenced, and may be set to \texttt{NULL}.
+\item \texttt{eSrc}: (OUTPUT) pointer to an array of \texttt{grd->nr} elements; the total energy per unit area added to/subtracted form each cell by the source terms is added to it. If \verb=massSrc_func= and \verb=intEnSrc_func= are both 0, this array is not referenced, and may be set to \texttt{NULL}.
+\item \verb=eos_func=: (INPUT) a non-zero value indicates that \hyperref[sssec:userEOS]{\texttt{userEOS}} should be called to set the equation of state parameters
+\item \verb=gamma_val=: (INPUT) constant value of $\gamma$; ignored if \verb=eos_func= is non-zero
+\item \verb=delta_val=: (INPUT) constant value of $\delta$; ignored if \verb=eos_func= is non-zero
+\item \verb=alpha_func=: (INPUT) a non-zero value indicates that \hyperref[sssec:userAlpha]{\texttt{userAlpha}} should be called to set the viscosity
+\item \verb=alpha_val=: (INPUT) constant value of $\alpha$; ignored if \verb=alpha_func= is non-zero
+\item \verb=pres_ibc=: (INPUT) type of inner pressure boundary condition; allowed values are \verb=FIXED_MASS_FLUX=, \verb=FIXED_TORQUE_FLUX=, and \verb=FIXED_TORQUE=
+\item \verb=enth_ibc=: (INPUT) type of inner enthalpy boundary condition; allowed values are \verb=FIXED_ENTHALPY_VALUE= and \verb=FIXED_ENTHALPY_GRADIENT=
+\item \verb=ibc_func=: (INPUT) a non-zero value indicates that \hyperref[sssec:userIBC]{\texttt{userIBC}} should be called to set the inner boundary condition
+\item \verb=ibc_pres_val=: (INPUT) constant value for the mass flux, torque flux, or torque (depending on the value of \verb=pres_ibc=) used with the inner pressure boundary condition; ignored if \verb=ibc_func= is non-zero
+\item \verb=ibc_enth_val=: (INPUT) constant value for the enthalpy value or enthalpy gradient (depending on the value of \verb=enth_ibc=) use with the inner enthalpy boundary condition; ignored if \verb=ibc_func= is non-zero
+\item \verb=pres_obc=: (INPUT) identical to \verb=pres_ibc=, but for the outer boundary
+\item \verb=enth_obc=: (INPUT) identical to \verb=enth_ibc=, but for the outer boundary
+\item \verb=obc_func=: (INPUT) identical to \verb=ibc_func=, but for the outer boundary
+\item \verb=obc_pres_val=: (INPUT) identical to \verb=ibc_pres_val=, but for the outer boundary
+\item \verb=obc_enth_val=: (INPUT) identical to \verb=ibc_enth_val=, but for the outer boundary
+\item \verb=massSrc_func=: (INPUT) a non-zero value indicates that \hyperref[sssec:userMassSrc]{\texttt{userMassSrc}} should be called to set the mass source function
+\item \verb=massSrc_val=: (INPUT) constant value of the mass source function; ignored if\\
+\verb=massSrc_func= is non-zero
+\item \verb=intEnSrc_func=: (INPUT) a non-zero value indicates that \hyperref[sssec:userIntEnSrc]{\texttt{userIntEnSrc}} should be called to set the mass source function
+\item \verb=intEnSrc_val=: (INPUT) constant value of the mass source function; ignored if \\\verb=intEnSrc_func= is non-zero
+\item \texttt{errTol}: (INPUT) maximum error in the iterative solver; used to test for convergence
+\item \texttt{dtTol}: (INPUT) maximum fractional change in column density / pressure / internal energy in fastest-varying cell; used to estimate the next time step
+\item \texttt{maxIter}: (INPUT) maximum number of iterations allowed in the implicit solver
+\item \texttt{interpOrder}: (INPUT) order of interpolation to use when reconstructing specific internal enthalpy at cell faces; 1 = piecewise constant, 2 = piecewise linear, 3 = piecewise parabolic
+\item \texttt{noUpdate}: (INPUT) if this is non-zero, then \texttt{col}, \texttt{pres}, \texttt{eInt}, \texttt{mBnd}, \texttt{eBnd}, \texttt{mSrc}, and \texttt{eSrc} are not altered, but the time step is still computed and returned
+\item \texttt{verbose}: (INPUT) if non-zero, the routine will print the residual and some related information after ever iteration
+\item \texttt{w}: (INPUT/OUTPUT) pointer to a \hyperref[sssec:datastructures]{\texttt{struct workspace}} object
+\item \texttt{params}: (INPUT) pointer to memory containing user-defined parameters; this memory is not touched by this routine, but the pointer is passed to all \hyperref[sssec:userAlpha]{\texttt{user*}} routines
+\item \texttt{itCount}: (OUTPUT) number of iterations performed by the implicit solver
+\item \texttt{resid}: (OUTPUT, only in \verb=TESTING_MODE=): pointer to an array of \texttt{maxIter} elements; the residual at the end of each iteration is returned in it
+\item \texttt{rtype}: (OUTPUT, only in \verb=TESTING_MODE=): pointer to an array of \texttt{maxIter} elements; the type of residual (column density, pressure, or internal energy) at the end of each iteration is returned in it
+\item \texttt{advanceTime}: (OUTPUT, only in \verb=TESTING_MODE=): pointer to a value measuring the time spent in the advance routine, in seconds; this is incremented by the time spent in the routine during this call
+\item \texttt{nextIterTime}: (OUTPUT, only in \verb=TESTING_MODE=): pointer to a value measuring the time spent getting the next iterate (via Anderson acceleration, if \verb=AA_M > 0=), in seconds; this is incremented by the time spent in the routine during this call
+\item \texttt{userTime}: (OUTPUT, only in \verb=TESTING_MODE=): pointer to a value measuring the time spent in the \hyperref[ssec:userFunc]{\texttt{user*}} routines, in seconds; this is incremented by the time spent in the routine during this call
+\item Return value: estimate for the size of the next time step; if convergence fails, the return value is $-1.0$
+\end{itemize}
+
+The \texttt{advanceBE} routine advances the simulation through a single time step using backwards Euler differencing. The arrays \verb=col=, \verb=pres=, and \verb=eInt= specify the state at the start of the time step, and upon completion of a successful time step they are updated to the new values. The arrays \verb=mBnd=, \verb=eBnd=, \verb=mSrc=, and \verb=eSrc= are incremented by the values of mass and energy transported across the grid boundaries and added by the source terms during the time step. The return value is the estimated size of the next time step. If the iterative solver does not converge within \verb=maxIter= iterations, or if the iteration procedure produces \verb=Inf= or \verb=NaN= values before the maximum number of iterations is reached, the code returns without updating any quantities except \verb=itCount=, and the return value is set to $-1.0$.
+
+\subsubsection{\texttt{advanceCN}}
+\label{sssec:advanceCN}
+
+Defined in \texttt{advanceCN.h} and \texttt{advanceCN.c}.
+
+The API for this routine is identical to that for \hyperref[sssec:advanceBE]{\texttt{advanceBE}}. It differs only in that this routine uses Crank-Nicolson rather than backwards Euler time centering.
+
+\subsubsection{\texttt{applyBC}}
+\label{sssec:applyBC}
+
+Defined in \texttt{applyBC.h} and \texttt{applyBC.c}.
+
+\begin{verbatim}
+void 
+applyBC(
+        /* Grid structure and viscosity values on grid */
+        const grid *grd, const double *alpha_g,
+        /* Inner boundary condition specifications */
+        const pres_bc_type ibc_pres, const enth_bc_type ibc_enth,
+        const double ibc_pres_val, const double ibc_enth_val,
+        /* Outer boundary condition specifications */
+        const pres_bc_type obc_pres, const enth_bc_type obc_enth,
+        const double obc_pres_val, const double obc_enth_val,
+        /* Outputs */
+        double *pres_g, double *hint_g, double *pIn, double *qIn, 
+        double *pOut, double *qOut
+        );
+\end{verbatim}
+
+Parameters:
+\begin{itemize}
+\item \texttt{grd}: (INPUT) pointer to a \hyperref[sssec:datastructures]{\texttt{struct grid}} that describes the simulation grid
+\item \verb=alpha_g=: (INPUT) pointer to an array of \verb=grd->nr+2= values of the viscosity $\alpha$.
+\item \verb=ibc_pres=: (INPUT) type of inner pressure boundary condition; allowed values are \verb=FIXED_MASS_FLUX=, \verb=FIXED_TORQUE_FLUX=, and \verb=FIXED_TORQUE=
+\item \verb=ibc_enth=: (INPUT) type of inner enthalpy boundary condition; allowed values are \verb=FIXED_ENTHALPY_VALUE= and \verb=FIXED_ENTHALPY_GRADIENT=
+\item \verb=ibc_pres_val=: (INPUT) value for the mass flux, torque flux, or torque (depending on the value of \verb=ibc_pres=) used with the inner pressure boundary condition
+\item \verb=ibc_enth_val=: (INPUT) value for the enthalpy value or enthalpy gradient (depending on the value of \verb=ibc_enth=) use with the inner enthalpy boundary condition
+\item \verb=obc_pres=: (INPUT) identical to \verb=ibc_pres=, but for the outer boundary
+\item \verb=obc_enth=: (INPUT) identical to \verb=ibc_enth=, but for the outer boundary
+\item \verb=obc_pres_val=: (INPUT) identical to \verb=ibc_pres_val=, but for the outer boundary
+\item \verb=obc_enth_val=: (INPUT) identical to \verb=ibc_enth_val=, but for the outer boundary
+\item \verb=pres_g=: (INPUT/OUTPUT) pointer to an array of \verb=grd->nr+2= values of the vertically-integrated pressure; on entry, values in elements $1\cdots \texttt{grd->nr}$ are set to the values on the grid, and on return elements $0$ and \texttt{grd->nr+1} are set to the values required to enforce the specified boundary condition
+\item \verb=hint_g=: (INPUT/OUTPUT) pointer to an array of \verb=grd->nr+2= values of the specific enthalpy; on entry, values in elements $1\cdots \texttt{grd->nr}$ are set to the values on the grid, and on return elements $0$ and \texttt{grd->nr+1} are set to the values required to enforce the specified boundary condition
+\item \verb=pIn=: (OUTPUT) the inner ghost zone boundary value is set to\\
+\verb!pres_g[0] = *qIn * pres_g[1] + *pIn!; this variable returns the value of \verb=pIn=
+\item \verb=qIn=: (OUTPUT) the inner ghost zone boundary value is set to\\
+\verb!pres_g[0] = *qIn * pres_g[1] + *pIn!: this variable returns the value of \verb=qIn=
+\item \verb=pOut=: (OUTPUT) same as \verb=pIn=, but for the outer boundary condition
+\item \verb=qOut=: (OUTPUT) same as \verb=qIn=, but for the outer boundary condition
+\end{itemize}
+
+This routine fills the ghost cells of the arrays \verb=pres_g= and \verb=hint_g= based on the input set of pressure and enthalpy boundary condition types and values.
+
+\subsubsection{\texttt{driver}}
+\label{sssec:driver}
+
+Defined in \texttt{driver.h} and \texttt{driver.c}.
+
+\begin{verbatim}
+double 
+driver(
+       /* Time parameters */
+       const double tStart, const double tEnd,
+       const double dtStart,
+       /* Computational grid */
+       const grid *grd,
+       /* Input data */
+       double *col, double *pres, double *eInt,
+       /* Equation of state parameters */
+       const int eos_func, const double gamma_val, 
+       const double delta_val,
+       /* Dimensionless viscosity parameters */
+       const int alpha_func, const double alpha_val,
+       /* Inner boundary condition parameters */
+       const pres_bc_type ibc_pres, const enth_bc_type ibc_enth,
+       const int ibc_func, const double ibc_pres_val, 
+       const double ibc_enth_val,
+       /* Outer boundary condition parameters */
+       const pres_bc_type obc_pres, const enth_bc_type obc_enth,
+       const int obc_func, const double obc_pres_val, 
+       const double obc_enth_val,
+       /* Source function parameters */
+       const int massSrc_func, const double massSrc_val,
+       const int intEnSrc_func, const double intEnSrc_val,
+       /* Control and method parameters */
+       const double errTol, const double dtTol,
+       const unsigned int maxIter, const unsigned int interpOrder,
+       const double maxDtIncrease, const double dtMin,
+       const int maxStep, const unsigned int useBE,
+       const unsigned int verbosity, const wksp *w, 
+       /* User-defined extra parameters */
+       void *params,
+       /* Outputs */
+       const unsigned int nOut, double *tOut, double *colOut,
+       double *presOut, double *eIntOut,
+       double *mBndOut, double *eBndOut, 
+       double *mSrcOut, double *eSrcOut,
+       /* Diagnostic outputs */
+       unsigned long *nStep, unsigned long *nIter, 
+       unsigned long *nFail
+#ifdef TESTING_MODE
+       , double *residSum, unsigned int *iterStep,
+       double *driverTime, double *advanceTime,
+       double *nextIterTime, double *userTime
+#endif
+       );
+\end{verbatim}
+
+Parameters:
+\begin{itemize}
+\item \texttt{tStart}: (INPUT) start time of the simulation
+\item \texttt{tEnd}: (INPUT) end time of the simulation
+\item \texttt{dtStart}: (INPUT) value of first simulation time step; if set to a value $\leq 0$, this is ignored and the size of the first time step is set automatically
+\item \texttt{grd}: (INPUT) pointer to a \hyperref[sssec:datastructures]{\texttt{struct grid}} that describes the simulation grid
+\item \texttt{col}: (INPUT/OUTPUT) pointer to an array of \texttt{grd->nr} elements containing the column density at the start of the simulation; at the end of the routine, it is updated to the final column density values
+\item \texttt{pres}: (INPUT/OUTPUT) pointer to an array of \texttt{grd->nr} elements containing the vertically-integrated pressure at the start of the simulation; at the end of the routine, it is updated to the final column pressure values
+\item \texttt{eInt}: (INPUT/OUTPUT) pointer to an array of \texttt{grd->nr} elements containing the internal energy per unit area at the start of the simulation; at the end of the routine, it is updated to the final internal energy values. If \verb=eos_func= is set to 0, this will not be referenced, and can be set to \texttt{NULL}.
+\item \verb=eos_func=: (INPUT) a non-zero value indicates that \hyperref[sssec:userEOS]{\texttt{userEOS}} should be called to set the equation of state parameters
+\item \verb=gamma_val=: (INPUT) constant value of $\gamma$; ignored if \verb=eos_func= is non-zero
+\item \verb=delta_val=: (INPUT) constant value of $\delta$; ignored if \verb=eos_func= is non-zero
+\item \verb=alpha_func=: (INPUT) a non-zero value indicates that \hyperref[sssec:userAlpha]{\texttt{userAlpha}} should be called to set the viscosity
+\item \verb=alpha_val=: (INPUT) constant value of $\alpha$; ignored if \verb=alpha_func= is non-zero
+\item \verb=pres_ibc=: (INPUT) type of inner pressure boundary condition; allowed values are \verb=FIXED_MASS_FLUX=, \verb=FIXED_TORQUE_FLUX=, and \verb=FIXED_TORQUE=
+\item \verb=enth_ibc=: (INPUT) type of inner enthalpy boundary condition; allowed values are \verb=FIXED_ENTHALPY_VALUE= and \verb=FIXED_ENTHALPY_GRADIENT=
+\item \verb=ibc_func=: (INPUT) a non-zero value indicates that \hyperref[sssec:userIBC]{\texttt{userIBC}} should be called to set the inner boundary condition
+\item \verb=ibc_pres_val=: (INPUT) constant value for the mass flux, torque flux, or torque (depending on the value of \verb=pres_ibc=) used with the inner pressure boundary condition; ignored if \verb=ibc_func= is non-zero
+\item \verb=ibc_enth_val=: (INPUT) constant value for the enthalpy value or enthalpy gradient (depending on the value of \verb=enth_ibc=) use with the inner enthalpy boundary condition; ignored if \verb=ibc_func= is non-zero
+\item \verb=pres_obc=: (INPUT) identical to \verb=pres_ibc=, but for the outer boundary
+\item \verb=enth_obc=: (INPUT) identical to \verb=enth_ibc=, but for the outer boundary
+\item \verb=obc_func=: (INPUT) identical to \verb=ibc_func=, but for the outer boundary
+\item \verb=obc_pres_val=: (INPUT) identical to \verb=ibc_pres_val=, but for the outer boundary
+\item \verb=obc_enth_val=: (INPUT) identical to \verb=ibc_enth_val=, but for the outer boundary
+\item \verb=massSrc_func=: (INPUT) a non-zero value indicates that \hyperref[sssec:userMassSrc]{\texttt{userMassSrc}} should be called to set the mass source function
+\item \verb=massSrc_val=: (INPUT) constant value of the mass source function; ignored if\\
+\verb=massSrc_func= is non-zero
+\item \verb=intEnSrc_func=: (INPUT) a non-zero value indicates that \hyperref[sssec:userIntEnSrc]{\texttt{userIntEnSrc}} should be called to set the mass source function
+\item \verb=intEnSrc_val=: (INPUT) constant value of the mass source function; ignored if \\\verb=intEnSrc_func= is non-zero
+\item \texttt{errTol}: (INPUT) maximum error in the iterative solver; used to test for convergence
+\item \texttt{dtTol}: (INPUT) maximum fractional change in column density / pressure / internal energy in fastest-varying cell; used to estimate the next time step
+\item \texttt{maxIter}: (INPUT) maximum number of iterations allowed in the implicit solver
+\item \texttt{interpOrder}: (INPUT) order of interpolation to use when reconstructing specific internal enthalpy at cell faces; 1 = piecewise constant, 2 = piecewise linear, 3 = piecewise parabolic
+\item \texttt{maxDtIncrease}: (INPUT) maximum factor by which the time step is allowed to increase per time step
+\item \texttt{dtMin}: (INPUT) minimum time step; the simulation terminates if the time step is ever smaller than \verb=dtMin*(tEnd-tStart)=
+\item \texttt{maxStep}: (INPUT) maximum number of time steps allowed; if the simulation reaches this number of time steps, it terminates. Negative values indicate no limit.
+\item \texttt{useBE}: (INPUT) if non-zero, backwards Euler updating is used; otherwise Crank-Nicolson updating is used
+\item \texttt{verbosity}: (INPUT) level of verbosity in output printing; 0 = no output printed, 1 = print out time and time step every 100 time steps; 2 = print out time and time step every time step; 3 = print out time and time step every time step, and print out residual every implicit iteration
+\item \texttt{w}: (INPUT/OUTPUT) pointer to a \hyperref[sssec:datastructures]{\texttt{struct workspace}} object
+\item \texttt{params}: (INPUT) pointer to memory containing user-defined parameters; this memory is not touched by this routine, but the pointer is passed to all \hyperref[sssec:userAlpha]{\texttt{user*}} routines
+\item \texttt{nOut}: (INPUT) number of times at which to store output
+\item \texttt{tOut}: (INPUT) pointer to array of \verb=nOut= times at which to store output
+\item \texttt{colOut}: (OUTPUT) pointer to array of \verb=nOut*grd->nr= elements used to store column densities at times specified by \verb=tOut=. The first output time is stored in the elements $\texttt{0}\cdots\texttt{grd->nr-1}$, the next time in elements $\texttt{grd->nr}\cdots\texttt{2*grd->nr-1}$, etc.
+\item \texttt{presOut}: (OUTPUT) same as \verb=colOut=, but used to store vertically-integrated pressures
+\item \texttt{eIntOut}: (OUTPUT) same as \verb=colOut=, but used to store internal energy per unit area. This array is only used if \verb=eos_func= is non-zero; otherwise it is not referenced, and can be set to \verb=NULL=.
+\item \texttt{mBndOut}: (OUTPUT) pointer to array of \verb=nOut*2= elements used to store the cumulative mass advected across the inner and outer boundaries of the simulation up to times \verb=tOut=. The inner and outer boundary values at the first time are stored in elements 0 and 1, inner and outer boundary values at the second time are in elements 2 and 3, etc. The sign convention is such that values $>0$ indicate transport in the $+r$ direction.
+\item \texttt{eBndOut}: (OUTPUT) pointer to array of \verb=nOut*2= elements used to store the cumulative energy transported across the inner and outer boundaries of the simulation up to times \verb=tOut=. The inner and outer boundary values at the first time are stored in elements 0 and 1, inner and outer boundary values at the second time are in elements 2 and 3, etc. The sign convention is such that values $>0$ indicate transport in the $+r$ direction.
+\item \texttt{mSrcOut}: (OUTPUT) pointer to array of \verb=nOut*grd->nr= elements used to store the cumulative column density added to every grid cell by the source terms up to times \verb=tOut=. The first time values are stored in elements $\texttt{0}\cdots\texttt{grd->nr-1}$, the next time in elements $\texttt{grd->nr}\cdots\texttt{2*grd->nr-1}$, etc. This array is only referenced if \verb=massSrc_func= is non-zero; otherwise it may be set to \verb=NULL=.
+\item \texttt{mSrcOut}: (OUTPUT) pointer to array of \verb=nOut*grd->nr= elements used to store the cumulative energy per unit area added to every grid cell by the source terms up to times \verb=tOut=. The first time values are stored in elements $\texttt{0}\cdots\texttt{grd->nr-1}$, the next time in elements $\texttt{grd->nr}\cdots\texttt{2*grd->nr-1}$, etc. This array is only referenced if \verb=massSrc_func= or \verb=intEnSrc_func= is non-zero; otherwise it may be set to \verb=NULL=.
+\item \texttt{nStep}: (OUTPUT) total number of time steps taken during the simulation
+\item \texttt{nIter}: (OUTPUT) total number of implicit iterations performed during the simulation, summed over all time steps
+\item \texttt{nFail}: (OUTPUT) total number of times the implicit solver failed to converge, necessitating a reduction in the time step
+\item \texttt{residSum}: (OUTPUT, only in \verb=TESTING_MODE=): pointer to an array of \texttt{maxIter} elements; the value of the residual after $N$ iterations, summed over all simulation time steps, is stored in element $N$
+\item \texttt{iterStep}: (OUTPUT, only in \verb=TESTING_MODE=): pointer to an array of \verb=maxStep= elements; returns the number of implicit iterations performed in each time step
+\item \texttt{driverTime}: (OUTPUT, only in \verb=TESTING_MODE=): returns the time spent in the driver routine, in seconds
+\item \texttt{advanceTime}: (OUTPUT, only in \verb=TESTING_MODE=): returns the time spent in the advance routine, in seconds
+\item \texttt{nextIterTime}: (OUTPUT, only in \verb=TESTING_MODE=): returns the time spent the next iterate (via Anderson acceleration, if \verb=AA_M > 0=) in the implicit solver, in seconds
+\item \texttt{userTime}: (OUTPUT, only in \verb=TESTING_MODE=): returns the time spent in the \hyperref[ssec:userFunc]{\texttt{user*}} routines, in seconds
+\item Return value: the final time in the simulation; equal to \verb=tEnd= if the simulation successfully ran to completion
+\end{itemize}
+
+This is the main simulation driver routine. The user specifies the simulation start and end times, the initial state of the column density, pressure, and internal energy (if needed), as well as parameters describing the equation of state, viscosity, boundary conditions, and source terms. The routine then runs the simulation, storing the state of the simulation periodically at times specified by the user. On return, the column density, pressure, and internal energy arrays are updated to their values at the end of the simulation. If the simulation takes too many time steps, or the time step drops below the specified limit, the simulation terminates early; in this case the final state of the simulation is stored in the last slot of the output arrays, and the time at which the simulation terminated is returned.
+
+\subsubsection{\texttt{gridAlloc}}
+\label{sssec:gridAlloc}
+
+Defined in \texttt{init.h} and \texttt{init.c}.
+
+\begin{verbatim}
+grid *gridAlloc(const unsigned int nr);
+\end{verbatim}
+
+Parameters:
+\begin{itemize}
+\item \texttt{nr}: (INPUT) number of grid cells
+\item Return value: a pointer to a \hyperref[sssec:datastructures]{\texttt{struct grid}} object that is allocated but uninitialized
+\end{itemize}
+
+This routine allocates memory for a \hyperref[sssec:datastructures]{\texttt{struct grid}} object. The object is uninitialized.
+
+\subsubsection{\texttt{gridFree}}
+\label{sssec:gridFree}
+
+Defined in \texttt{init.h} and \texttt{init.c}.
+
+\begin{verbatim}
+void gridFree(grid *grd);
+\end{verbatim}
+
+Parameters:
+\begin{itemize}
+\item \texttt{grd}: the grid to be freed
+\end{itemize}
+
+This routine de-allocates memory for a \hyperref[sssec:datastructures]{\texttt{struct grid}} object.
+
+
+\subsubsection{\texttt{gridInit}}
+\label{sssec:gridInit}
+
+Defined in \texttt{init.h} and \texttt{init.c}.
+
+\begin{verbatim}
+grid *gridInit(const unsigned int nr,
+               const double *r_g, const double *r_h, 
+               const double *vphi_g, const double *vphi_h, 
+               const double *beta_g, const double *beta_h, 
+               const double *psiEff_g, const double *psiEff_h,
+               const double *g_h,
+               const unsigned int linear);
+\end{verbatim}
+
+Parameters:
+\begin{itemize}
+\item \texttt{nr}: (INPUT) number of grid cells
+\item \verb=r_g=: (INPUT) pointer to an array of \texttt{nr+2} values giving the cell-center positions of each grid cell, including two ghost zones; must be sorted in strictly increasing order
+\item \verb=r_h=: (INPUT) pointer to an array of \texttt{nr+1} values giving the edge positions of each grid cell, excluding the ghost zones; must be sorted in strictly increasing order
+\item \verb=vphi_g=: (INPUT) pointer to an array of \texttt{nr+2} values giving rotation curve velocities $v_\phi$ at cell centers, including two ghost cells
+\item \verb=vphi_h=: (INPUT) pointer to an array of \texttt{nr+1} values giving rotation curve velocities $v_\phi$ at cell edges
+\item \verb=beta_g=: (INPUT) pointer to an array of \texttt{nr+2} values giving values of $d\ln v_\phi/d\ln r$ at cell centers, including two ghost cells
+\item \verb=beta_h=: (INPUT) pointer to an array of \texttt{nr+1} values giving values of $d\ln v_\phi/d\ln r$ at cell edges
+\item \verb=psiEff_g=: (INPUT) pointer to an array of \texttt{nr+2} values giving values of the potential plus orbital energy per unit mass $\psi_{\rm eff} = v_\phi^2/2 + \psi$ at cell centers, including two ghost cells
+\item \verb=psiEff_h=: (INPUT) pointer to an array of \texttt{nr+1} values giving values of the potential plus orbital energy per unit mass $\psi_{\rm eff} = v_\phi^2/2 + \psi$ at cell edges
+\item \verb=g_h=: (INPUT) pointer to an array of \texttt{nr+1} values giving the derivative factor $2\pi/[v_\phi (1+\beta)] / (r\Delta \ln r)$ (for logarithmic grids) or $2\pi/[v_\phi(1+\beta)] / r$ (for linear grids) evaluated at cell edges
+\item \texttt{linear}: (INPUT) a non-zero value indicates that the grid should be treated as linear for the purposes of taking derivatives and making interpolations; a value of 0 indicates that the grid should be treated as logarithmic
+\item Return value: a pointer to a \hyperref[sssec:datastructures]{\texttt{struct grid}} object that is allocated and initialized using the values in the input quantities
+\end{itemize}
+
+This routine constructs a \hyperref[sssec:datastructures]{\texttt{struct grid}} object from the specified input values. This routine is the most general grid construction routine, as it allows the user to manually specify every quantity on the grid.
+
+\subsubsection{\texttt{gridInitFlat}}
+\label{sssec:gridInitFlat}
+
+Defined in \verb=init.h= and \verb=init.c=.
+
+\begin{verbatim}
+grid *gridInitFlat(const unsigned int nr, const double rmin, 
+                   const double rmax, const double vphi, 
+                   const unsigned int linear);
+\end{verbatim}
+
+Parameters:
+\begin{itemize}
+\item \texttt{nr}: (INPUT) number of grid cells
+\item \texttt{rmin}: (INPUT) radius of the inner edge of the innermost grid cell
+\item \texttt{rmax}: (INPUT) radius of the outer edge of the outermost grid cell
+\item \texttt{vphi}: (INPUT) constant rotation curve speed
+\item \texttt{linear}: (INPUT) a non-zero value indicates that the grid should be treated as linear for the purposes of taking derivatives and making interpolations; a value of 0 indicates that the grid should be treated as logarithmic
+\item Return value: a pointer to a \hyperref[sssec:datastructures]{\texttt{struct grid}} object that is allocated and initialized using the values in the input quantities
+\end{itemize}
+
+This routine constructs a grid of \verb=nr= cells from \verb=rmin= to \verb=rmax=, spaced uniformly linearly or logarithmically in radius, depending on the value of \verb=linear=. The rotation curve on the grid is flat, with a constant value \verb=vphi=.
+
+\subsubsection{\texttt{gridInitKeplerian}}
+\label{sssec:gridInitKeplerian}
+
+Defined in \verb=init.h= and \verb=init.c=.
+
+\begin{verbatim}
+grid *gridInitKeplerian(const unsigned int nr, const double rmin, 
+                        const double rmax, const double m, 
+                        const unsigned int linear);
+\end{verbatim}
+
+Parameters:
+\begin{itemize}
+\item \texttt{nr}: (INPUT) number of grid cells
+\item \texttt{rmin}: (INPUT) radius of the inner edge of the innermost grid cell
+\item \texttt{rmax}: (INPUT) radius of the outer edge of the outermost grid cell
+\item \texttt{m}: (INPUT) mass of central object, in CGS units
+\item \texttt{linear}: (INPUT) a non-zero value indicates that the grid should be treated as linear for the purposes of taking derivatives and making interpolations; a value of 0 indicates that the grid should be treated as logarithmic
+\item Return value: a pointer to a \hyperref[sssec:datastructures]{\texttt{struct grid}} object that is allocated and initialized using the values in the input quantities
+\end{itemize}
+
+This routine constructs a grid of \verb=nr= cells from \verb=rmin= to \verb=rmax=, spaced uniformly linearly or logarithmically in radius, depending on the value of \verb=linear=. The rotation curve is Keplerian, with a central object of mass \verb=m=.
+
+\subsubsection{\texttt{gridInitTabulated}}
+\label{sssec:gridInitTabulated}
+
+Defined in \verb=init.h= and \verb=init.c=.
+
+\begin{verbatim}
+grid *gridInitTabulated(const unsigned int nr, const double *rTab, 
+                        const double *vTab, const int nTab,
+                        const double rmin, const double rmax,
+                        const unsigned int bspline_degree,
+                        const unsigned int bspline_breakpoints,
+                        const unsigned int linear);
+\end{verbatim}
+
+Parameters:
+\begin{itemize}
+\item \texttt{nr}: (INPUT) number of grid cells
+\item \texttt{rTab}: (INPUT) pointer to an array of tabulated radii
+\item \texttt{vTab}: (INPUT) pointer to an array of tabulated $v_\phi$ values
+\item \texttt{nTab}: (INPUT) number of elements in the \verb=rTab= and \verb=vTab= arrays
+\item \texttt{rmin}: (INPUT) radius of the inner edge of the innermost grid cell
+\item \texttt{rmax}: (INPUT) radius of the outer edge of the outermost grid cell
+\item \verb=bspline_degree=: (INPUT) degree of the basis spline fit used to interpolate the tabulated rotation curve
+\item \verb=bspline_breakpoints=: (INPUT) number of breakpoints in the basis spline fit used to interpolate the tabulated rotation curve
+\item \texttt{linear}: (INPUT) a non-zero value indicates that the grid should be treated as linear for the purposes of taking derivatives and making interpolations; a value of 0 indicates that the grid should be treated as logarithmic
+\item Return value: a pointer to a \hyperref[sssec:datastructures]{\texttt{struct grid}} object that is allocated and initialized using the values in the input quantities
+\end{itemize}
+
+This routine constructs a grid of \verb=nr= cells from \verb=rmin= to \verb=rmax=, spaced uniformly linearly or logarithmically in radius, depending on the value of \verb=linear=. The rotation curve on the grid, and its derivative and integral (the potential), are determined by constructing a basis spline interpolation, using the specified number of breakpoints and degree, to the input table of $(r,v_\phi)$ values. The input values must satisfy \texttt{nTab >= bspline\_breakpoints + bspline\_degree - 2}, and the smallest and largest values in \verb=rTab= must be such that the centers of all grid cells (including ghost cells) are between them.
+
+\subsubsection{\texttt{ppmExtrap}}
+\label{sssec:ppmExtrap}
+
+Defined in \verb=ppmExtrap.h= and \verb=ppmExtrap.c=.
+
+\begin{verbatim}
+void ppmExtrap(const int nx, const double *dx, double *v, double *vL, 
+               double *vR, double *workspace);
+\end{verbatim}
+
+Parameters:
+\begin{itemize}
+\item \texttt{nx}: (INPUT) number of array elements
+\item \texttt{dx}: (INPUT) pointer to an array of \verb=nx= elements giving the sizes of array cells
+\item \texttt{v}: (INPUT) pointer to an array of \verb=nx= elements giving average values in cells
+\item \texttt{vL}: (OUTPUT) pointer to an array of \verb=nx= elements giving values at cell left edges
+\item \texttt{vR}: (OUTPUT) pointer to an array of \verb=nx= elements giving values at cell right edges
+\item \texttt{workspace}: (INPUT/OUTPUT) pointer to an array of \verb=nx= elements that can be used as workspace
+\end{itemize}
+
+This routine implements the Colella \& Woodward (1984, J.~Comp.~Phys., 54, 174-201) piecewise parabolic method for estimating quantities on the left and right sides of cell interfaces from the cell-averaged values on a non-uniform grid. The inputs are the number of cells, their sizes, and their average values, while the outputs are the values at the cell left and right edges.
+
+\subsubsection{\texttt{rotCurveSpline}}
+\label{sssec:rotCurveSpline}
+
+Defined in \verb=rotCurveSpline.h= and \verb=rotCurveSpline.c=.
+
+\begin{verbatim}
+void 
+rotCurveSpline(const double *rTab, const double *vTab, 
+               const unsigned int nTab,
+               const unsigned int bspline_degree, 
+               const unsigned int bspline_breakpoints,
+               const double *r, const unsigned int nr, 
+               double *vphi, double *psi,
+               double *beta);
+\end{verbatim}
+
+Parameters:
+\begin{itemize}
+\item \texttt{rTab}: (INPUT) pointer to an array of \verb=nTab= elements giving radial positions in the data table; must be ordered from lowest to highest radius
+\item \texttt{vTab}: (INPUT) pointer to an array of \verb=nTab= elements giving rotation curve velocities $v_\phi$ in the data table
+\item \texttt{nTab}: (INPUT) number of entries in the input data table
+\item \verb=bspline_degree=: (INPUT) degree of the basis spline fit used to interpolate the tabulated rotation curve
+\item \verb=bspline_breakpoints=: (INPUT) number of breakpoints in the basis spline fit used to interpolate the tabulated rotation curve
+\item \texttt{r}: (INPUT) pointer to an array of \verb=nr= radii at which interpolated values are to be computed; must be ordered from lowest to highest radius
+\item \texttt{nr}: (INPUT) number of radii at which interpolated values are to be computed
+\item \texttt{vphi}: (OUTPUT) pointer to an array of \verb=nr= at which interpolated values of $v_\phi$ are to be stored
+\item \texttt{psi}: (OUTPUT) pointer to an array of \verb=nr= at which interpolated values of the gravitational potential $\psi$ are to be stored
+\item \texttt{beta}: (OUTPUT) pointer to an array of \verb=nr= at which interpolated values of the rotation curve index $d\ln v_\phi/d\ln r$ are to be stored
+\end{itemize}
+
+This function takes a table of $(r,v_\phi)$ values as inputs and uses basis spline interpolation to construct a fitting function to them. This fitting function is then used to generate a series of interpolated $v_\phi$ values, and a corresponding set of gravitational potential $\psi$ and rotation curve index $d\ln v_\phi/d\ln r$ values at a specified set of fitting points. The gravitational potential is computed in a gauge where $\psi=0$ at the outermost fitting point. The input data table and fitting points must be \verb!rTab[0] <= r[0]=! and \verb!rTab[nTab-1] >= r[nr-1]!. The quantities \texttt{bspline\_breakpoints} and \texttt{bspline\_degree} specify how many breakpoints there should be in the b-spline fit, and what degree the fit should be, and must satisfy \texttt{nTab >= bspline\_breakpoints + bspline\_degree - 2}. Optimal choices of these parameters depend on the nature of the input data: sparsely-sampled, noisy data should choose smaller values, while well-sampled, low-noise data should use larger values.
+
+\subsubsection{\texttt{testingMode}}
+\label{sssec:testingMode}
+
+Defined in \verb=testingMode.c=.
+
+\begin{verbatim}
+int testingMode();
+\end{verbatim}
+
+Parameters:
+\begin{itemize}
+\item Return value: this function returns 1 if the code was compiled with \verb!MODE=TEST!, 0 otherwise
+\end{itemize}
+
+This function provides a way of determining whether the code was compiled in testing mode, so that the appropriate interface to \hyperref[sssec:advanceBE]{\texttt{advanceBE}}, \hyperref[sssec:advanceCN]{\texttt{advanceCN}}, and \hyperref[sssec:driver]{\texttt{driver}} can be selected.
+
+\subsubsection{\texttt{wkspAlloc}}
+\label{sssec:wkspAlloc}
+
+Defined in \verb=init.h= and \verb=init.c=.
+
+\begin{verbatim}
+wksp *wkspAlloc(const unsigned int nr);
+\end{verbatim}
+
+Parameters:
+\begin{itemize}
+\item \texttt{nr}: (INPUT) number of grid cells in the workspace
+\item Return value: a \hyperref[sssec:datastructures]{\texttt{struct wksp}} object for which memory has been allocated.
+\end{itemize}
+
+This routine allocated memory for a \hyperref[sssec:datastructures]{\texttt{struct wksp}} object.
+
+\subsubsection{\texttt{wkspFree}}
+\label{sssec:wkspFree}
+
+Defined in \verb=init.h= and \verb=init.c=.
+
+\begin{verbatim}
+void wkspFree(wksp *w);
+\end{verbatim}
+
+Parameters:
+\begin{itemize}
+\item \texttt{w}: pointer to the \hyperref[sssec:datastructures]{\texttt{struct wksp}} object to be de-allocated.
+\end{itemize}
+
+This routine de-allocates a \hyperref[sssec:datastructures]{\texttt{struct wksp}} object.
+
+
+\subsection{User-Implemented c Routines}
+\label{ssec:userC}
+
+All the routines in this section are problem-dependent, and it is up to the user to implement code for these routines that matches the specified API and defines the physical model to be used in his or her simulation. All of these routines take an argument \verb=params=, of type \verb=void *=. The \verb=user*= routines are all called from \hyperref[sssec:advanceBE]{\texttt{advanceBE}}, \hyperref[sssec:advanceCN]{\texttt{advanceCN}}, or \hyperref[sssec:driver]{\texttt{driver}}; these routines also accept the \verb=params= argument, and they simply pass it on to the \verb=user*= routines. This argument is provided to make it possible to pass arbitrary information into the \verb=user*= routines. It is up to the user to cast this pointer to the appropriate data structure and to parse the data to which it points. If no additional parameters are needed in the \verb=user*= routines, the user may simply choose not to reference the \verb=params= argument, and may then pass \verb=NULL= to the corresponding argument slot in \hyperref[sssec:advanceBE]{\texttt{advanceBE}}, \hyperref[sssec:advanceCN]{\texttt{advanceCN}}, or \hyperref[sssec:driver]{\texttt{driver}}.
+
+\subsubsection{\texttt{userAlpha}}
+\label{sssec:userAlpha}
+
+Defined in \verb=userFunc.h= and \verb=userFunc_PROB.c=.
+
+\begin{verbatim}
+void
+userAlpha(
+          /* Inputs */
+          const double t, const grid *grd, 
+          const double *col, const double *pres,
+          const double *eInt, const double *gamma, 
+          const double *delta, void *params,
+          /* Outputs */
+          double *alpha
+          );
+\end{verbatim}
+
+Parameters:
+\begin{itemize}
+\item \texttt{t}: (INPUT) current simulation time
+\item \texttt{grd}: (INPUT) pointer to the \hyperref[sssec:datastructures]{\texttt{struct grid}} object for the simulation
+\item \texttt{col}: (INPUT) pointer to an array of \texttt{grd->nr} elements giving the current column densities on the grid
+\item \texttt{pres}: (INPUT) pointer to an array of \texttt{grd->nr} elements giving the current vertically-integrated pressures on the grid
+\item \texttt{eInt}: (INPUT) pointer to an array of \texttt{grd->nr} elements giving the current internal energy per unit area on the grid; note that this array is updated and contains meaningful data only if the value of \verb=eos_func= passed to \hyperref[sssec:advanceBE]{\texttt{advanceBE}}, \hyperref[sssec:advanceCN]{\texttt{advanceCN}}, or \hyperref[sssec:driver]{\texttt{driver}} is not zero
+\item \texttt{gamma}: (INPUT) pointer to an array of \texttt{grd->nr} elements giving the current equation of state $\gamma$ value in every grid cell; note that this array is updated and contains meaningful data only if the value of \verb=eos_func= passed to \hyperref[sssec:advanceBE]{\texttt{advanceBE}}, \hyperref[sssec:advanceCN]{\texttt{advanceCN}}, or \hyperref[sssec:driver]{\texttt{driver}} is not zero
+\item \texttt{delta}: (INPUT) pointer to an array of \texttt{grd->nr} elements giving the current equation of state $\delta$ value in every grid cell; note that this array is updated and contains meaningful data only if the value of \verb=eos_func= passed to \hyperref[sssec:advanceBE]{\texttt{advanceBE}}, \hyperref[sssec:advanceCN]{\texttt{advanceCN}}, or \hyperref[sssec:driver]{\texttt{driver}} is not zero
+\item \texttt{params}: (INPUT) a pointer to a block of memory containing parameters
+\item \texttt{alpha}: (OUTPUT) pointer to an array of \texttt{grd->nr} elements containing the dimensionless viscosity $\alpha$ at every grid cell center
+\end{itemize}
+
+The routine receives as inputs the current state of the simulation, including the time, grid, and values of all quantities being evolved (column density, vertically-integrated pressure, internal energy per unit area) and all quantities derives from them (equation of state parameters $\gamma$, $\delta$). It also receives whatever data is passed through \verb=params=. The user must implement code that, given these inputs, computes the dimensionless viscosity $\alpha$ at the center of every grid cell and stores the result in the array \verb=alpha=. This routine is called from hyperref[sssec:advanceBE]{\texttt{advanceBE}}, \hyperref[sssec:advanceCN]{\texttt{advanceCN}}, and \hyperref[sssec:driver]{\texttt{driver}}, but only if \verb=alpha_func= is non-zero.
+
+\subsubsection{\texttt{userEOS}}
+\label{sssec:userEOS}
+
+Defined in \verb=userFunc.h= and \verb=userFunc_PROB.c=.
+
+\begin{verbatim}
+void
+userEOS(
+        /* Inputs */
+        const double t, const grid *grd, 
+        const double *col, const double *pres, const double *eInt,
+        void *params,
+        /* Outputs */
+        double *gamma, double *delta
+        );
+\end{verbatim}
+
+Parameters:
+\begin{itemize}
+\item \texttt{t}: (INPUT) current simulation time
+\item \texttt{grd}: (INPUT) pointer to the \hyperref[sssec:datastructures]{\texttt{struct grid}} object for the simulation
+\item \texttt{col}: (INPUT) pointer to an array of \texttt{grd->nr} elements giving the current column densities on the grid
+\item \texttt{pres}: (INPUT) pointer to an array of \texttt{grd->nr} elements giving the current vertically-integrated pressures on the grid
+\item \texttt{eInt}: (INPUT) pointer to an array of \texttt{grd->nr} elements giving the current internal energy per unit area on the grid
+\item \texttt{params}: (INPUT) a pointer to a block of memory containing parameters
+\item \texttt{gamma}: (OUTPUT) pointer to an array of \texttt{grd->nr} elements giving the current equation of state $\gamma$ value in every grid cell
+\item \texttt{delta}: (OUTPUT) pointer to an array of \texttt{grd->nr} elements giving the current equation of state $\delta$ value in every grid cell
+\end{itemize}
+
+The routine receives as inputs the current state of the simulation, including the time, grid, and values of all quantities being evolved (column density, vertically-integrated pressure, internal energy per unit area), as well as whatever data is passed through \verb=params=. The user must implement code to compute the equation of state parameters $\gamma$ and $\delta$ in every grid cell and store the result in the arrays \verb=gamma= and \verb=delta=. This routine is called from \hyperref[sssec:advanceBE]{\texttt{advanceBE}}, \hyperref[sssec:advanceCN]{\texttt{advanceCN}}, and \hyperref[sssec:driver]{\texttt{driver}}, but only if \verb=eos_func= is non-zero.
+
+
+\subsubsection{\texttt{userIBC}}
+\label{sssec:userIBC}
+
+Defined in \verb=userFunc.h= and \verb=userFunc_PROB.c=.
+
+\begin{verbatim}
+void
+userIBC(
+        /* Inputs */
+        const double t, const grid *grd,
+        const double *col, const double *pres, const double *eInt,
+        const double *gamma, const double *delta,
+        const pres_bc_type ibc_pres, const enth_bc_type ibc_enth,
+        void *params, 
+        /* Outputs */
+        double *ibc_pres_val, double *ibc_enth_val
+        );
+\end{verbatim}
+
+Parameters:
+\begin{itemize}
+\item \texttt{t}: (INPUT) current simulation time
+\item \texttt{grd}: (INPUT) pointer to the \hyperref[sssec:datastructures]{\texttt{struct grid}} object for the simulation
+\item \texttt{col}: (INPUT) pointer to an array of \texttt{grd->nr} elements giving the current column densities on the grid
+\item \texttt{pres}: (INPUT) pointer to an array of \texttt{grd->nr} elements giving the current vertically-integrated pressures on the grid
+\item \texttt{eInt}: (INPUT) pointer to an array of \texttt{grd->nr} elements giving the current internal energy per unit area on the grid; note that this array is updated and contains meaningful data only if the value of \verb=eos_func= passed to \hyperref[sssec:advanceBE]{\texttt{advanceBE}}, \hyperref[sssec:advanceCN]{\texttt{advanceCN}}, or \hyperref[sssec:driver]{\texttt{driver}} is not zero
+\item \texttt{gamma}: (INPUT) pointer to an array of \texttt{grd->nr} elements giving the current equation of state $\gamma$ value in every grid cell; note that this array is updated and contains meaningful data only if the value of \verb=eos_func= passed to \hyperref[sssec:advanceBE]{\texttt{advanceBE}}, \hyperref[sssec:advanceCN]{\texttt{advanceCN}}, or \hyperref[sssec:driver]{\texttt{driver}} is not zero
+\item \texttt{delta}: (INPUT) pointer to an array of \texttt{grd->nr} elements giving the current equation of state $\delta$ value in every grid cell; note that this array is updated and contains meaningful data only if the value of \verb=eos_func= passed to \hyperref[sssec:advanceBE]{\texttt{advanceBE}}, \hyperref[sssec:advanceCN]{\texttt{advanceCN}}, or \hyperref[sssec:driver]{\texttt{driver}} is not zero
+\item \texttt{params}: (INPUT) a pointer to a block of memory containing parameters
+\item \verb=ibc_pres=: (INPUT) the type of pressure boundary condition being used; will be one of \verb=FIXED_MASS_FLUX=, \verb=FIXED_TORQUE_FLUX=, or \verb=FIXED_TORQUE=
+\item \verb=ibc_enth=: (INPUT) the type of enthalpy boundary condition being used; will be one of \verb=FIXED_ENTHALPY_VALUE= or \verb=FIXED_ENTHALPY_GRADIENT=
+\item \verb=ibc_pres_val=: (OUTPUT) value of the inner pressure boundary condition; depend on the value of \verb=ibc_pres= this will be interpreted as a value for the mass flux across the boundary, the torque flux across the boundary, or the torque in the ghost zone adjacent to the boundary
+\item \verb=ibc_enth_val=: (OUTPUT) value of the inner enthalpy boundary condition; depend on the value of \verb=ibc_enth= this will be interpreted as a value for the either the internal enthalpy in the first ghost zone, or for the gradient of internal enthalpy at the inner cell edge
+\end{itemize}
+
+The routine receives as inputs the current state of the simulation, including the time, grid, and values of all quantities being evolved (column density, vertically-integrated pressure, internal energy per unit area) and all quantities derives from them (equation of state parameters $\gamma$, $\delta$). It also receives whatever data is passed through \verb=params=. The user must implement code that computes the value of the inner pressure and specific enthalpy boundary conditions, and stores those values in \verb=ibc_pres_val= and \verb=ibc_enth_val=. The way that these values will be interpreted depends on the values of \verb=ibc_pres= and \verb=ibc_enth=, which specify whether the value expected is, for pressure, a mass flux, a torque flux, or an absolute torque, and, for enthalpy, whether it is an value of the specific enthalpy or a value for the gradient of specific enthalpy. For all fluxes, the sign convention is that positive values indicate transport in the $+r$ direction. This routine is called from \hyperref[sssec:advanceBE]{\texttt{advanceBE}}, \hyperref[sssec:advanceCN]{\texttt{advanceCN}}, and \hyperref[sssec:driver]{\texttt{driver}}, but only if \verb=ibc_func= is non-zero.
+
+\subsubsection{\texttt{userIntEnSrc}}
+\label{sssec:userIntEnSrc}
+
+Defined in \verb=userFunc.h= and \verb=userFunc_PROB.c=.
+\begin{verbatim}
+void
+userIntEnSrc(
+             /* Inputs */
+             const double t, const grid *grd,
+             const double *col, const double *pres,
+             const double *eInt, const double *gamma, 
+             const double *delta, void *params, 
+             /* Outputs */
+             double *intEnSrc
+             );
+\end{verbatim}
+
+Parameters:
+\begin{itemize}
+\item \texttt{t}: (INPUT) current simulation time
+\item \texttt{grd}: (INPUT) pointer to the \hyperref[sssec:datastructures]{\texttt{struct grid}} object for the simulation
+\item \texttt{col}: (INPUT) pointer to an array of \texttt{grd->nr} elements giving the current column densities on the grid
+\item \texttt{pres}: (INPUT) pointer to an array of \texttt{grd->nr} elements giving the current vertically-integrated pressures on the grid
+\item \texttt{eInt}: (INPUT) pointer to an array of \texttt{grd->nr} elements giving the current internal energy per unit area on the grid; note that this array is updated and contains meaningful data only if the value of \verb=eos_func= passed to \hyperref[sssec:advanceBE]{\texttt{advanceBE}}, \hyperref[sssec:advanceCN]{\texttt{advanceCN}}, or \hyperref[sssec:driver]{\texttt{driver}} is not zero
+\item \texttt{gamma}: (INPUT) pointer to an array of \texttt{grd->nr} elements giving the current equation of state $\gamma$ value in every grid cell; note that this array is updated and contains meaningful data only if the value of \verb=eos_func= passed to \hyperref[sssec:advanceBE]{\texttt{advanceBE}}, \hyperref[sssec:advanceCN]{\texttt{advanceCN}}, or \hyperref[sssec:driver]{\texttt{driver}} is not zero
+\item \texttt{delta}: (INPUT) pointer to an array of \texttt{grd->nr} elements giving the current equation of state $\delta$ value in every grid cell; note that this array is updated and contains meaningful data only if the value of \verb=eos_func= passed to \hyperref[sssec:advanceBE]{\texttt{advanceBE}}, \hyperref[sssec:advanceCN]{\texttt{advanceCN}}, or \hyperref[sssec:driver]{\texttt{driver}} is not zero
+\item \texttt{params}: (INPUT) a pointer to a block of memory containing parameters
+\item \texttt{intEnSrc}: (OUTPUT) pointer to an array of \texttt{grd->nr} elements giving the value of the source term for internal energy per unit area in each cell
+\end{itemize}
+
+The routine receives as inputs the current state of the simulation, including the time, grid, and values of all quantities being evolved (column density, vertically-integrated pressure, internal energy per unit area) and all quantities derives from them (equation of state parameters $\gamma$, $\delta$). It also receives whatever data is passed through \verb=params=. The user must implement code that computes the source term for internal energy per unit area $\dot{E}_{\rm int,src}$ in each cell and stores those values in the array \verb=intEnSrc=. This routine is called from \hyperref[sssec:advanceBE]{\texttt{advanceBE}}, \hyperref[sssec:advanceCN]{\texttt{advanceCN}}, and \hyperref[sssec:driver]{\texttt{driver}}, but only if \verb=intEnSrc_func= is non-zero.
+
+\subsubsection{\texttt{userMassSrc}}
+\label{sssec:userMassSrc}
+
+Defined in \verb=userFunc.h= and \verb=userFunc_PROB.c=.
+\begin{verbatim}
+void
+userMassSrc(
+            /* Inputs */
+            const double t, const grid *grd,
+            const double *col, const double *pres,
+            const double *eInt, const double *gamma, 
+            const double *delta, void *params, 
+            /* Outputs */
+            double *massSrc
+            );
+\end{verbatim}
+
+Parameters:
+\begin{itemize}
+\item \texttt{t}: (INPUT) current simulation time
+\item \texttt{grd}: (INPUT) pointer to the \hyperref[sssec:datastructures]{\texttt{struct grid}} object for the simulation
+\item \texttt{col}: (INPUT) pointer to an array of \texttt{grd->nr} elements giving the current column densities on the grid
+\item \texttt{pres}: (INPUT) pointer to an array of \texttt{grd->nr} elements giving the current vertically-integrated pressures on the grid
+\item \texttt{eInt}: (INPUT) pointer to an array of \texttt{grd->nr} elements giving the current internal energy per unit area on the grid; note that this array is updated and contains meaningful data only if the value of \verb=eos_func= passed to \hyperref[sssec:advanceBE]{\texttt{advanceBE}}, \hyperref[sssec:advanceCN]{\texttt{advanceCN}}, or \hyperref[sssec:driver]{\texttt{driver}} is not zero
+\item \texttt{gamma}: (INPUT) pointer to an array of \texttt{grd->nr} elements giving the current equation of state $\gamma$ value in every grid cell; note that this array is updated and contains meaningful data only if the value of \verb=eos_func= passed to \hyperref[sssec:advanceBE]{\texttt{advanceBE}}, \hyperref[sssec:advanceCN]{\texttt{advanceCN}}, or \hyperref[sssec:driver]{\texttt{driver}} is not zero
+\item \texttt{delta}: (INPUT) pointer to an array of \texttt{grd->nr} elements giving the current equation of state $\delta$ value in every grid cell; note that this array is updated and contains meaningful data only if the value of \verb=eos_func= passed to \hyperref[sssec:advanceBE]{\texttt{advanceBE}}, \hyperref[sssec:advanceCN]{\texttt{advanceCN}}, or \hyperref[sssec:driver]{\texttt{driver}} is not zero
+\item \texttt{params}: (INPUT) a pointer to a block of memory containing parameters
+\item \texttt{massSrc}: (OUTPUT) pointer to an array of \texttt{grd->nr} elements giving the value of the source term for mass per unit area in each cell
+\end{itemize}
+
+The routine receives as inputs the current state of the simulation, including the time, grid, and values of all quantities being evolved (column density, vertically-integrated pressure, internal energy per unit area) and all quantities derives from them (equation of state parameters $\gamma$, $\delta$). It also receives whatever data is passed through \verb=params=. The user must implement code that computes the source term for mass per unit area $\dot{\Sigma}_{\rm src}$ in each cell and stores those values in the array \verb=massSrc=. This routine is called from \hyperref[sssec:advanceBE]{\texttt{advanceBE}}, \hyperref[sssec:advanceCN]{\texttt{advanceCN}}, and \hyperref[sssec:driver]{\texttt{driver}}, but only if \verb=massSrc_func= is non-zero.
+
+\subsubsection{\texttt{userOBC}}
+\label{sssec:userOBC}
+
+Defined in \verb=userFunc.h= and \verb=userFunc_PROB.c=.
+
+\begin{verbatim}
+void
+userOBC(
+        /* Inputs */
+        const double t, const grid *grd,
+        const double *col, const double *pres, const double *eInt,
+        const double *gamma, const double *delta,
+        const pres_bc_type obc_pres, const enth_bc_type obc_enth,
+        void *params, 
+        /* Outputs */
+        double *obc_pres_val, double *obc_enth_val
+        );
+\end{verbatim}
+
+The API and parameter definitions are identical to the corresponding ones for \hyperref[sssec:userIBC]{\texttt{userIBC}}, except that this routine is applied to the outer rather than the inner boundary condition. It is called from \hyperref[sssec:advanceBE]{\texttt{advanceBE}}, \hyperref[sssec:advanceCN]{\texttt{advanceCN}}, and \hyperref[sssec:driver]{\texttt{driver}}, but only if \verb=obc_func= is non-zero.
+
+
+\subsection{Python Routines}
+\label{ssec:pythonAPI}
+
+All Python routines are defined by files in the \verb=vader= or \verb=vader/test= subdirectories of the main \verb=vader= directory.
+
+\subsubsection{\texttt{vader.advance}}
+\label{sssec:vader.advance}
+
+Defined in \verb=interface.py=.
+
+\begin{verbatim}
+def advance(t, dt, grd, col, pres, paramDict, eInt=None,
+            no_update=False, c_params=None, **kwargs):
+\end{verbatim}
+
+Parameters:
+\begin{itemize}
+\item \texttt{t}: (\texttt{float}, INPUT) time at start of time step
+\item \texttt{dt}: (\texttt{float}, INPUT) size of time step
+\item \texttt{grd} : (\hyperref[sssec:vader.grid]{\texttt{class grid}}, INPUT) grid object describing the simulation grid
+\item \texttt{col} : (\texttt{numpy.array}, INPUT/OUTPUT) array of starting column densities; on return, contains column densities at end of time step
+\item \texttt{pres} : (\texttt{numpy.array}, INPUT/OUTPUT) array of starting vertically-integrated pressures; on return, contains column densities at end of time step
+\item \texttt{paramDict}: (\texttt{dict}, INPUT) dict of simulation parameters; can be set manually, but usually returned by \hyperref[sssec:vader.readParam]{\texttt{vader.readParam}}
+\item \texttt{eInt}: (\texttt{numpy.array}, INPUT/OUTPUT) array of starting internal energies; must be set if \verb=gamma= or \verb=delta= in \verb=paramDict= are specified as \verb=c_func= instead of constants, ignored otherwise
+\item \verb=no_update=: (\texttt{bool}, INPUT) if \texttt{True}, the state quantities will not be altered, and the original values will be returned
+\item \verb=c_params=: (\verb=c_void_p=, INPUT) pointer to parameters to be passed into the c functions
+\item \verb=kwargs=: (\verb=dict=, INPUT) any additional keywords specified here are appended to the \texttt{paramDict} before the simulation is run
+\item Return value: the function returns a \verb=namedtuple= whose elements are described below.
+\end{itemize}
+
+This function calls the c \hyperref[sssec:advanceBE]{\texttt{advanceBE}} or \hyperref[sssec:advanceCN]{\texttt{advanceCN}} routine, depending on the value of \verb=method= in the \verb=paramDict=. Other values in \verb=paramDict= are used to set the corresponding arguments in the c functions. The return value of the function is a \texttt{namedtuple} whose elements are:
+\begin{itemize}
+\item \texttt{success}: (\texttt{bool}) \verb=True= if the iteration converged, \verb=False= if not
+\item \texttt{dtNew}: (\texttt{float}) estimated value of next time step
+\item \texttt{nIter}: (\texttt{long}) number of implicit iterations performed
+\item \texttt{mBnd}: (\texttt{numpy.array, shape (2)}) mass transported across inner and outer boundaries during this time step; positive values indicate transport in $+r$ direction
+\item \texttt{eBnd}: (\texttt{numpy.array, shape (2)}) energy transported across inner and outer boundaries during this time step; positive values indicate transport in $+r$ direction
+\item \texttt{mSrc}: (\texttt{numpy array, shape (grd.nr)}) mass column density added to each cell by the source terms during this time step; returned only if \verb=mass_src= is set to \verb=c_func= in \texttt{paramDict}; otherwise this is \texttt{None}
+\item \texttt{eSrc}: (\texttt{numpy array, shape (grd.nr)}) energy per unit area added to each cell by the source terms during this time step; returned only if \verb=mass_src= or \verb=int_en_src= is set to \verb=c_func= in \texttt{paramDict}; otherwise this is \texttt{None}
+\item \texttt{resid}: (\verb=numpy.array, shape (paramDict['max_iter'])=) residual after each iteration; returned only if the code is compiled in \hyperref[ssec:testingMode]{Testing Mode}
+\item \texttt{rtype}: (\verb=numpy.array of uintc, shape (paramDict['max_iter'])=) indicates if the maximum residual after each iteration was in column density, pressure, or internal energy, with 1 = column density, 2 = pressure, 3 = internal energy;  returned only if the code is compiled in \hyperref[ssec:testingMode]{Testing Mode}
+\end{itemize}
+
+\subsubsection{\texttt{vader.driver}}
+\label{sssec:vader.driver}
+
+Defined in \verb=interface.py=.
+
+\begin{verbatim}
+def driver(tStart, tEnd, grd, col, pres, paramDict, nOut=50,
+           outTimes=None, eInt=None, c_params=None, **kwargs):
+\end{verbatim}
+
+Parameters:
+\begin{itemize}
+\item \texttt{tStart}: (\texttt{float}, INPUT) time at start of simulation
+\item \texttt{tEnd}: (\texttt{float}, INPUT) simulation end time
+\item \texttt{grd} : (\hyperref[sssec:vader.grid]{\texttt{class grid}}, INPUT) grid object describing the simulation grid
+\item \texttt{col} : (\texttt{numpy.array}, INPUT/OUTPUT) array of starting column densities; on return, contains column densities at end of time step
+\item \texttt{pres} : (\texttt{numpy.array}, INPUT/OUTPUT) array of starting vertically-integrated pressures; on return, contains column densities at end of time step
+\item \texttt{paramDict}: (\texttt{dict}, INPUT) dict of simulation parameters; can be set manually, but usually returned by \hyperref[sssec:vader.readParam]{\texttt{vader.readParam}}
+\item \texttt{nOut}: (\texttt{int}, INPUT) number of times at which to store output; outputs are only stored if \verb!nOut >= 1!
+\item \texttt{outTimes}: (\texttt{numpy.array}, INPUT) exact times at which to store output; if set, this overrides \verb=nOut=
+\item \texttt{eInt}: (\texttt{numpy.array}, INPUT/OUTPUT) array of starting internal energies; must be set if \verb=gamma= or \verb=delta= in \verb=paramDict= are specified as \verb=c_func= instead of constants, ignored otherwise
+\item \verb=c_params=: (\verb=c_void_p=, INPUT) pointer to parameters to be passed into the c functions
+\item \verb=kwargs=: (\verb=dict=, INPUT) any additional keywords specified here are appended to the \texttt{paramDict} before the simulation is run
+\item Return value: the function returns a \verb=namedtuple= whose elements are described below.
+\end{itemize}
+
+This function calls the c \hyperref[sssec:driver]{\texttt{driver}} routine, using the values in \verb=paramDict= to set the call parameters. If \verb=nOut= is $\geq 1$ and \texttt{outTimes} is not set, then the array of output times passed to the c routine is automatically set to an array of values uniformly spaced in time from \verb=tStart= to \verb=tEnd=. The return value of the function is a \texttt{namedtuple} whose elements are:
+\begin{itemize}
+\item \texttt{tFin}: (\texttt{float}) time at which simulation ended
+\item \texttt{tOut}: (\texttt{numpy.array, shape (nOut)}) times at which output is stored
+\item \texttt{colOut}: (\texttt{numpy.array, shape (nOut, grd.nr)}) 2D array of column densities stored at specified times
+\item \texttt{presOut}: (\texttt{numpy.array, shape (nOut, grd.nr)}) 2D array of vertically-integrated pressures stored at specified times
+\item \texttt{eIntOut}: (\texttt{numpy.array, shape (nOut, grd.nr)}) 2D array of internal energies per unit area stored at specified times; returned only if \verb=gamma= or \verb=delta= in \texttt{paramDict} are set to \verb=c_func=; otherwise this is \texttt{None}
+\item \texttt{mBndOut}: (\texttt{numpy.array, shape (nOut, 2)}) cumulative mass transported across the inner and outer boundaries up to the specified time; positive values indicate transport in the $+r$ direction, negative values indicate transport in the $-r$ direction
+\item \texttt{eBndOut}: (\texttt{numpy.array, shape (nOut, 2)}) cumulative energy transported across the inner and outer boundaries up to the specified time; positive values indicate transport in the $+r$ direction, negative values indicate transport in the $-r$ direction
+\item \texttt{mSrcOut}: (\texttt{numpy.array, shape (nOut, grd.nr)}) cumulative mass column density added to each cell by the source terms up to the specified time; returned only if \verb=mass_src= in \texttt{paramDict} is set to \verb=c_func=; otherwise this is \texttt{None}
+\item \texttt{eSrcOut}: (\texttt{numpy.array, shape (nOut, grd.nr)}) cumulative energy per unit area added to each cell by the source terms up to the specified time; returned only if \verb=mass_src= or \verb=int_en_src= in \texttt{paramDict} is set to \verb=c_func=; otherwise this is \texttt{None}
+\item \texttt{nStep}: (\texttt{long}) total number of simulation time steps
+\item \texttt{nIter}: (\texttt{long}) total number of implicit iterations, summed over all time steps
+\item \texttt{nFail}: (\texttt{long}) total number of times the implicit solver failed to converge
+\item \texttt{residSum}: (\verb=numpy.array, shape (paramDict['max_iter'])=) sum of residuals after a given iteration number, summed over
+all time steps; returned only if the code is compiled in \hyperref[ssec:testingMode]{Testing Mode}
+\item \texttt{iterStep}: (\verb=numpy.array of uintc, shape (paramDict['max_step'])=): total number of iterations performed in each time step; returned only if the code is compiled in \hyperref[ssec:testingMode]{Testing Mode}
+\end{itemize}
+
+\subsubsection{\texttt{vader.grid}}
+\label{sssec:vader.grid}
+
+Defined in \verb=grid.py=.
+
+This is a class with the following attributes:
+\begin{itemize}
+\item \verb=nr=: (\verb=int=) number of cells
+\item \verb=r=: (\verb=numpy.array, shape(grd.nr)=) cell center positions
+\item \verb=r_h=: (\verb=numpy.array, shape(grd.nr+1)=) cell edge positions
+\item \verb=r_g=: (\verb=numpy.array, shape(grd.nr+2)=) cell center positions, including ghost zones at the inner and outer edges
+\item \verb=linear=: (\verb=bool=) \verb=True= for linearly-spaced grids, \verb=False= for logarithmically spaced
+\item \verb=dr=: (\verb=numpy.array, shape (grd.nr)=) cell sizes, \verb!dr = r_h[1:] - r_h[:-1]!
+\item \verb=dr_h=: (\verb=numpy.array, shape (grd.nr+1)=) cell center to cell center distances, \\ \verb!dr_h = r_g[1:] - r_g[:-1]!
+\item \verb=dlnr=: (\verb=numpy.array, shape (grd.nr)=) logarithmic cell sizes,\\ \verb!dlnr = ln(r_h[1:]/r_h[:-1])!
+\item \verb=dlnr_h=: (\verb=numpy.array, shape (grd.nr+1)=) logarithmic cell center to cell center distances, \verb!dlnr_h = ln(r_g[1:]/r_g[:-1])!
+\item \verb=area=: (\verb=numpy.array, shape (grd.nr)=) cell areas
+\item \verb=vphi=: (\verb=numpy.array, shape (grd.nr)=) rotation curve velocities at cell centers
+\item \verb=vphi_h=: (\verb=numpy.array, shape (grd.nr+1)=) rotation curve velocities at cell edges
+\item \verb=vphi_g=: (\verb=numpy.array, shape (grd.nr+2)=) rotation curve velocities at cell centers, including ghost zones
+\item \verb=beta=: (\verb=numpy.array, shape (grd.nr)=) rotation curve index $\beta=d\ln v_\phi/d\ln r$ at cell centers
+\item \verb=beta_h=: (\verb=numpy.array, shape (grd.nr+1)=) rotation curve index $\beta=d\ln v_\phi/d\ln r$ at cell edges
+\item \verb=beta_g=: (\verb=numpy.array, shape (grd.nr+2)=) rotation curve index $\beta=d\ln v_\phi/d\ln r$ at cell centers, including ghost zones
+\item \verb=psi=: (\verb=numpy.array, shape (grd.nr)=) gravitational potential at cell centers
+\item \verb=psi_h=: (\verb=numpy.array, shape (grd.nr+1)=) gravitational potential at cell edges
+\item \verb=psi_g=: (\verb=numpy.array, shape (grd.nr+2)=) gravitational potential at cell centers, including ghost zones
+\item \verb=psiEff=: (\verb=numpy.array, shape (grd.nr)=) gravitational plus orbital energy per unit mass at cell centers
+\item \verb=psiEff_h=: (\verb=numpy.array, shape (grd.nr+1)=) gravitational plus orbital energy per unit mass at cell edges
+\item \verb=psiEff_g=: (\verb=numpy.array, shape (grd.nr+2)=) gravitational plus orbital energy per unit mass at cell centers, including ghost zones
+\item \verb=g_h=: (\verb=numpy.array, shape (grd.nr+1)=) the quantity $g = 2 \pi / [v_\phi (1+\beta) \Delta r]$ (for linear grids), or  $g = 2 \pi / [v_\phi (1+\beta) r\Delta\ln r]$ (for logarithmic grids), computed at cell edges
+\item \verb=c_grd=: (\verb=c_void_p=) a pointer to a c \hyperref[sssec:datastructures]{struct grid} object associated with this grid
+\item \verb=c_wksp=: (\verb=c_void_p=) a pointer to a c \hyperref[sssec:datastructures]{struct wksps} object associated with this grid
+\end{itemize}
+
+The class has one externally-visible function, which uses an input \verb=paramDict= to construct an instance of the class.
+\begin{verbatim}
+def __init__(self, paramDict, rotCurveFun=None, rotCurveTab=None,
+             r_h=None, r_g=None):
+\end{verbatim}
+
+Parameters:
+\begin{itemize}
+\item \texttt{paramDict}: (\texttt{dict}, INPUT) dict of simulation parameters; can be set manually, but usually returned by \hyperref[sssec:vader.readParam]{\texttt{vader.readParam}}
+\item \texttt{rotCurveFun}: (\texttt{callable}, INPUT) a function to compute the rotation curve; it must take two arguments: a \verb=numpy.array= of positions, and the \verb=paramDict=, and return 3 \verb=numpy.array=s giving the rotation curve velocity, the potential, and the index $\beta$ at the input positions. If this parameter is not \verb=None=, then all information related to the rotation curve in \texttt{paramDict} is ignored.
+\item \texttt{rotCurveTab}: (\texttt{numpy.array, shape (2, N)}, INPUT) an array containing a tabulated rotation curve; elements \verb=[0,:]= give the positions, and elements \verb=[1,:]= give the velocities at those positions. If this parameter is not \verb=None=, then all information related to the rotation curve in \texttt{paramDict} is ignored.
+\item \verb=r_h=: (\texttt{numpy.array, shape (N)}) an array of cell edge positions. If this parameter is not \verb=None=, then all information related to the grid in \texttt{paramDict} is ignored.
+\item \verb=r_g=: (\texttt{numpy.array, shape (N+1)}) an array of cell center positions, including two ghost cells. If this parameter is not \verb=None=, then all information related to the grid in \texttt{paramDict} is ignored. This must be set if \verb=r_h= is set, and vice-versa.
+\end{itemize}
+
+This function constructs a \verb=class grid= object using the information found in the \verb=paramDict=. By default the grid is either uniform in linear or logarithmic radius, with edges specified by \verb=rmin= and \verb=rmax= in \verb=paramDict=, but this can be overridden by setting the keywords \verb=r_g= and \verb=r_h=, allowing arbitrary grids. Similarly, the rotation curve is by default set to \verb=flat=, \verb=keplerian=, or \verb=tabulated=, depending on the value specified in the \verb=paramDict=, but this can be overridden by the user setting the keyword \verb=rotCurveFun=. This option allows the user to supply an arbitrary Python callable that returns the rotation curve velocity, potential, and index $\beta$ versus position, and builds the rotation curve from that. The user can construct \verb=tabulated= rotation curves in two ways. First, the user may supply a \verb=numpy.array= of shape \verb=(2,N)= through the keyword \verb=rotCurveTab=. Second, it the \verb=paramDict= specifies that the rotation curve is \verb=tabulated=, and \verb=rotCurveTab= is \verb=None=, the routine expects the \verb=paramDict= to include the keyword \verb=rot_curve_file= specifying the name of an ASCII file containing a series of \verb=r vphi= values from which the rotation curve table can be read. For either of the tabulated options, the rotation curve, potential, and index on the computational grid are constructed by calling \hyperref[sssec:rotCurveSpline]{\texttt{rotCurveSpline}} in \verb=libvader=. The degree and number of breakpoints in the B-spline fit are controlled by \verb=bspline_degree= and \verb=bspline_breakpoints= in \verb=paramDict=.
+
+\subsubsection{\texttt{vader.readParam}}
+\label{sssec:vader.readParam}
+
+Defined in \verb=readParam.py=.
+
+\begin{verbatim}
+def readParam(paramFile, noCheck=False):
+\end{verbatim}
+
+Parameters:
+\begin{itemize}
+\item \texttt{paramFile}: (\texttt{str}, INPUT) name of a parameter file to be read
+\item \texttt{noCheck}: (\texttt{bool}, INPUT) if \texttt{TRUE}, the parameter file is not checked to see if it contains all the (key, value) pairs required to run a \vader\ simulation
+\item Return value: this function returns a \texttt{dict} containing the (key, value) pairs read from the specified file
+\end{itemize}
+
+This routine parses a parameter file. The file is expected to be formatted as described in \hyperref[ssec:paramFiles]{Section \ref{ssec:paramFiles}}. Unless \verb=noCheck= is set to \verb=True=, it also checks that the parameter file contains all the (key, value) pairs that are mandatory for running a \vader\ simulation; this are \verb=alpha=, \verb=gamma=, \verb=ibc_pres_type=, \verb=ibc_enth_type=, \verb=ibc_pres_val=, \verb=obc_pres_type=, \verb=obc_enth_type=, and \verb=obc_pres_val=, and raises a \verb=ValueError= if a mandatory parameter is found to be missing. The function returns the parsed file as a \verb=dict= suitable for passing to other python \vader\ routines.
+
+\subsubsection{\texttt{vader.test.gidisk}}
+\label{sssec:vader.test.gidisk}
+
+Defined in \verb=vader/test/gidisk.py=.
+
+\begin{verbatim}
+def gidisk(paramFile, nOut=16, outTimes=None, verbosity=0, **kwargs):
+\end{verbatim}
+
+Parameters:
+\begin{itemize}
+\item \texttt{paramFile}: (\texttt{str}, INPUT) name of the parameter file to use
+\item \texttt{outTimes}: (\texttt{numpy.array}, INPUT) array specifying times at which to save output
+\item \texttt{nOut}: (\texttt{int}, INPUT) number of output times to save, uniformly spaced; ignored if \texttt{outTimes} is not \texttt{None}
+\item \verb=kwargs=: (\verb=dict=, INPUT) any additional keywords specified here are appended to the \texttt{paramDict} constructed from \texttt{paramFile} before the simulation is run
+\item Return value: the function returns a \texttt{namedtuple} whose elements are described below
+\end{itemize}
+
+This function sets up and runs a test comparing \vader's result to the Krumholz \& Burkert (2010, ApJ, 724, 895) analytic solution for a steady-state gravitational instability-dominated disk. The file \texttt{paramFile} contains the parameter to use for the run; in addition to the usual ones defined in Table \ref{tab:keys}, the parameter file must contain the following keys: \verb=eta= gives the dimensionless turbulence dissipation rate, \verb=n_orbit= specifies the number of outer orbits to run, \verb=t_Q= specifies the timescale on which $Q\rightarrow 1$ in units of the local orbital time, \verb=init_col= and \verb=init_vdisp= give the initial column density and velocity dispersion relative to the steady-state value, \verb=ibc_vdisp= and \verb=obc_vdisp= give the velocity dispersion and the inner and outer boundaries relative to the steady state value, and \verb=dt_init= gives the initial time step in units of the outer orbital time. An example parameter file can be found in \verb=vader/test/gidisk.param=. After the simulation completes, the function returns a \verb=namedtuple= containing the following entries:
+\begin{itemize}
+\item \texttt{x}: (\texttt{numpy.array, shape (grd.nr)}) dimensionless cell center position, in units where the outer edge of the disk is at $x=1$
+\item \texttt{T}: (\texttt{numpy.array, shape (nOut)}) output times, in units where the orbital period at the disk outer edge is 1
+\item \texttt{colOut}: (\texttt{numpy.array, shape (nOut, grd.nr)}) column density at times \verb=T= and positions \verb=x=,  in units where the steady state solution is at the disk edge is 1
+\item \texttt{presOut}: (\texttt{numpy.array, shape (nOut, grd.nr)}) vertically-integrated pressure at times \verb=T= and positions \verb=x=,  in units where the steady state solution for the column density times velocity dispersion squared at the disk edge is 1
+\item \texttt{Q}: (\texttt{numpy.array, shape (nOut, grd.nr)}) Toomre $Q$ at times \verb=T= and positions \verb=x=
+\item \texttt{colSteady}: (\texttt{numpy.array, shape (grd.nr)}) steady-state solution for column density versus position \verb=x=, in the same dimensionless units as \verb=colOut=
+\item \texttt{presSteady}: (\texttt{numpy.array, shape (grd.nr)}) steady-state solution for vertically-integrated pressure versus position \verb=x=, in the same dimensionless units as \verb=presOut=
+\item \texttt{nStep}: (\texttt{long}) total number of simulation time steps
+\item \texttt{nIter}: (\texttt{long}) total number of implicit iterations, summed over all time steps
+\item \texttt{nFail}: (\texttt{long}) total number of times the implicit solver failed to converge
+\end{itemize}
+
+\subsubsection{\texttt{vader.test.ring}}
+\label{sssec:vader.test.ring}
+
+Defined in \verb=vader/test/ring.py=.
+
+\begin{verbatim}
+def ring(paramFile, nOut=65, outTimes=None, **kwargs):
+\end{verbatim}
+
+Parameters:
+\begin{itemize}
+\item \texttt{paramFile}: (\texttt{str}, INPUT) name of the parameter file to use
+\item \texttt{outTimes}: (\texttt{numpy.array}, INPUT) array specifying times at which to save output
+\item \texttt{nOut}: (\texttt{int}, INPUT) number of output times to save, uniformly spaced; ignored if \texttt{outTimes} is not \texttt{None}
+\item \verb=kwargs=: (\verb=dict=, INPUT) any additional keywords specified here are appended to the \texttt{paramDict} constructed from \texttt{paramFile} before the simulation is run
+\item Return value: the function returns a \texttt{namedtuple} whose elements are described below
+\end{itemize}
+
+This function tests \vader\ against the Pringle (1981, ARA\&A, 19, 137) solution for the evolution of an initially-singular ring of material. The file \texttt{paramFile} contains the parameter to use for the run; in addition to the usual ones defined in Table \ref{tab:keys}, the parameter file must contain the following keys: \verb=ring_mass= gives the mass of the ring, \verb=init_temp= gives the initial temperature of the gas, \verb=col_ratio= gives the ratio of column densities between the cell containing the ring and all other cells, \verb=ring_loc= gives the location of the ring, \verb=kinematic_visc= gives the kinematic viscosity, and \verb=end_time= gives the simulation end time in units of $t_s$, the characteristic viscous evolution time for the problem. An example parameter file can be found in \verb=vader/test/ring.param=.The function runs the simulation and then returns a \verb=namedtuple= containing the following elements:
+\begin{itemize}
+\item \texttt{x}: (\texttt{numpy.array, shape (grd.nr)}) dimensionless cell center position, in units where the initial ring location is $x=1$
+\item \texttt{tau}: (\texttt{numpy.array, shape (nOut)}) output times, in units where the characteristic viscous evolution time $t_s$ is 1
+\item \texttt{colOut}: (\texttt{numpy.array, shape (nOut, grd.nr)}) column densities at times \verb=tau= and positions \verb=x=, normalized to \verb!col0 = ring_mass/(np.pi*ring_loc**2)!
+\item \texttt{colExact}: (\texttt{numpy.array, shape (nOut, grd.nr)}) exact analytic solution for the column density at times \verb=tau= and positions \verb=x=, normalized to \verb=col0=
+\item \texttt{err}: (\texttt{numpy.array, shape (nOut, grd.nr)}) fractional error between analytic and exact solutions for column density at times \verb=tau= and positions \verb=x=
+\item \texttt{presOut}: (\texttt{numpy.array, shape (nOut, grd.nr)}) vertically-integrated pressure at times \verb=tau= and positions \verb=x=, normalized to \verb!pres0 = col0*kB*init_temp/(mu*mH)!, where \verb=kB= is Boltzmann's constant, \verb=mH= is the mass of a hydrogen atom, and \verb!mu=2.33!
+\item \texttt{l1err}: (\texttt{numpy.array, shape (nOut)}) $L^1$ norm error on the numerical solution as compared to the analytic one, at times \verb=tau=
+\item \texttt{mBndOut}: (\texttt{numpy.array, shape (nOut, 2)}) cumulative mass transported across the inner and outer boundaries up to the specified time, normalized to \verb=col0*ring_loc**2=; positive values indicate transport in the $+r$ direction, negative values indicate transport in the $-r$ direction
+\item \texttt{mDiskOut}: (\texttt{numpy.array, shape (nOut)}) total mass of all material on the computational grid at times \verb=tau=, normalized to \verb=col0*ring_loc**2=
+\item \texttt{eBndOut}: (\texttt{numpy.array, shape (nOut, 2)}) cumulative energy transported across the inner and outer boundaries up to the specified time, normalized to \\\verb=pres0*ring_loc**2*(gamma-1)=; positive values indicate transport in the $+r$ direction, negative values indicate transport in the $-r$ direction
+\item \texttt{eDiskOut}: (\texttt{numpy.array, shape (nOut)}) total energy of all material on the computational grid at times \verb=tau=, normalized to \verb=pres0*ring_loc**2*(gamma-1)=
+\item \texttt{nStep}: (\texttt{long}) total number of simulation time steps
+\item \texttt{nIter}: (\texttt{long}) total number of implicit iterations, summed over all time steps
+\item \texttt{nFail}: (\texttt{long}) total number of times the implicit solver failed to converge
+\end{itemize}
+
+
+\subsubsection{\texttt{vader.test.ringrad}}
+\label{sssec:vader.test.ringrad}
+
+Defined in \verb=vader/test/ringrad.py=.
+
+\begin{verbatim}
+def ringrad(paramFile, nOut=65, outTimes=None, **kwargs):
+\end{verbatim}
+
+Parameters:
+\begin{itemize}
+\item \texttt{paramFile}: (\texttt{str}, INPUT) name of the parameter file to use
+\item \texttt{outTimes}: (\texttt{numpy.array}, INPUT) array specifying times at which to save output
+\item \texttt{nOut}: (\texttt{int}, INPUT) number of output times to save, uniformly spaced; ignored if \texttt{outTimes} is not \texttt{None}
+\item \verb=kwargs=: (\verb=dict=, INPUT) any additional keywords specified here are appended to the \texttt{paramDict} constructed from \texttt{paramFile} before the simulation is run
+\item Return value: the function returns a \texttt{namedtuple} whose elements are described below
+\end{itemize}
+
+This function tests \vader\ by running the same setup as \hyperref[sssec:vader.test.ring]{\texttt{vader.test.ring}}, but with an equation of state that includes contributions from both radiation and gas pressure. The keys expected in the \verb=paramFile= are identical to those in the \hyperref[sssec:vader.test.ring]{\texttt{vader.test.ring}} test (except that the key \verb=init_temp= is renamed \verb=init_teff=, to better reflect its physical meaning in this test), plus the additional key \verb=f_z0=, which defines the relative importance of radiation and gas pressure in the initial conditions; see the Krumholz \& Forbes method paper for the full definition. An example parameter file can be found in \verb=vader/test/ringrad.param=. The function runs the simulation and then returns a \verb=namedtuple= containing the following elements:
+\begin{itemize}
+\item \texttt{x}: (\texttt{numpy.array, shape (grd.nr)}) dimensionless cell center position, in units where the initial ring location is $x=1$
+\item \texttt{tau}: (\texttt{numpy.array, shape (nOut)}) output times, in units where the characteristic viscous evolution time $t_s$ is 1
+\item \texttt{colOut}: (\texttt{numpy.array, shape (nOut, grd.nr)}) column densities at times \verb=tau= and positions \verb=x=
+\item \texttt{colExact}: (\texttt{numpy.array, shape (nOut, grd.nr)}) exact analytic solution for the column density at times \verb=tau= and positions \verb=x=
+\item \texttt{err}: (\texttt{numpy.array, shape (nOut, grd.nr)}) fractional error between analytic and exact solutions for column density at times \verb=tau= and positions \verb=x=
+\item \texttt{presOut}: (\texttt{numpy.array, shape (nOut, grd.nr)}) vertically-integrated pressure at times \verb=tau= and positions \verb=x=
+\item \texttt{pGasOut}: (\texttt{numpy.array, shape (nOut, grd.nr)}) vertically-integrated gas pressure at times \verb=tau= and positions \verb=x=
+\item \texttt{pRadOut}: (\texttt{numpy.array, shape (nOut, grd.nr)}) vertically-integrated radiation pressure at times \verb=tau= and positions \verb=x=
+\item \texttt{eIntOut}: (\texttt{numpy.array, shape (nOut, grd.nr)}) internal energy per unit area at times \verb=tau= and positions \verb=x=
+\item \texttt{eGravOut}: (\texttt{numpy.array, shape (nOut, grd.nr)}) gravitational potential energy per unit area at times \verb=tau= and positions \verb=x=
+\item \texttt{eOrbOut}: (\texttt{numpy.array, shape (nOut, grd.nr)}) orbital kinetic energy per unit area at times \verb=tau= and positions \verb=x=
+\item \texttt{eOut}: (\texttt{numpy.array, shape (nOut, grd.nr)}) total energy per unit area at times \verb=tau= and positions \verb=x=
+\item \texttt{tempOut}: (\texttt{numpy.array, shape (nOut, grd.nr)}) effective temperature $T_{\rm eff}$ at times \verb=tau= and positions \verb=x=
+\item \texttt{eBndOut}: (\texttt{numpy.array, shape (nOut, 2)}) cumulative energy transported across the inner and outer boundaries up to the specified time; positive values indicate transport in the $+r$ direction, negative values indicate transport in the $-r$ direction
+\item \texttt{eDiskOut}: (\texttt{numpy.array, shape (nOut)}) total energy of all material on the computational grid at times \verb=tau=
+\item \texttt{nStep}: (\texttt{long}) total number of simulation time steps
+\item \texttt{nIter}: (\texttt{long}) total number of implicit iterations, summed over all time steps
+\item \texttt{nFail}: (\texttt{long}) total number of times the implicit solver failed to converge
+\end{itemize}
+Note that the outputs of this routine differ from those of \hyperref[sssec:vader.test.ring]{\texttt{vader.test.ring}} in that column densities and pressure for this routine are in physical rather than normalized units.
+
+
+\subsubsection{\texttt{vader.test.selfsim}}
+\label{sssec:vader.test.selfsim}
+
+Defined in \verb=vader/test/selfsim.py=
+
+\begin{verbatim}
+def selfsim(paramFile, nOut=65, outTimes=None, **kwargs):
+\end{verbatim}
+
+Parameters:
+\begin{itemize}
+\item \texttt{paramFile}: (\texttt{str}, INPUT) name of the parameter file to use
+\item \texttt{outTimes}: (\texttt{numpy.array}, INPUT) array specifying times at which to save output
+\item \texttt{nOut}: (\texttt{int}, INPUT) number of output times to save, uniformly spaced; ignored if \texttt{outTimes} is not \texttt{None}
+\item \verb=kwargs=: (\verb=dict=, INPUT) any additional keywords specified here are appended to the \texttt{paramDict} constructed from \texttt{paramFile} before the simulation is run
+\item Return value: the function returns a \texttt{namedtuple} whose elements are described below
+\end{itemize}
+
+This function tests \vader\ by running a simulation that is compared to the analytic solution of Lynden-Bell \& Pringle (1974, MNRAS, 168, 603) for the evolution of a self-similar disk. The keys expected in the \verb=paramFile=, beyond the standard ones defined in Table \ref{tab:keys}, are: \verb=R0=, which gives the initial scale radius, \verb=nu0=, which gives the kinematic viscosity at the initial scale radius, \verb=Mdot0=, which gives the accretion rate onto the central point mass at 1 viscous evolution time, \verb=init_temp=, which gives the initial gas temperature, and \verb=end_time=, which gives the end time of the simulation in viscous evolution times. An example parameter file can be found in \verb=vader/test/selfsim.param=. The routine runs the simulation and then returns the results in a \verb=namedtuple= containing the following elements:
+\begin{itemize}
+\item \texttt{x}: (\texttt{numpy.array, shape (grd.nr)}) dimensionless cell center position, in units where the initial scale radius is $x=1$
+\item \texttt{T}: (\texttt{numpy.array, shape (nOut)}) output times, in units where the characteristic viscous evolution time $t_s$ is 1
+\item \texttt{colOut}: (\texttt{numpy.array, shape (nOut, grd.nr)}) column densities at times \verb=T= and positions \verb=x=, normalized to \verb!col1 = Mdot0/(3*np.pi*nu0)!
+\item \texttt{colExact}: (\texttt{numpy.array, shape (nOut, grd.nr)}) exact analytic solution for the column density at times \verb=T= and positions \verb=x=, normalized to \verb=col1=
+\item \texttt{err}: (\texttt{numpy.array, shape (nOut, grd.nr)}) fractional error between analytic and exact solutions for column density at times \verb=T= and positions \verb=x=
+\item \texttt{presOut}: (\texttt{numpy.array, shape (nOut, grd.nr)}) vertically-integrated pressure at times \verb=T= and positions \verb=x=, normalized to \verb!pres1 = col1*kB*init_temp/(mu*mH)!, where \verb=kB= is Boltzmann's constant, \verb=mH= is the mass of a hydrogen atom, and \verb!mu=2.33!
+\item \texttt{l1err}: (\texttt{numpy.array, shape (nOut)}) $L^1$ norm error on the numerical solution as compared to the analytic one, at times \verb=T=
+\item \texttt{mBndOut}: (\texttt{numpy.array, shape (nOut, 2)}) cumulative mass transported across the inner and outer boundaries up to the specified time, normalized to \verb=col1*R0**2=; positive values indicate transport in the $+r$ direction, negative values indicate transport in the $-r$ direction
+\item \texttt{mDiskOut}: (\texttt{numpy.array, shape (nOut)}) total mass of all material on the computational grid at times \verb=T=, normalized to \verb=col1*R0**2=
+\item \texttt{eBndOut}: (\texttt{numpy.array, shape (nOut, 2)}) cumulative energy transported across the inner and outer boundaries up to the specified time, normalized to \\\verb=pres1*R0**2*(gamma-1)=; positive values indicate transport in the $+r$ direction, negative values indicate transport in the $-r$ direction
+\item \texttt{eDiskOut}: (\texttt{numpy.array, shape (nOut)}) total energy of all material on the computational grid at times \verb=tau=, normalized to \verb=pres1*R0**2*(gamma-1)=
+\item \texttt{nStep}: (\texttt{long}) total number of simulation time steps
+\item \texttt{nIter}: (\texttt{long}) total number of implicit iterations, summed over all time steps
+\item \texttt{nFail}: (\texttt{long}) total number of times the implicit solver failed to converge
+\end{itemize}
+
+
+
+\section{Revision History}
+
+\begin{enumerate}
+\item Version 1.0, 6/2014 -- initial release
+\end{enumerate}
+
+\end{document}

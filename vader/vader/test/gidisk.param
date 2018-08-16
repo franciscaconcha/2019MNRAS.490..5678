@@ -1,0 +1,28 @@
+# Parameter file for Krumholz & Burkert (2010) GI disk problem
+
+# General parameters
+nr			= 512
+rmin			= 3.09e20
+rmax			= 3.09e22
+alpha			= c_func
+rot_curve_type		= flat
+rot_curve_velocity	= 2.2e7
+ibc_pres_type		= fixed_torque
+ibc_pres_val		= c_func
+ibc_enth_type		= fixed_value
+obc_pres_type		= fixed_mass_flux
+obc_pres_val		= -6.30e25    # 1 Msun/yr
+obc_enth_type		= fixed_value
+obc_enth_value		= dummy       # This is computed later from obc_vdisp
+gamma			= 1.666666666667
+int_en_src		= c_func
+verbosity		= 1
+
+# Problem-specific parameters
+eta			= 1.5    # dimensionless dissipation rate
+n_orbit			= 4.0    # number of outer orbits to run
+t_Q			= 1.0	 # timescale in local orbits on which Q->1
+init_col		= 1.0    # initial column density relative to steady state
+init_vdisp		= 1.0	 # initial velocity dispersion relative to steady state value
+obc_vdisp		= 1.0	 # velocity dispersion at outer boundary relative to steady state value
+dt_init			= 1e-5   # better guess at a starting time step
