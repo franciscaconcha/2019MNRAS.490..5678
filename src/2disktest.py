@@ -48,6 +48,9 @@ def main(N, Rvir, Qvir, alpha, R, gas_presence, gas_expulsion, gas_expulsion_ons
 
     # Read FRIED grid
     grid = numpy.loadtxt('friedgrid.dat', skiprows=2)
+    print(grid)
+
+    t_end = t_end | units.Myr
 
     # Test run: 2 disks + one massive star
     max_stellar_mass = 2 | units.MSun
@@ -57,6 +60,8 @@ def main(N, Rvir, Qvir, alpha, R, gas_presence, gas_expulsion, gas_expulsion_ons
 
     stars = new_plummer_model(N, converter)
     stars.scale_to_standard(converter, virial_ratio=Qvir)
+
+    print(stellar_masses)
 
     stars.stellar_mass = stellar_masses
     stars.initial_characteristic_disk_radius = (stars.stellar_mass.value_in(units.MSun) ** 0.5) * R | units.AU
@@ -76,6 +81,27 @@ def main(N, Rvir, Qvir, alpha, R, gas_presence, gas_expulsion, gas_expulsion_ons
 
     print stars.total_star_mass.value_in(units.MSun)
     print stars.stellar_mass.value_in(units.MSun)
+
+    stellar = SeBa()
+    stellar.parameters.metallicity = 0.02
+    stellar.particles.add_particles(Particles(mass=stars.stellar_mass))
+
+    initial_luminosity = stellar.particles.luminosity
+    dt = 5 | units.Myr
+
+    print("L(t=0 Myr) = {0}".format(initial_luminosity))
+    print("R(t=0 Myr) = {0}".format(stellar.particles.radius.in_(units.RSun)))
+    print("m(t=0 Myr) = {0}".format(stellar.particles.mass.in_(units.MSun)))
+
+    while stellar.model_time < t_end:
+        stellar.evolve_model(stellar.model_time + dt)
+
+    print("***")
+    print("L(t={0}) = {1}".format(stellar.model_time, stellar.particles.luminosity.in_(units.LSun)))
+    print("R(t={0}) = {1}".format(stellar.model_time, stellar.particles.radius.in_(units.RSun)))
+    print("m(t={0}) = {1}".format(stellar.model_time, stellar.particles.mass.in_(units.MSun)))
+
+    stellar.stop()
 
 
 def new_option_parser():
@@ -115,7 +141,7 @@ def new_option_parser():
                       help="initial time [%default]")
     result.add_option("-t", dest="dt", type="int", default=2000 | units.yr,
                       help="time interval of recomputing circumstellar disk sizes and checking for energy conservation [%default]")
-    result.add_option("-x", dest="t_end", type="float", default=2000000 | units.yr,
+    result.add_option("-x", dest="t_end", type="float", default=2 | units.Myr,
                       help="end time of the simulation [%default]")
 
     # Gas behaviour
