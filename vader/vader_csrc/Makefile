@@ -90,7 +90,7 @@ $(LIBNAME):	$(OBJECTS) userFunc.o
 	$(CC) $(LDFLAGS) $(DYNLIBFLAG) -o $(LIBNAME) $^
 
 $(EXENAME):	$(OBJECTS) userFunc.o
-	$(CC) $(LDFLAGS) -o $(EXENAME) $^
+	$(CC) -o $(EXENAME) $^ $(LDFLAGS)
 
 compile:	$(OBJECTS)
 

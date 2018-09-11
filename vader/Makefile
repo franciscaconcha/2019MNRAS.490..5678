@@ -15,7 +15,7 @@ PROFILE = FALSE
 
 # Uncomment this to enable the code to compile with GSL version 1.x;
 # default is to use version 2.x
-# GSLVERSION = 1
+#GSLVERSION = 1
 
 exec: setprob setprobmain
 	@(cd vader_csrc; $(MAKE) exec AA_M=$(AA_M) MODE=$(MODE) PROFILE=$(PROFILE) GSLVERSION=$(GSLVERSION))

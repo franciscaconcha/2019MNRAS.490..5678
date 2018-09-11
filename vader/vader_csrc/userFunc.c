@@ -1,21 +1,10 @@
+#include <math.h>
 #include "userFunc.h"
 
 /**************************************************************************/
-/* This defines userFunc routines that do nothing. Use only if you plan   */
-/* to run the code with fixed values for boundary conditions, alpha, and  */
-/* heating and cooling rates.                                             */
+/* This defines userFunc routines for the Lynden-Bell & Pringle (1974,    */
+/* MNRAS, 168, 603) self-similar disk evolution test                      */
 /**************************************************************************/
-
-void
-userAlpha(const double t, const grid *grd, 
-	  const double *col, const double *pres, const double *eInt,
-	  const double *gamma, const double *delta,
-	  void *params,
-	  double *alpha) {
-  fprintf(stderr, 
-	  "Warning: userAlpha function called but not implemented!\n");
-  return;
-}
 
 void
 userEOS(const double t, const grid *grd, 
@@ -25,6 +14,22 @@ userEOS(const double t, const grid *grd,
   fprintf(stderr, 
 	  "Warning: userEOS function called but not implemented!\n");
   return;
+}
+
+void
+userAlpha(const double t, const grid *grd, 
+	  const double *col, const double *pres, const double *eInt,
+	  const double *gamma, const double *delta,
+	  void *params,
+	  double *alpha) {
+  /* alpha = (nu0 vphi/R0) col/pres */
+
+  int i;
+  double nu0 = ((double *) params)[0];
+  double R0 = ((double *) params)[1];
+
+  for (i=0; i<grd->nr; i++)
+    alpha[i] = nu0 * grd->vphi_g[i+1]/R0 * col[i]/pres[i];
 }
 
 void
@@ -57,9 +62,16 @@ userIBC(const double t, const grid *grd,
 	void *params, 
 	double *ibc_pres_val, double *ibc_enth_val) {
 
-  fprintf(stderr, 
-	  "Warning: userIBC function called but not implemented!\n");
-  return;
+  double nu0 = ((double *) params)[0];
+  double R0 = ((double *) params)[1];
+  double Mdot0 = ((double *) params)[2];
+  double pOverCol = ((double *) params)[3];
+  double ts = R0*R0/(3.0*nu0);
+  double x = grd->r_g[0]/R0;
+  double T = t/ts;
+
+  *ibc_pres_val = -Mdot0*grd->vphi_g[0]*R0*x*exp(-x/T)/pow(T,1.5);
+  *ibc_enth_val = gamma[0]/(gamma[0]-1)*pOverCol;
 }
 
 void
@@ -70,10 +82,18 @@ userOBC(const double t, const grid *grd,
 	void *params, 
 	double *obc_pres_val, double *obc_enth_val) {
 
-  fprintf(stderr, 
-	  "Warning: userOBC function called but not implemented!\n");
-  return;
+  double nu0 = ((double *) params)[0];
+  double R0 = ((double *) params)[1];
+  double Mdot0 = ((double *) params)[2];
+  double pOverCol = ((double *) params)[3];
+  double ts = R0*R0/(3.0*nu0);
+  double x = grd->r_g[grd->nr+1]/R0;
+  double T = t/ts;
+
+  *obc_pres_val = -Mdot0*grd->vphi_g[grd->nr+1]*R0*x*exp(-x/T)/pow(T,1.5);
+  *obc_enth_val = gamma[grd->nr-1]/(gamma[grd->nr-1]-1)*pOverCol;
 }
+
 
 void
 userPreTimestep(const double t, const double dt,
@@ -128,3 +148,4 @@ userCheckWrite(
 	  "Warning: userCheckWrite function called but not implemented!\n");
   return;
 }
+

@@ -11,7 +11,7 @@ LDFLAGS  += -lm -lgsl -lgslcblas $(MUSE_LD_FLAGS)
 
 OBJS = interface.o
 
-CODELIB = src/libvader.so
+CODELIB = src/libvader.a
 
 CODE_GENERATOR = $(AMUSE_DIR)/build.py
 
