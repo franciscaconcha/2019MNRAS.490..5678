@@ -3,6 +3,22 @@ from amuse.couple.bridge import Bridge
 from amuse.community.fractalcluster.interface import new_fractal_cluster_model
 import numpy
 from matplotlib import pyplot
+import gzip
+
+
+def read_UVBLUE(filename):
+    column1 = []
+    column2 = []
+    with gzip.open(filename, 'r') as fin:
+        for line in fin.readlines()[3:]:
+            l1, l2 = line.split()
+            column1.append(float(l1))
+            column2.append(float(l2))
+
+    pyplot.semilogy(column1)
+    pyplot.semilogy(column2)
+    pyplot.show()
+    #return numpy.array(column1)
 
 
 def viscous_timescale(star, alpha, temperature_profile, Rref, Tref, mu, gamma):
@@ -46,6 +62,8 @@ def main(N, Rvir, Qvir, alpha, R, gas_presence, gas_expulsion, gas_expulsion_ons
          Tref=280 | units.K,
          mu=2.3 | units.g / units.mol,
          filename=''):
+
+    #read_UVBLUE('p00/t03000g00p00k2.flx.gz')
 
     # Read FRIED grid
     grid = numpy.loadtxt('friedgrid.dat', skiprows=2)
@@ -102,11 +120,17 @@ def main(N, Rvir, Qvir, alpha, R, gas_presence, gas_expulsion, gas_expulsion_ons
     channel_to_framework = stellar.particles.new_channel_to(stars)
     write_set_to_file(stars, 'results/0.hdf5', 'amuse')
 
+    temp, temp2 = [], []
+    lower_limit, upper_limit = 1000, 3000  # Limits for FUV in Angstrom
+
     while stellar.model_time < t_end:
         stellar.evolve_model(stellar.model_time + dt)
         channel_to_framework.copy_attributes(["radius", "temperature",
                                               "luminosity"])
-        write_set_to_file(stars, 'results/{0}.hdf5'.format(int(stellar.model_time.value_in(units.Myr))), 'amuse')
+        temp.append(stellar.particles[2].temperature.value_in(units.K))
+        temp2.append(round(stellar.particles[2].temperature.value_in(units.K) / 500) * 500)
+        print(round(stellar.particles[2].temperature.value_in(units.K) / 500) * 500)
+        #write_set_to_file(stars, 'results/{0}.hdf5'.format(int(stellar.model_time.value_in(units.Myr))), 'amuse')
 
     #stellar.evolve_model(t_end)
 
@@ -117,7 +141,12 @@ def main(N, Rvir, Qvir, alpha, R, gas_presence, gas_expulsion, gas_expulsion_ons
 
     stellar.stop()
 
-    times = numpy.arange(0, 10005, 5)
+    pyplot.plot(temp, label="Original temperatures")
+    pyplot.plot(temp2, label="Temperatures rounded to closest 500")
+    pyplot.legend()
+    pyplot.show()
+
+    """times = numpy.arange(0, 10005, 5)
     T1, L1, R1 = [], [], []
     T2, L2, R2 = [], [], []
     T3, L3, R3 = [], [], []
@@ -143,16 +172,20 @@ def main(N, Rvir, Qvir, alpha, R, gas_presence, gas_expulsion, gas_expulsion_ons
     pyplot.xlabel(x_label)
     pyplot.ylabel(y_label)
     ax.set_yscale('log')
-    pyplot.gca().invert_xaxis()
-    pyplot.scatter(T1, L1, s=80*numpy.sqrt(R1), c=times, cmap='Greens')
-    pyplot.scatter(T2, L2, s=80*numpy.sqrt(R2), c=times, cmap='Blues')
-    pyplot.scatter(T3, L3, s=80*numpy.sqrt(R3), c=times, cmap='Oranges')
+    #pyplot.gca().invert_xaxis()
+    #pyplot.scatter(T1, L1, s=80*numpy.sqrt(R1), c=times, cmap='Greens')
+    #pyplot.scatter(T2, L2, s=80*numpy.sqrt(R2), c=times, cmap='Blues')
+    #pyplot.scatter(T3, L3, s=80*numpy.sqrt(R3), c=times, cmap='Oranges')
 
-    pyplot.plot(T1[0], L1[0], 'rx')
-    pyplot.plot(T2[0], L2[0], 'rx')
-    pyplot.plot(T3[0], L3[0], 'rx')
+    pyplot.plot(times, L1)
+    pyplot.plot(times, L2)
+    pyplot.plot(times, L3)
 
-    pyplot.show()
+    #pyplot.plot(T1[0], L1[0], 'rx')
+    #pyplot.plot(T2[0], L2[0], 'rx')
+    #pyplot.plot(T3[0], L3[0], 'rx')
+
+    pyplot.show()"""
 
     """stars = read_set_from_file('stars.h5', 'hdf5')
     T = stars.temperature.value_in(units.K)
