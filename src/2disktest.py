@@ -6,19 +6,68 @@ from matplotlib import pyplot
 import gzip
 
 
-def read_UVBLUE(filename):
-    column1 = []
-    column2 = []
-    with gzip.open(filename, 'r') as fin:
-        for line in fin.readlines()[3:]:
+def find_nearest(array, value):
+    """
+    Return closest number to "value" in array
+    :param array: Array of floats
+    :param value: Value to find
+    :return: Index of most similar number to value, and the number
+    """
+    array = numpy.asarray(array)
+    idx = numpy.abs(array - value).argmin()
+    return idx, array[idx]
+
+
+def read_UVBLUE(filename, limits=None):
+    """
+    Read UVBLUE spectrum
+
+    :param filename: Name of file to read, including path
+    :param limits: [low, high] Lower and higher wavelength limits to read. If not specified, the whole spectrum is returned
+    :return: Array with radiation in the range given by limits, or full wavelength range
+    """
+
+    column1 = []  # data
+    column2 = []  # "fit"?
+
+    with gzip.open(filename, 'r') as fuv:
+        for line in fuv.readlines()[3:]:
             l1, l2 = line.split()
             column1.append(float(l1))
             column2.append(float(l2))
 
-    pyplot.semilogy(column1)
-    pyplot.semilogy(column2)
-    pyplot.show()
+    if limits is not None:
+        with gzip.open(filename, 'r') as fuv:
+            wl = fuv.readlines()[1].split()
+        steps, first, last = int(wl[0]), float(wl[1]), float(wl[2])
+
+        # Find the correct range in the wavelengths, return corresponding radiation range
+        wavelengths = numpy.linspace(first, last, steps)
+
+        id_lower, lower = find_nearest(wavelengths, limits[0])
+        id_higher, higher = find_nearest(wavelengths, limits[1])
+
+        FUV_radiation = column1[id_lower:id_higher + 1]  # + 1 to include higher
+        return numpy.array(FUV_radiation)
+    else:
+        return numpy.array(column1)
+
+    #pyplot.semilogy(column1)
+    #pyplot.semilogy(column2)
+    #pyplot.show()
     #return numpy.array(column1)
+
+
+def integrate_FUV(filename, lower, higher):
+    """
+    Return total FUV radiation in SED between wavelenghts lower and higher.
+    :param filename: Name for UVBLUE file to read
+    :param lower: Lower limit for wavelength
+    :param higher: Higher limit for wavelength
+    :return: Total radiation between lower and higher wavelengths
+    """
+    radiation = read_UVBLUE(filename, [lower, higher])
+    return radiation.sum()
 
 
 def viscous_timescale(star, alpha, temperature_profile, Rref, Tref, mu, gamma):
@@ -120,16 +169,39 @@ def main(N, Rvir, Qvir, alpha, R, gas_presence, gas_expulsion, gas_expulsion_ons
     channel_to_framework = stellar.particles.new_channel_to(stars)
     write_set_to_file(stars, 'results/0.hdf5', 'amuse')
 
-    temp, temp2 = [], []
-    lower_limit, upper_limit = 1000, 3000  # Limits for FUV in Angstrom
+    #temp, temp2 = [], []
+    lower_limit, upper_limit = 1000, 3000  # Limits for FUV, in Angstrom
+    fuv_filename_base = "p00/t{0}g{1}p00k2.flx.gz"
+    g = "00"
 
     while stellar.model_time < t_end:
         stellar.evolve_model(stellar.model_time + dt)
         channel_to_framework.copy_attributes(["radius", "temperature",
                                               "luminosity"])
-        temp.append(stellar.particles[2].temperature.value_in(units.K))
-        temp2.append(round(stellar.particles[2].temperature.value_in(units.K) / 500) * 500)
-        print(round(stellar.particles[2].temperature.value_in(units.K) / 500) * 500)
+        #temp.append(stellar.particles[2].temperature.value_in(units.K))
+        #temp2.append(round(stellar.particles[2].temperature.value_in(units.K) / 500) * 500)
+
+        # Bright stars: no disks; emit FUV radiation
+        bright_stars = [s for s in stellar.particles if s.mass.value_in(units.MSun) > 3]
+
+        # Small stars: with disks; radiation not considered
+        small_stars = [s for s in stellar.particles if s.mass.value_in(units.MSun) < 3]
+
+        for s in bright_stars:  # For each massive/bright star
+            temp = round(s.temperature.value_in(units.K) / 500) * 500
+
+            if temp < 3500:
+                g = "50"
+            elif temp > 24000:
+                g = "40"
+            else:
+                g = "45"
+
+            temp_5d = format(int(temp), "05d")  # Correct format for UVBLUE filename
+            rad = integrate_FUV(fuv_filename_base.format(temp_5d, g), 1000, 3000)  # 1000, 3000 A: FUV limits
+            print(rad)
+
+        #print(round(stellar.particles[2].temperature.value_in(units.K) / 500) * 500)
         #write_set_to_file(stars, 'results/{0}.hdf5'.format(int(stellar.model_time.value_in(units.Myr))), 'amuse')
 
     #stellar.evolve_model(t_end)
@@ -141,10 +213,10 @@ def main(N, Rvir, Qvir, alpha, R, gas_presence, gas_expulsion, gas_expulsion_ons
 
     stellar.stop()
 
-    pyplot.plot(temp, label="Original temperatures")
-    pyplot.plot(temp2, label="Temperatures rounded to closest 500")
-    pyplot.legend()
-    pyplot.show()
+    #pyplot.plot(temp, label="Original temperatures")
+    #pyplot.plot(temp2, label="Temperatures rounded to closest 500")
+    #pyplot.legend()
+    #pyplot.show()
 
     """times = numpy.arange(0, 10005, 5)
     T1, L1, R1 = [], [], []
