@@ -4,6 +4,7 @@ from amuse.community.fractalcluster.interface import new_fractal_cluster_model
 import numpy
 from matplotlib import pyplot
 import gzip
+import copy
 
 
 def find_nearest(array, value):
@@ -68,6 +69,26 @@ def integrate_FUV(filename, lower, higher):
     """
     radiation = read_UVBLUE(filename, [lower, higher])
     return radiation.sum()
+
+
+def distance(star1, star2):
+    """
+    Return distance between star1 and star2
+    :param star1:
+    :param star2:
+    :return:
+    """
+    return numpy.sqrt((star2.x - star1.x)**2 + (star2.y - star1.y)**2 + (star2.z - star1.z)**2)
+
+
+def radiation_at_distance(rad, R):
+    """
+    Return radiation rad at distance R
+    :param rad: total radiation of star
+    :param R: distance
+    :return: radiation of star at distance R
+    """
+    return 4 * numpy.pi * R**2 * rad
 
 
 def viscous_timescale(star, alpha, temperature_profile, Rref, Tref, mu, gamma):
@@ -174,18 +195,47 @@ def main(N, Rvir, Qvir, alpha, R, gas_presence, gas_expulsion, gas_expulsion_ons
     fuv_filename_base = "p00/t{0}g{1}p00k2.flx.gz"
     g = "00"
 
-    while stellar.model_time < t_end:
-        stellar.evolve_model(stellar.model_time + dt)
-        channel_to_framework.copy_attributes(["radius", "temperature",
-                                              "luminosity"])
+    gravity = ph4(converter)
+    gravity.parameters.timestep_parameter = 0.01
+    gravity.parameters.epsilon_squared = (100 | units.AU) ** 2
+    gravity.particles.add_particles(stars)
+
+    channel_from_stellar_to_framework \
+        = stellar.particles.new_channel_to(stars)
+    channel_from_stellar_to_gravity \
+        = stellar.particles.new_channel_to(gravity.particles)
+    channel_from_gravity_to_framework \
+        = gravity.particles.new_channel_to(stars)
+
+    Etot_init = gravity.kinetic_energy + gravity.potential_energy
+    dE_gr = 0 | Etot_init.unit
+    time = 0.0 | t_end.unit
+    dt = stellar.particles.time_step.amin()
+
+    # Bright stars: no disks; emit FUV radiation
+    bright_stars = [s for s in stars if s.mass.value_in(units.MSun) > 3]
+
+    # Small stars: with disks; radiation not considered
+    small_stars = [s for s in stars if s.mass.value_in(units.MSun) < 3]
+
+    print "INIT:"
+    print stars.x
+    print stars.y
+    print stars.z
+    initx, inity, initz = copy.deepcopy(stars.x), copy.deepcopy(stars.y), copy.deepcopy(stars.z)
+
+    while time < t_end:
+        dt = min(dt, t_end - time)
+        stellar.evolve_model(time + dt/2)
+        channel_from_stellar_to_gravity.copy()
+        Etot_gr = gravity.kinetic_energy + gravity.potential_energy
+        gravity.evolve_model(time + dt)
+        dE_gr += (gravity.kinetic_energy + gravity.potential_energy - Etot_gr)
+
+        #channel_to_framework.copy_attributes(["radius", "temperature",
+        #                                      "luminosity"])
         #temp.append(stellar.particles[2].temperature.value_in(units.K))
         #temp2.append(round(stellar.particles[2].temperature.value_in(units.K) / 500) * 500)
-
-        # Bright stars: no disks; emit FUV radiation
-        bright_stars = [s for s in stellar.particles if s.mass.value_in(units.MSun) > 3]
-
-        # Small stars: with disks; radiation not considered
-        small_stars = [s for s in stellar.particles if s.mass.value_in(units.MSun) < 3]
 
         for s in bright_stars:  # For each massive/bright star
             temp = round(s.temperature.value_in(units.K) / 500) * 500
@@ -199,7 +249,27 @@ def main(N, Rvir, Qvir, alpha, R, gas_presence, gas_expulsion, gas_expulsion_ons
 
             temp_5d = format(int(temp), "05d")  # Correct format for UVBLUE filename
             rad = integrate_FUV(fuv_filename_base.format(temp_5d, g), 1000, 3000)  # 1000, 3000 A: FUV limits
-            print(rad)
+
+            for ss in small_stars:
+                dist = distance(s, ss)
+                radiation_ss = radiation_at_distance(rad, dist)
+                #print("Radiation in star {0}: {1} G0".format(list(stellar.particles).index(ss),
+                #                                             radiation_ss/1.6E-3))
+
+        stellar.evolve_model(time + dt)
+        channel_from_stellar_to_gravity.copy()
+        channel_from_gravity_to_framework.copy()
+        time += dt
+
+    print "END:"
+    print stars.x
+    print stars.y
+    print stars.z
+    pyplot.scatter(initx.value_in(units.parsec), inity.value_in(units.parsec), s=500, label="init")
+    pyplot.scatter(stars.x.value_in(units.parsec), stars.y.value_in(units.parsec),
+                   s=100 * stars[2].radius.value_in(units.RSun), label="end")
+    pyplot.legend()
+    pyplot.show()
 
         #print(round(stellar.particles[2].temperature.value_in(units.K) / 500) * 500)
         #write_set_to_file(stars, 'results/{0}.hdf5'.format(int(stellar.model_time.value_in(units.Myr))), 'amuse')
