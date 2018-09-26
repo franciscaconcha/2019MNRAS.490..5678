@@ -7,6 +7,37 @@ import gzip
 import copy
 
 
+def luminosity_fit(mass):
+    """
+    Return stellar luminosity (in LSun) for corresponding mass, as calculated with Martijn's fit
+
+    :param mass: stellar mass in MSun
+    :return: stellar luminosity in LSun
+    """
+    if 0.12 < mass < 0.24:
+        return (1.70294E16 * numpy.power(mass, 42.557)) | units.LSun
+    elif 0.24 < mass < 0.56:
+        return (9.11137E-9 * numpy.power(mass, 3.8845)) | units.LSun
+    elif 0.56 < mass < 0.70:
+        return (1.10021E-6 * numpy.power(mass, 12.237)) | units.LSun
+    elif 0.70 < mass < 0.91:
+        return (2.38690E-4 * numpy.power(mass, 27.199)) | units.LSun
+    elif 0.91 < mass < 1.37:
+        return (1.02477E-4 * numpy.power(mass, 18.465)) | units.LSun
+    elif 1.37 < mass < 2.07:
+        return (9.66362E-4 * numpy.power(mass, 11.410)) | units.LSun
+    elif 2.07 < mass < 3.72:
+        return (6.49335E-2 * numpy.power(mass, 5.6147)) | units.LSun
+    elif 3.72 < mass < 10.0:
+        return (6.99075E-1 * numpy.power(mass, 3.8058)) | units.LSun
+    elif 10.0 < mass < 20.2:
+        return (9.73664E0 * numpy.power(mass, 2.6620)) | units.LSun
+    elif 20.2 < mass:
+        return (1.31175E2 * numpy.power(mass, 1.7974)) | units.LSun
+    else:
+        return 0 | units.LSun
+
+
 def find_nearest(array, value):
     """
     Return closest number to "value" in array
@@ -49,12 +80,12 @@ def read_UVBLUE(filename, limits=None):
         id_higher, higher = find_nearest(wavelengths, limits[1])
 
         FUV_radiation = column1[id_lower:id_higher + 1]  # + 1 to include higher
-        return numpy.array(FUV_radiation)
+        return numpy.array(FUV_radiation) | units.erg
     else:
         return numpy.array(column1)
 
-    #pyplot.semilogy(column1)
-    #pyplot.semilogy(column2)
+    #pyplot.plot(column1)
+    #pyplot.plot(column2)
     #pyplot.show()
     #return numpy.array(column1)
 
@@ -84,11 +115,11 @@ def distance(star1, star2):
 def radiation_at_distance(rad, R):
     """
     Return radiation rad at distance R
-    :param rad: total radiation of star
-    :param R: distance
-    :return: radiation of star at distance R
+    :param rad: total radiation of star in erg/s
+    :param R: distance in cm
+    :return: radiation of star at distance R, in erg * s^-1 * cm^-2
     """
-    return 4 * numpy.pi * R**2 * rad
+    return rad / (4 * numpy.pi * R**2) | (units.erg / (units.s * units.cm**2))
 
 
 def viscous_timescale(star, alpha, temperature_profile, Rref, Tref, mu, gamma):
@@ -186,6 +217,7 @@ def main(N, Rvir, Qvir, alpha, R, gas_presence, gas_expulsion, gas_expulsion_ons
     print("L(t=0 Myr) = {0}".format(initial_luminosity))
     print("R(t=0 Myr) = {0}".format(stellar.particles.radius.in_(units.RSun)))
     print("m(t=0 Myr) = {0}".format(stellar.particles.mass.in_(units.MSun)))
+    print("Temp(t=0 Myr) = {0}".format(stellar.particles[2].temperature.in_(units.K)))
 
     channel_to_framework = stellar.particles.new_channel_to(stars)
     write_set_to_file(stars, 'results/0.hdf5', 'amuse')
@@ -239,6 +271,7 @@ def main(N, Rvir, Qvir, alpha, R, gas_presence, gas_expulsion, gas_expulsion_ons
 
         for s in bright_stars:  # For each massive/bright star
             temp = round(s.temperature.value_in(units.K) / 500) * 500
+            #print("temp: {0}".format(temp))
 
             if temp < 3500:
                 g = "50"
@@ -248,18 +281,23 @@ def main(N, Rvir, Qvir, alpha, R, gas_presence, gas_expulsion, gas_expulsion_ons
                 g = "45"
 
             temp_5d = format(int(temp), "05d")  # Correct format for UVBLUE filename
-            rad = integrate_FUV(fuv_filename_base.format(temp_5d, g), 1000, 3000)  # 1000, 3000 A: FUV limits
+            #rad = integrate_FUV(fuv_filename_base.format(temp_5d, g), 1000, 3000)  # 1000, 3000 A: FUV limits
+            lum = luminosity_fit(s.mass.value_in(units.MSun))  # In LSun
 
             for ss in small_stars:
                 dist = distance(s, ss)
-                radiation_ss = radiation_at_distance(rad, dist)
-                #print("Radiation in star {0}: {1} G0".format(list(stellar.particles).index(ss),
-                #                                             radiation_ss/1.6E-3))
+                radiation_ss = radiation_at_distance(lum.value_in(units.erg / units.s),
+                                                     dist.value_in(units.cm))
+                print radiation_ss
+                print("Radiation in star {0} at time {1}: {2} G0".format(list(stellar.particles).index(ss),
+                                                                         stellar.model_time,
+                                                                        radiation_ss.value_in(units.erg/(units.s * units.cm**2)) / 1.6E-3))
 
         stellar.evolve_model(time + dt)
         channel_from_stellar_to_gravity.copy()
         channel_from_gravity_to_framework.copy()
         time += dt
+        print(time)
 
     print "END:"
     print stars.x
@@ -280,6 +318,8 @@ def main(N, Rvir, Qvir, alpha, R, gas_presence, gas_expulsion, gas_expulsion_ons
     print("L(t={0}) = {1}".format(stellar.model_time, stellar.particles.luminosity.in_(units.LSun)))
     print("R(t={0}) = {1}".format(stellar.model_time, stellar.particles.radius.in_(units.RSun)))
     print("m(t={0}) = {1}".format(stellar.model_time, stellar.particles.mass.in_(units.MSun)))
+    print("Temp(t={0}) = {1}".format(stellar.model_time, stellar.particles[2].temperature.in_(units.K)))
+
 
     stellar.stop()
 
