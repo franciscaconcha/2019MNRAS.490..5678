@@ -168,7 +168,18 @@ def main(N, Rvir, Qvir, alpha, R, gas_presence, gas_expulsion, gas_expulsion_ons
 
     # Read FRIED grid
     grid = numpy.loadtxt('friedgrid.dat', skiprows=2)
-    #print(grid)
+
+    # Getting only the useful parameters from the grid (not including Mdot)
+    FRIED_grid = grid[:, [0, 1, 2, 4]]
+    log10Mdot = grid[:, 5]
+
+    # Stellar masses of the FRIED grid (MSun)
+    #masses = [0.05, 0.1, 0.3, 0.5, 0.8, 1.0, 1.3, 1.6, 1.9]
+    #FUV_fields = [10, 100, 1000, 5000, 10000]
+    #for m in FUV_fields:
+    #    M = [x for x in grid if x[1] == m]
+    #    print len(M)
+    #    print M[0][0]
 
     t_end = t_end | units.Myr
 
@@ -289,9 +300,10 @@ def main(N, Rvir, Qvir, alpha, R, gas_presence, gas_expulsion, gas_expulsion_ons
                 radiation_ss = radiation_at_distance(lum.value_in(units.erg / units.s),
                                                      dist.value_in(units.cm))
                 print radiation_ss
-                print("Radiation in star {0} at time {1}: {2} G0".format(list(stellar.particles).index(ss),
-                                                                         stellar.model_time,
-                                                                        radiation_ss.value_in(units.erg/(units.s * units.cm**2)) / 1.6E-3))
+                #print("Radiation in star {0} at time {1}: {2} G0".format(list(stellar.particles).index(ss),
+                #                                                         stellar.model_time,
+                #                                                        radiation_ss.value_in(units.erg/(units.s * units.cm**2)) / 1.6E-3))
+                print(ss.mass, ss.disk_mass, ss.disk_radius, radiation_ss.value_in(units.erg/(units.s * units.cm**2)) / 1.6E-3)
 
         stellar.evolve_model(time + dt)
         channel_from_stellar_to_gravity.copy()
