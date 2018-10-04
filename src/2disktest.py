@@ -5,6 +5,7 @@ import numpy
 from matplotlib import pyplot
 import gzip
 import copy
+from scipy.interpolate import griddata
 
 
 def luminosity_fit(mass):
@@ -131,44 +132,17 @@ def find_indices(column, val):
     :param val: number to be located in column
     :return: i, j indices
     """
-    """index_i = min(range(len(column)), key=lambda i: abs(column[i] - val))
-    index_i_value = column[index_i]
-
-    if index_i_value <= val:
-        index_j = 0
-        N = index_i
-
-        for i in column[index_i:]:
-            if i > index_i_value:
-                index_j = N
-                break
-            else:
-                N += 1
-    else:
-        index_j = 0
-        N = index_i
-
-        for i in column[:index_i]:
-            if i > index_i_value:
-                index_j = N
-                break
-            else:
-                N += 1
-
-    #if index == len(column) - 1: # If most similar value is found at the end of the column
-    #    return index, index
-
-    return index_i, index_j"""
-    # the largest element of myArr less than myNumber
+    # The largest element of column less than val
     value_below = column[column < val].max()
+    # Find index
     index_i = numpy.where(column == value_below)[0][0]
 
-    # the smallest element of myArr greater than myNumber
+    # The smallest element of column greater than val
     value_above = column[column > val].min()
+    # Find index
     index_j = numpy.where(column == value_above)[0][0]
 
-    return index_i, index_j
-
+    return int(index_i), int(index_j)
 
 
 def viscous_timescale(star, alpha, temperature_profile, Rref, Tref, mu, gamma):
@@ -361,32 +335,56 @@ def main(N, Rvir, Qvir, alpha, R, gas_presence, gas_expulsion, gas_expulsion_ons
                       ss.disk_mass.value_in(units.MJupiter),
                       ss.disk_radius.value_in(units.AU)
                       )
-                subgrid = numpy.ndarray(shape=(8, 4), dtype=float, order='F')
+                xi = numpy.ndarray(shape=(1, 4), dtype=float)
+                xi[0][0] = ss.mass.value_in(units.MSun)
+                xi[0][1] = radiation_ss_G0
+                xi[0][2] = ss.disk_mass.value_in(units.MJupiter)
+                xi[0][3] = ss.disk_radius.value_in(units.AU)
+
+                subgrid = numpy.ndarray(shape=(8, 4), dtype=float)
                 #print("Mass indices:")
                 stellar_mass_i, stellar_mass_j = find_indices(grid_stellar_masses, ss.mass.value_in(units.MSun))
                 subgrid[0] = FRIED_grid[stellar_mass_i]
                 subgrid[1] = FRIED_grid[stellar_mass_j]
-                print stellar_mass_i, stellar_mass_j
+                print stellar_mass_i.__class__, stellar_mass_j.__class__
                 print grid_stellar_masses[stellar_mass_i], grid_stellar_masses[stellar_mass_j]
                 #print("FUV indices:")
                 FUV_i, FUV_j =  find_indices(grid_FUV, radiation_ss_G0)
                 subgrid[2] = FRIED_grid[FUV_i]
                 subgrid[3] = FRIED_grid[FUV_j]
-                print FUV_i, FUV_j
+                print FUV_i.__class__, FUV_j.__class__
                 print grid_FUV[FUV_i], grid_FUV[FUV_j]
                 #print("Disk mass indices:")
                 disk_mass_i, disk_mass_j = find_indices(grid_disk_mass, ss.disk_mass.value_in(units.MJupiter))
                 subgrid[4] = FRIED_grid[disk_mass_i]
                 subgrid[5] = FRIED_grid[disk_mass_j]
-                print disk_mass_i, disk_mass_j
+                print disk_mass_i.__class__, disk_mass_j.__class__
                 print grid_disk_mass[disk_mass_i], grid_disk_mass[disk_mass_j]
                 #print("Disk radius indices:")
                 disk_radius_i, disk_radius_j = find_indices(grid_disk_radius, ss.disk_radius.value_in(units.AU))
                 subgrid[6] = FRIED_grid[disk_radius_i]
                 subgrid[7] = FRIED_grid[disk_radius_j]
-                print disk_radius_i, disk_radius_j
+                print disk_radius_i.__class__, disk_radius_j.__class__
                 print grid_disk_radius[disk_radius_i], grid_disk_radius[disk_radius_j]
+                print subgrid.shape
+
+                Mdot_values = numpy.ndarray(shape=(8, ), dtype=float)
+                print grid_log10Mdot
+                indices_list = [stellar_mass_i, stellar_mass_j, FUV_i, FUV_j, disk_mass_i, disk_mass_j, disk_radius_i, disk_radius_j]
+                print indices_list
+                for x in indices_list:
+                    Mdot_values[indices_list.index(x)] = grid_log10Mdot[x]
+                print Mdot_values
+
+                print("interpolation:")
                 print subgrid
+                print subgrid.shape
+                print Mdot_values
+                print Mdot_values.shape
+                print xi
+                print xi.shape
+                print griddata(subgrid, Mdot_values, xi, method="nearest")
+
                 break
             break
         break
@@ -401,11 +399,11 @@ def main(N, Rvir, Qvir, alpha, R, gas_presence, gas_expulsion, gas_expulsion_ons
     print stars.x
     print stars.y
     print stars.z
-    pyplot.scatter(initx.value_in(units.parsec), inity.value_in(units.parsec), s=500, label="init")
-    pyplot.scatter(stars.x.value_in(units.parsec), stars.y.value_in(units.parsec),
-                   s=100 * stars[2].radius.value_in(units.RSun), label="end")
-    pyplot.legend()
-    pyplot.show()
+    #pyplot.scatter(initx.value_in(units.parsec), inity.value_in(units.parsec), s=500, label="init")
+    #pyplot.scatter(stars.x.value_in(units.parsec), stars.y.value_in(units.parsec),
+    #               s=100 * stars[2].radius.value_in(units.RSun), label="end")
+    #pyplot.legend()
+    #pyplot.show()
 
         #print(round(stellar.particles[2].temperature.value_in(units.K) / 500) * 500)
         #write_set_to_file(stars, 'results/{0}.hdf5'.format(int(stellar.model_time.value_in(units.Myr))), 'amuse')
