@@ -122,6 +122,34 @@ def radiation_at_distance(rad, R):
     return rad / (4 * numpy.pi * R**2) | (units.erg / (units.s * units.cm**2))
 
 
+def find_indices(column, val):
+    """
+    Return indices of column values in between which val is located.
+    Return i,j such that column[i] < val < column[j]
+
+    :param column: column where val is to be located
+    :param val: number to be located in column
+    :return: i, j indices
+    """
+    index_i = min(range(len(column)), key=lambda i: abs(column[i] - val))
+    index_i_value = column[index_i]
+
+    index_j = 0
+    N = index_i
+
+    for i in column[index_i:]:
+        if i > index_i_value:
+            index_j = N
+            break
+        else:
+            N += 1
+
+    #if index == len(column) - 1: # If most similar value is found at the end of the column
+    #    return index, index
+
+    return index_i, index_j
+
+
 def viscous_timescale(star, alpha, temperature_profile, Rref, Tref, mu, gamma):
     """Compute the viscous timescale of the circumstellar disk.
 
@@ -164,23 +192,6 @@ def main(N, Rvir, Qvir, alpha, R, gas_presence, gas_expulsion, gas_expulsion_ons
          mu=2.3 | units.g / units.mol,
          filename=''):
 
-    #read_UVBLUE('p00/t03000g00p00k2.flx.gz')
-
-    # Read FRIED grid
-    grid = numpy.loadtxt('friedgrid.dat', skiprows=2)
-
-    # Getting only the useful parameters from the grid (not including Mdot)
-    FRIED_grid = grid[:, [0, 1, 2, 4]]
-    log10Mdot = grid[:, 5]
-
-    # Stellar masses of the FRIED grid (MSun)
-    #masses = [0.05, 0.1, 0.3, 0.5, 0.8, 1.0, 1.3, 1.6, 1.9]
-    #FUV_fields = [10, 100, 1000, 5000, 10000]
-    #for m in FUV_fields:
-    #    M = [x for x in grid if x[1] == m]
-    #    print len(M)
-    #    print M[0][0]
-
     t_end = t_end | units.Myr
 
     # Test run: 2 disks + one massive star
@@ -195,8 +206,9 @@ def main(N, Rvir, Qvir, alpha, R, gas_presence, gas_expulsion, gas_expulsion_ons
     print("stellar masses: ", stellar_masses)
 
     stars.mass = stellar_masses
-    stars.initial_characteristic_disk_radius = (stars.mass.value_in(units.MSun) ** 0.5) * R | units.AU
+    stars.initial_characteristic_disk_radius = 30 * (stars.mass.value_in(units.MSun) ** 0.5) | units.AU
     stars.disk_radius = stars.initial_characteristic_disk_radius
+    print stars.disk_radius
     stars.initial_disk_mass = disk_masses
     stars.disk_mass = stars.initial_disk_mass
     stars.total_star_mass = stars.initial_disk_mass + stars.mass
@@ -267,6 +279,26 @@ def main(N, Rvir, Qvir, alpha, R, gas_presence, gas_expulsion, gas_expulsion_ons
     print stars.z
     initx, inity, initz = copy.deepcopy(stars.x), copy.deepcopy(stars.y), copy.deepcopy(stars.z)
 
+    # Read FRIED grid
+    grid = numpy.loadtxt('friedgrid.dat', skiprows=2)
+
+    # Getting only the useful parameters from the grid (not including Mdot)
+    FRIED_grid = grid[:, [0, 1, 2, 4]]
+    grid_log10Mdot = grid[:, 5]
+
+    grid_stellar_masses = FRIED_grid[:, 0]
+    grid_FUV = FRIED_grid[:, 1]
+    grid_disk_mass = FRIED_grid[:, 2]
+    grid_disk_radius = FRIED_grid[:, 3]
+
+    # Stellar masses of the FRIED grid (MSun)
+    #masses = [0.05, 0.1, 0.3, 0.5, 0.8, 1.0, 1.3, 1.6, 1.9]
+    #FUV_fields = [10, 100, 1000, 5000, 10000]
+    #for m in FUV_fields:
+    #    M = [x for x in grid if x[1] == m]
+    #    print len(M)
+    #    print M[0][0]
+
     while time < t_end:
         dt = min(dt, t_end - time)
         stellar.evolve_model(time + dt/2)
@@ -299,17 +331,42 @@ def main(N, Rvir, Qvir, alpha, R, gas_presence, gas_expulsion, gas_expulsion_ons
                 dist = distance(s, ss)
                 radiation_ss = radiation_at_distance(lum.value_in(units.erg / units.s),
                                                      dist.value_in(units.cm))
-                print radiation_ss
+                radiation_ss_G0 = radiation_ss.value_in(units.erg/(units.s * units.cm**2)) / 1.6E-3
                 #print("Radiation in star {0} at time {1}: {2} G0".format(list(stellar.particles).index(ss),
                 #                                                         stellar.model_time,
                 #                                                        radiation_ss.value_in(units.erg/(units.s * units.cm**2)) / 1.6E-3))
-                print(ss.mass, ss.disk_mass, ss.disk_radius, radiation_ss.value_in(units.erg/(units.s * units.cm**2)) / 1.6E-3)
+                print(ss.mass.value_in(units.MSun),
+                      radiation_ss_G0,
+                      ss.disk_mass.value_in(units.MJupiter),
+                      ss.disk_radius.value_in(units.AU)
+                      )
+                subgrid = numpy.ndarray(shape=(8, 4), dtype=float, order='F')
+                #print("Mass indices:")
+                stellar_mass_i, stellar_mass_j = find_indices(grid_stellar_masses, ss.mass.value_in(units.MSun))
+                subgrid[0] = FRIED_grid[stellar_mass_i]
+                subgrid[1] = FRIED_grid[stellar_mass_j]
+                #print("FUV indices:")
+                FUV_i, FUV_j =  find_indices(grid_FUV, radiation_ss_G0)
+                subgrid[2] = FRIED_grid[FUV_i]
+                subgrid[3] = FRIED_grid[FUV_j]
+                #print("Disk mass indices:")
+                disk_mass_i, disk_mass_j = find_indices(grid_disk_mass, ss.disk_mass.value_in(units.MJupiter))
+                subgrid[4] = FRIED_grid[disk_mass_i]
+                subgrid[5] = FRIED_grid[disk_mass_j]
+                #print("Disk radius indices:")
+                disk_radius_i, disk_radius_j = find_indices(grid_disk_radius, ss.disk_radius.value_in(units.AU))
+                subgrid[6] = FRIED_grid[disk_radius_i]
+                subgrid[7] = FRIED_grid[disk_radius_j]
+                print subgrid
+                break
+            break
+        break
 
         stellar.evolve_model(time + dt)
         channel_from_stellar_to_gravity.copy()
         channel_from_gravity_to_framework.copy()
         time += dt
-        print(time)
+        #print(time)
 
     print "END:"
     print stars.x
