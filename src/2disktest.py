@@ -131,23 +131,44 @@ def find_indices(column, val):
     :param val: number to be located in column
     :return: i, j indices
     """
-    index_i = min(range(len(column)), key=lambda i: abs(column[i] - val))
+    """index_i = min(range(len(column)), key=lambda i: abs(column[i] - val))
     index_i_value = column[index_i]
 
-    index_j = 0
-    N = index_i
+    if index_i_value <= val:
+        index_j = 0
+        N = index_i
 
-    for i in column[index_i:]:
-        if i > index_i_value:
-            index_j = N
-            break
-        else:
-            N += 1
+        for i in column[index_i:]:
+            if i > index_i_value:
+                index_j = N
+                break
+            else:
+                N += 1
+    else:
+        index_j = 0
+        N = index_i
+
+        for i in column[:index_i]:
+            if i > index_i_value:
+                index_j = N
+                break
+            else:
+                N += 1
 
     #if index == len(column) - 1: # If most similar value is found at the end of the column
     #    return index, index
 
+    return index_i, index_j"""
+    # the largest element of myArr less than myNumber
+    value_below = column[column < val].max()
+    index_i = numpy.where(column == value_below)[0][0]
+
+    # the smallest element of myArr greater than myNumber
+    value_above = column[column > val].min()
+    index_j = numpy.where(column == value_above)[0][0]
+
     return index_i, index_j
+
 
 
 def viscous_timescale(star, alpha, temperature_profile, Rref, Tref, mu, gamma):
@@ -345,18 +366,26 @@ def main(N, Rvir, Qvir, alpha, R, gas_presence, gas_expulsion, gas_expulsion_ons
                 stellar_mass_i, stellar_mass_j = find_indices(grid_stellar_masses, ss.mass.value_in(units.MSun))
                 subgrid[0] = FRIED_grid[stellar_mass_i]
                 subgrid[1] = FRIED_grid[stellar_mass_j]
+                print stellar_mass_i, stellar_mass_j
+                print grid_stellar_masses[stellar_mass_i], grid_stellar_masses[stellar_mass_j]
                 #print("FUV indices:")
                 FUV_i, FUV_j =  find_indices(grid_FUV, radiation_ss_G0)
                 subgrid[2] = FRIED_grid[FUV_i]
                 subgrid[3] = FRIED_grid[FUV_j]
+                print FUV_i, FUV_j
+                print grid_FUV[FUV_i], grid_FUV[FUV_j]
                 #print("Disk mass indices:")
                 disk_mass_i, disk_mass_j = find_indices(grid_disk_mass, ss.disk_mass.value_in(units.MJupiter))
                 subgrid[4] = FRIED_grid[disk_mass_i]
                 subgrid[5] = FRIED_grid[disk_mass_j]
+                print disk_mass_i, disk_mass_j
+                print grid_disk_mass[disk_mass_i], grid_disk_mass[disk_mass_j]
                 #print("Disk radius indices:")
                 disk_radius_i, disk_radius_j = find_indices(grid_disk_radius, ss.disk_radius.value_in(units.AU))
                 subgrid[6] = FRIED_grid[disk_radius_i]
                 subgrid[7] = FRIED_grid[disk_radius_j]
+                print disk_radius_i, disk_radius_j
+                print grid_disk_radius[disk_radius_i], grid_disk_radius[disk_radius_j]
                 print subgrid
                 break
             break
