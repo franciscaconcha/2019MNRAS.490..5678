@@ -133,12 +133,20 @@ def find_indices(column, val):
     :return: i, j indices
     """
     # The largest element of column less than val
-    value_below = column[column < val].max()
+    try:
+        value_below = column[column < val].max()
+    except ValueError:
+        # If there are no values less than val in column, return smallest element of column
+        value_below = column.min()
     # Find index
     index_i = numpy.where(column == value_below)[0][0]
 
     # The smallest element of column greater than val
-    value_above = column[column > val].min()
+    try:
+        value_above = column[column > val].min()
+    except ValueError:
+        # If there are no values larger than val in column, return largest element of column
+        value_above = column.max()
     # Find index
     index_j = numpy.where(column == value_above)[0][0]
 
