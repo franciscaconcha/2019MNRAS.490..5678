@@ -1,5 +1,11 @@
 from amuse.lab import *
 import numpy
+from amuse.couple.bridge import Bridge
+from amuse.community.fractalcluster.interface import new_fractal_cluster_model
+from matplotlib import pyplot
+import gzip
+import copy
+from scipy import interpolate
 
 
 def column_density(r):
@@ -37,7 +43,6 @@ def main():
     T = 100. | units.K
     disk.grid.pressure = sigma * constants.kB * T / (2.33 * mH)
 
-
     print((disk.grid.area * disk.grid.column_density).sum())
     print disk.grid.r
     less = [disk.grid.r > 10E13 | units.cm]# = 1E-8 | units.g / (units.cm)**2
@@ -46,7 +51,7 @@ def main():
     for x in range(len(disk.grid.column_density)):
         if disk.grid.r[x] > 10E13 | units.cm:
             print "yes"
-            disk.grid.column_density[x] = 1E-12 | units.g / (units.cm)**2.0
+            disk.grid[x].column_density = 1E-12 | units.g / (units.cm)**2.0
     print(disk.grid.column_density)
     disk.evolve_model(0.04 | units.Myr)
     #print(disk.grid.mass_source_difference)
