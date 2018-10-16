@@ -28,11 +28,11 @@ def main():
         128,  # Number of cells
         True,  # Linear?
         0.1 | units.AU,  # Rmin
-        10 | units.AU,  # Rmax
+        30 | units.AU,  # Rmax
         1 | units.MSun  # Mass
     )
 
-    disk.parameters.verbosity = 1
+    #disk.parameters.verbosity = 1
 
     sigma = column_density(disk.grid.r)
     disk.grid.column_density = sigma
@@ -44,18 +44,25 @@ def main():
     disk.grid.pressure = sigma * constants.kB * T / (2.33 * mH)
 
     print((disk.grid.area * disk.grid.column_density).sum())
-    print disk.grid.r
-    less = [disk.grid.r > 10E13 | units.cm]# = 1E-8 | units.g / (units.cm)**2
+    print disk.grid.r.value_in(units.AU)
+    print disk.grid.column_density.shape
+
+    import matplotlib.pyplot
+
+    pyplot.plot(numpy.array(disk.grid.r.value_in(units.AU)), numpy.array(disk.grid.column_density.value_in(units.g / (units.cm)**2)))
+
+
+    """less = [disk.grid.r > 10E13 | units.cm]# = 1E-8 | units.g / (units.cm)**2
     print less
     #disk.grid.column_density[less] = 1
     for x in range(len(disk.grid.column_density)):
         if disk.grid.r[x] > 10E13 | units.cm:
             print "yes"
             disk.grid[x].column_density = 1E-12 | units.g / (units.cm)**2.0
-    print(disk.grid.column_density)
-    disk.evolve_model(0.04 | units.Myr)
-    #print(disk.grid.mass_source_difference)
-    print((disk.grid.area * disk.grid.column_density).sum())
+    print(disk.grid.column_density)"""
+    disk.evolve_model(0.1 | units.Myr)
+    pyplot.plot(numpy.array(disk.grid.r.value_in(units.AU)), numpy.array(disk.grid.column_density.value_in(units.g / (units.cm)**2)))
+    pyplot.show()
     disk.stop()
 
 
