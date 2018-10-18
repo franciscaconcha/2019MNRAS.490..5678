@@ -44,12 +44,17 @@
 \usepackage{graphicx}	% Including figure files
 \usepackage{amsmath}	% Advanced maths commands
 \usepackage{amssymb}	% Extra maths symbols
-\usepackage[decimalsymbol=., expproduct=times, separate-uncertainty=true, multi-part-units=single]{siunitx} % SI units 
 \usepackage{multirow}
 \usepackage{txfonts}
 \usepackage[utf8]{inputenc}
 \usepackage{float}
 \usepackage{subcaption}
+\usepackage[T1]{fontenc}
+\usepackage{microtype}
+
+\usepackage{subfiles} % to split the paper into different files
+
+\usepackage[decimalsymbol=., expproduct=times, separate-uncertainty=true, multi-part-units=single]{siunitx} % SI units 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -87,6 +92,7 @@ Leiden Observatory, Leiden University, PO Box 9513, 2300 RA Leiden, The Netherla
 \pubyear{2018}
 
 % Don't change these lines
+%\hypersetup{draft}
 \begin{document}
 \label{firstpage}
 \pagerange{\pageref{firstpage}--\pageref{lastpage}}
@@ -95,20 +101,17 @@ Leiden Observatory, Leiden University, PO Box 9513, 2300 RA Leiden, The Netherla
 % Abstract of the paper
 \begin{abstract}
 There are different processes which may affect the evolution of circumstellar disks inside young star clusters and star forming regions. 
-TESTING GIT STUFF
+TESTING GIT STUFF!!!
 \end{abstract}
 
 % Select between one and six entries from the list of approved keywords.
 % Don't make up new ones.
 \begin{keywords}
-keyword1 -- keyword2 -- keyword3
+key 1 key 2
 \end{keywords}
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-%%%%%%%%%%%%%%%%% BODY OF PAPER %%%%%%%%%%%%%%%%%%
-
 \section{Introduction}
+\label{sec:introduction}
 
 Circumstellar disks are formed shortly after star formation. During their early years, they are immersed in the environment of star formation; that is, surrounded by left over gas and prone to dynamical interactions with other, nearby stars. 
 The environment in which circumstellar disks are born can have an important impact on their evolution. Some of the mechanisms affecting their development correspond to their intrinsic viscous growth, as well as external agents such as truncation by dynamical encounters, external photevaporation, face-on accretion, and ram pressure stripping. 
@@ -123,7 +126,10 @@ In this work we present a semi analytical modelling of protoplanetary disks subj
 
 Our previous work showed that considering only viscous growth and dynamical truncations yields disks that are too large to be compared with current observations of protoplanetary disks. Dynamical truncations by themselves are not important enough to account for the sizes of the observed disks. There must be some other mechanisms that generates the compact disks we observe in star clusters and young star forming regions.
 
+
 \section{Model}
+\label{sec:model}
+
 The viscous growth and the dynamical truncations were modeled in the same way as in FCR2018. In sections 1 and 2 we present a summary of the implementations. In section 3 we present the new implementations for photevaporation developed for the present work.
 
 \subsection{Viscous growth of disks}
@@ -138,6 +144,9 @@ In this occasion we consider the characteristic radius as the radius inside whic
 Dynamical truncations are the same as in the previous paper. Defined by SPZ. We also use the mass from X.
 
 \subsection{Photoevaporation}
+External photoevaporation of protoplanetary disks is dominated by FUV radiation. We follow \citet{adams_photoevaporation_2004} in defining the FUV range as being between 
+
+
 We modeled only the external photoevaporation of the disk. We consider internal photoevaporation to be negligible for our analyses.
 
 We model external photoevaporation as a mass loss that affects the stellar disks. This mass loss was calculated using the FRIED grid. The FRIED grid is a grid which calculates FUV photoevaporative mass losses for a big parameter space of disks. 
@@ -146,6 +155,8 @@ We model external photoevaporation as a mass loss that affects the stellar disks
 We need to calculate the FUV luminosity of each of the massive stars. For this, we use the UVBLUE spectral library. We choose all our stars to have solar metallicity. We take the ZAMS temperature of each massive star.
 
 We calculate the ZAMS luminosity of the stars. From this we choose a spectrum, and we fit it. This allows us to get a stellar mass vs FUV luminosity relationship, which is what we use to calculate the FUV luminosity of each star all through our simulation. The fit can be seen in Figure X. The values obtained for the fit can be seen in Table Y.
+
+External photoevaporation of the disks is a function not only of the disk properties, but also of the radiation field in which the disk is immersed. tion not only of the disk properties, but also of the radiation field in which the disk is immersed. 
 
 \subsection{Evolution of the disks}
 For each simulation we did the following:
@@ -164,14 +175,17 @@ For each simulation we did the following:
 
 -We update the size of the circumstellar disk according to the viscous growth and to the photoevaporative mass loss rate
 
-\section{Initial conditions}
+\section{Results}
+\label{sec:results}
+
+\subsection{Initial conditions}
 We run X simulations with N stars each located in Plummer (King?) spheres of Z size. We run M simulations lasting for 10 million years each. 
 
 We then plot the cumulative distributions of the protoplanetary disks. To calculate the size of the protoplanetary disks we take the mass inside a characteristic radius. We set this radius to 95\% to make it similar to observations (check reference on my previous paper).
 
-\section{Results}
-
 \section{Discussion}
+\label{sec:discussion}
+
 \subsection{Caveats}
 -We ignore the subsonic and supersonic photoevaporation regimes 
 
@@ -188,13 +202,14 @@ We then plot the cumulative distributions of the protoplanetary disks. To calcul
 \subsection{Comparison with observations}
 
 \section{Summary}
+\label{sec:summary}
+
 We de best
-
-
-
 
 % Don't change these lines
 \bsp	% typesetting comment
+\bibliographystyle{mnras}
+\bibliography{references}
 \label{lastpage}
 \end{document}
 

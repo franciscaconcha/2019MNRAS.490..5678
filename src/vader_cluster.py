@@ -76,7 +76,7 @@ def evolve_parallel_disks(codes, dt):
 
 
 def evolve_single_disk(code, time):
-    disk = code()
+    disk = code
     disk.evolve_model(time)
     disk.stop()
 
@@ -273,10 +273,22 @@ def main(N, Rvir, Qvir, alpha, R, gas_presence, gas_expulsion, gas_expulsion_ons
     disk_codes = []
     r_min = 0.1 | units.AU
 
+    print "creating codes..."
+
     # Create individual instances of vader codes for each disk
     for s in small_stars:
-        s_code = initialize_vader_code(r_min, s.disk_radius, s.disk_mass)
+        #s_code = initialize_vader_code(r_min, s.disk_radius, s.disk_mass)
+        s_code = initialize_vader_code(r_min, 10 | units.AU, s.disk_mass)
         disk_codes.append(s_code)
+
+    print disk_codes[0].grid.column_density
+    print "codes created. going to evolve..."
+
+    evolve_parallel_disks(disk_codes, 0.04 | units.Myr)
+
+    print "evolved"
+    #print disk_codes[0].grid.column_density
+
 
     # Start gravity code, add all stars
     gravity = ph4(converter)

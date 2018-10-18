@@ -224,18 +224,18 @@ def main(N, Rvir, Qvir, alpha, R, gas_presence, gas_expulsion, gas_expulsion_ons
 
     print("stellar masses: ", stellar_masses)
 
-    stars.mass = stellar_masses
-    stars.initial_characteristic_disk_radius = 30 * (stars.mass.value_in(units.MSun) ** 0.5) | units.AU
+    stars.stellar_mass = stellar_masses
+    stars.initial_characteristic_disk_radius = 30 * (stars.stellar_mass.value_in(units.MSun) ** 0.5) | units.AU
     stars.disk_radius = stars.initial_characteristic_disk_radius
     print stars.disk_radius
     stars.initial_disk_mass = disk_masses
     stars.disk_mass = stars.initial_disk_mass
-    stars.total_star_mass = stars.initial_disk_mass + stars.mass
+    stars.mass = stars.initial_disk_mass + stars.stellar_mass
     stars.viscous_timescale = viscous_timescale(stars, alpha, temp_profile, Rref, Tref, mu, gamma)
     stars.last_encounter = 0.0 | units.yr
 
     # Bright star
-    stars[2].mass = 5 | units.MSun
+    stars[2].stellar_mass = 5 | units.MSun
     stars[2].initial_characteristic_disk_radius = 0 | units.AU
     stars[2].initial_disk_mass = 0 | units.MSun
     stars[2].total_star_mass = stars[2].mass
@@ -286,11 +286,16 @@ def main(N, Rvir, Qvir, alpha, R, gas_presence, gas_expulsion, gas_expulsion_ons
     time = 0.0 | t_end.unit
     dt = stellar.particles.time_step.amin()
 
+
+    print stars.stellar_mass
+
     # Bright stars: no disks; emit FUV radiation
-    bright_stars = [s for s in stars if s.mass.value_in(units.MSun) > 3]
+    bright_stars = stars[stars.stellar_mass.value_in(units.MSun) > 1.9]
+    print bright_stars
 
     # Small stars: with disks; radiation not considered
-    small_stars = [s for s in stars if s.mass.value_in(units.MSun) < 3]
+    small_stars = stars[stars.stellar_mass.value_in(units.MSun) < 1.9]
+
 
     print "INIT:"
     print stars.x
@@ -309,6 +314,8 @@ def main(N, Rvir, Qvir, alpha, R, gas_presence, gas_expulsion, gas_expulsion_ons
     grid_FUV = FRIED_grid[:, 1]
     grid_disk_mass = FRIED_grid[:, 2]
     grid_disk_radius = FRIED_grid[:, 3]
+
+    time_total_mass_loss = 0
 
     while time < t_end:
         dt = min(dt, t_end - time)
@@ -386,18 +393,31 @@ def main(N, Rvir, Qvir, alpha, R, gas_presence, gas_expulsion, gas_expulsion_ons
                 #Calculate total mass lost due to photoevaporation during dt
                 total_photoevap_mass_loss = float(numpy.power(10, photoevap_Mdot) * dt.value_in(units.yr))
 
-                #Remaining disk mass in MJupiter
-                remaining_mass = (ss.disk_mass.value_in(units.MSun) - total_photoevap_mass_loss) * (1/954.79)*1E6 | units.MJupiter
-                new_radius = radius_containing_mass(ss, remaining_mass)
-                print "old radius, new radius"
-                print ss.disk_radius, new_radius
-                ss.disk_radius = new_radius
+                time_total_mass_loss += total_photoevap_mass_loss
+                #print total_photoevap_mass_loss
+
+                """if time.value_in(units.Myr) % 10 == 0:
+                    #Remaining disk mass in MJupiter
+                    #remaining_mass = (ss.disk_mass.value_in(units.MSun) - total_photoevap_mass_loss) * (1/954.79)*1E6 | units.MJupiter
+                    remaining_mass = (ss.disk_mass.value_in(units.MSun) - time_total_mass_loss) * (1/954.79)*1E6 | units.MJupiter
+                    new_radius = radius_containing_mass(ss, remaining_mass)
+                    print gravity.model_time
+                    print "accumulated mass loss:"
+                    print time_total_mass_loss
+                    print "old radius, new radius"
+                    print ss.disk_radius, new_radius
+                    ss.disk_radius = new_radius
+                    time_total_mass_loss = 0"""
 
         stellar.evolve_model(time + dt)
         channel_from_stellar_to_gravity.copy()
         channel_from_gravity_to_framework.copy()
         time += dt
         #print(time)
+
+    print "total mass loss:"
+    print time_total_mass_loss
+    print radius_containing_mass(small_stars, (1 - time_total_mass_loss) * small_stars.disk_mass)
 
     print "END:"
     print stars.x

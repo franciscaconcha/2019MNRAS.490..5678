@@ -34,7 +34,7 @@ worker_code.h: interface.py
 	$(CODE_GENERATOR) --type=H interface.py vaderInterface -o $@
 
 vader_worker: worker_code.cc worker_code.h $(CODELIB) $(OBJS)
-	$(MPICXX) $(CXXFLAGS) $< $(OBJS) $(LDFLAGS) $(CODELIB) -o $@
+	$(MPICXX) $(CXXFLAGS) $< $(OBJS) $(CODELIB) -o $@ $(LDFLAGS)
 
 .cc.o: $<
 	$(CXX) $(CXXFLAGS) -c -o $@ $< 

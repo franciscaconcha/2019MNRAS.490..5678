@@ -60,7 +60,7 @@ def main():
             print "yes"
             disk.grid[x].column_density = 1E-12 | units.g / (units.cm)**2.0
     print(disk.grid.column_density)"""
-    disk.evolve_model(0.1 | units.Myr)
+    disk.evolve_model(0.02 | units.Myr)
     pyplot.plot(numpy.array(disk.grid.r.value_in(units.AU)), numpy.array(disk.grid.column_density.value_in(units.g / (units.cm)**2)))
     pyplot.show()
     disk.stop()
