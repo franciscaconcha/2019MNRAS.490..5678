@@ -100,7 +100,7 @@ def integrate_FUV(filename, lower, higher):
     :return: Total radiation between lower and higher wavelengths
     """
     radiation = read_UVBLUE(filename, [lower, higher])
-    return numpy.trapz(radiation)
+    return radiation.sum()
 
 
 def distance(star1, star2):
@@ -211,7 +211,6 @@ def main(N, Rvir, Qvir, alpha, R, gas_presence, gas_expulsion, gas_expulsion_ons
          filename=''):
 
     t_end = t_end | units.Myr
-
 
     # Test run: 2 disks + one massive star
     max_stellar_mass = 2 | units.MSun

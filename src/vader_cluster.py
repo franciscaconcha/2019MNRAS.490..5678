@@ -6,18 +6,15 @@ from matplotlib import pyplot
 import gzip
 import copy
 from scipy import interpolate
-import Queue
-import threading
-import multiprocessing
-
-
-code_queue = Queue.Queue()
 
 
 def column_density(r):
     rd = 0.1 | units.AU
     rc = 10 | units.AU
     Md = 1 | units.MSun
+
+    #if r < rd:
+    #    return 1E-12
 
     Sigma_0 = Md / (2 * numpy.pi * rc**2 * (1 - numpy.exp(-rd/rc)))
     Sigma = Sigma_0 * (r/rc) * numpy.exp(-r/rc)
@@ -31,20 +28,20 @@ def initialize_vader_code(r_min, r_max, disk_mass, n_cells=128, linear=True):
     :param r_max: (maximum) radius of disk. Must have units.AU
     :param disk_mass: disk mass. Must have units.MSun
     :param n_cells: number of cells for grid
-    :param linear: linear spacing of the grid
+    :param linear: linear interpolation
     :return: instance of vader code
     """
     disk = vader(redirection='none')
     disk.initialize_code()
     disk.initialize_keplerian_grid(
         n_cells,  # Number of cells
-        linear,  # Grid spacing (linear or log)
+        linear,  # Linear?
         r_min,  # Rmin
         r_max,  # Rmax
         disk_mass  # Mass
     )
 
-    #disk.parameters.verbosity = 1
+    disk.parameters.verbosity = 1
 
     sigma = column_density(disk.grid.r)
     disk.grid.column_density = sigma
@@ -58,6 +55,7 @@ def initialize_vader_code(r_min, r_max, disk_mass, n_cells=128, linear=True):
     return disk
 
 
+<<<<<<< HEAD
 def remote_worker_code(dt):
     code = code_queue.get()
     evolve_single_disk(code, dt)
@@ -233,6 +231,8 @@ def resolve_encounter(stars, time, mass_factor_exponent=0.2, truncation_paramete
 
 
 
+=======
+>>>>>>> parent of f1e8014... wrote script to parallelize vader codes but need to test it. Also addiing functions from 2disktest to vader_cluster (like FUV_fit, interpolation for grid, etc)
 def main(N, Rvir, Qvir, alpha, R, gas_presence, gas_expulsion, gas_expulsion_onset, gas_expulsion_timescale,
          t_ini, t_end, save_interval, run_number, save_path,
          gamma=1,
@@ -259,20 +259,46 @@ def main(N, Rvir, Qvir, alpha, R, gas_presence, gas_expulsion, gas_expulsion_ons
     stars.stellar_mass = stellar_masses
 
     # Bright stars: no disks; emit FUV radiation
+    #bright_stars = [s for s in stars if s.stellar_mass.value_in(units.MSun) > 1.9]
     bright_stars = stars[stars.stellar_mass.value_in(units.MSun) > 1.9]
 
     # Small stars: with disks; radiation not considered
+    #small_stars = [s for s in stars if s.stellar_mass.value_in(units.MSun) < 1.9]
     small_stars = stars[stars.stellar_mass.value_in(units.MSun) < 1.9]
 
-    # Only small stars have disk-related parameters
     bright_stars.disk_mass = 0 | units.MSun
     small_stars.disk_mass = 0.1 * small_stars.stellar_mass
-    small_stars.disk_radius = 30 * numpy.sqrt(small_stars.stellar_mass.value_in(units.MSun)) | units.AU
-    # TODO also add collisional radii?
 
-    disk_codes = []
-    r_min = 0.1 | units.AU
+    print bright_stars.disk_mass
+    print small_stars.disk_mass
 
+
+    """disk_masses = 0.1 * stellar_masses
+    converter = nbody_system.nbody_to_si(stellar_masses.sum() + disk_masses.sum(), Rvir)
+
+    stars = new_plummer_model(N, converter)
+    stars.scale_to_standard(converter, virial_ratio=Qvir)
+
+    print("stellar masses: ", stellar_masses)
+
+    stars.mass = stellar_masses
+    stars.initial_characteristic_disk_radius = 30 * (stars.mass.value_in(units.MSun) ** 0.5) | units.AU
+    stars.disk_radius = stars.initial_characteristic_disk_radius
+    print stars.disk_radius
+    stars.initial_disk_mass = disk_masses
+    stars.disk_mass = stars.initial_disk_mass
+    stars.total_star_mass = stars.initial_disk_mass + stars.mass
+    stars.viscous_timescale = viscous_timescale(stars, alpha, temp_profile, Rref, Tref, mu, gamma)
+    stars.last_encounter = 0.0 | units.yr
+
+    # Bright star
+    stars[2].mass = 5 | units.MSun
+    stars[2].initial_characteristic_disk_radius = 0 | units.AU
+    stars[2].initial_disk_mass = 0 | units.MSun
+    stars[2].total_star_mass = stars[2].mass
+    stars[2].viscous_timescale = 0 | units.yr
+
+<<<<<<< HEAD
     print "creating codes..."
 
     # Create individual instances of vader codes for each disk
@@ -291,22 +317,65 @@ def main(N, Rvir, Qvir, alpha, R, gas_presence, gas_expulsion, gas_expulsion_ons
 
 
     # Start gravity code, add all stars
+=======
+    # print("star.mass: ", stars.mass)
+    # print("star.mass: ", stars.mass.value_in(units.MSun))
+
+    stellar = SeBa()
+    stellar.parameters.metallicity = 0.02
+    # stellar.particles.add_particles(Particles(mass=stars.stellar_mass))
+    stellar.particles.add_particles(stars)
+
+    print("star.mass: ", stars.mass.value_in(units.MSun))
+
+    initial_luminosity = stellar.particles.luminosity
+    stars.luminosity = initial_luminosity
+    stars.temperature = stellar.particles.temperature
+    dt = 5 | units.Myr
+
+    print("L(t=0 Myr) = {0}".format(initial_luminosity))
+    print("R(t=0 Myr) = {0}".format(stellar.particles.radius.in_(units.RSun)))
+    print("m(t=0 Myr) = {0}".format(stellar.particles.mass.in_(units.MSun)))
+    print("Temp(t=0 Myr) = {0}".format(stellar.particles[2].temperature.in_(units.K)))
+
+    channel_to_framework = stellar.particles.new_channel_to(stars)
+    write_set_to_file(stars, 'results/0.hdf5', 'amuse')
+
+    # temp, temp2 = [], []
+    lower_limit, upper_limit = 1000, 3000  # Limits for FUV, in Angstrom
+    fuv_filename_base = "p00/t{0}g{1}p00k2.flx.gz"
+    g = "00"
+
+>>>>>>> parent of f1e8014... wrote script to parallelize vader codes but need to test it. Also addiing functions from 2disktest to vader_cluster (like FUV_fit, interpolation for grid, etc)
     gravity = ph4(converter)
     gravity.parameters.timestep_parameter = 0.01
     gravity.parameters.epsilon_squared = (100 | units.AU) ** 2
     gravity.particles.add_particles(stars)
 
-    # Start stellar evolution code, add only massive stars
-    stellar = SeBa()
-    stellar.parameters.metallicity = 0.02
-    stellar.particles.add_particles(bright_stars)
+    channel_from_stellar_to_framework \
+        = stellar.particles.new_channel_to(stars)
+    channel_from_stellar_to_gravity \
+        = stellar.particles.new_channel_to(gravity.particles)
+    channel_from_gravity_to_framework \
+        = gravity.particles.new_channel_to(stars)
 
-    # Communication channels
-    channel_from_stellar_to_framework = stellar.particles.new_channel_to(stars)
-    channel_from_stellar_to_gravity = stellar.particles.new_channel_to(gravity.particles)
-    channel_from_gravity_to_framework = gravity.particles.new_channel_to(stars)
+    Etot_init = gravity.kinetic_energy + gravity.potential_energy
+    dE_gr = 0 | Etot_init.unit
+    time = 0.0 | t_end.unit
+    dt = stellar.particles.time_step.amin()
 
-    ######## FRIED grid ########
+    # Bright stars: no disks; emit FUV radiation
+    bright_stars = [s for s in stars if s.mass.value_in(units.MSun) > 3]
+
+    # Small stars: with disks; radiation not considered
+    small_stars = [s for s in stars if s.mass.value_in(units.MSun) < 3]
+
+    print "INIT:"
+    print stars.x
+    print stars.y
+    print stars.z
+    initx, inity, initz = copy.deepcopy(stars.x), copy.deepcopy(stars.y), copy.deepcopy(stars.z)
+
     # Read FRIED grid
     grid = numpy.loadtxt('friedgrid.dat', skiprows=2)
 
@@ -314,13 +383,25 @@ def main(N, Rvir, Qvir, alpha, R, gas_presence, gas_expulsion, gas_expulsion_ons
     FRIED_grid = grid[:, [0, 1, 2, 4]]
     grid_log10Mdot = grid[:, 5]
 
-    grid_stellar_mass = FRIED_grid[:, 0]
+    grid_stellar_masses = FRIED_grid[:, 0]
     grid_FUV = FRIED_grid[:, 1]
     grid_disk_mass = FRIED_grid[:, 2]
-    grid_disk_radius = FRIED_grid[:, 3]
+    grid_disk_radius = FRIED_grid[:, 3]"""
 
-
-
+    """print((disk.grid.area * disk.grid.column_density).sum())
+    print disk.grid.r
+    less = [disk.grid.r > 10E13 | units.cm]# = 1E-8 | units.g / (units.cm)**2
+    print less
+    #disk.grid.column_density[less] = 1
+    for x in range(len(disk.grid.column_density)):
+        if disk.grid.r[x] > 10E13 | units.cm:
+            print "yes"
+            disk.grid[x].column_density = 1E-12 | units.g / (units.cm)**2.0
+    print(disk.grid.column_density)
+    disk.evolve_model(0.04 | units.Myr)
+    #print(disk.grid.mass_source_difference)
+    print((disk.grid.area * disk.grid.column_density).sum())
+    disk.stop()"""
 
 def new_option_parser():
     from amuse.units.optparse import OptionParser
