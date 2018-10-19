@@ -56,6 +56,7 @@ def initialize_vader_code(r_min, r_max, disk_mass, n_cells=128, linear=True):
 
 
 <<<<<<< HEAD
+<<<<<<< HEAD
 def remote_worker_code(dt):
     code = code_queue.get()
     evolve_single_disk(code, dt)
@@ -233,6 +234,8 @@ def resolve_encounter(stars, time, mass_factor_exponent=0.2, truncation_paramete
 
 =======
 >>>>>>> parent of f1e8014... wrote script to parallelize vader codes but need to test it. Also addiing functions from 2disktest to vader_cluster (like FUV_fit, interpolation for grid, etc)
+=======
+>>>>>>> parent of f1e8014... wrote script to parallelize vader codes but need to test it. Also addiing functions from 2disktest to vader_cluster (like FUV_fit, interpolation for grid, etc)
 def main(N, Rvir, Qvir, alpha, R, gas_presence, gas_expulsion, gas_expulsion_onset, gas_expulsion_timescale,
          t_ini, t_end, save_interval, run_number, save_path,
          gamma=1,
@@ -297,6 +300,7 @@ def main(N, Rvir, Qvir, alpha, R, gas_presence, gas_expulsion, gas_expulsion_ons
     stars[2].initial_disk_mass = 0 | units.MSun
     stars[2].total_star_mass = stars[2].mass
     stars[2].viscous_timescale = 0 | units.yr
+<<<<<<< HEAD
 
 <<<<<<< HEAD
     print "creating codes..."
@@ -347,6 +351,37 @@ def main(N, Rvir, Qvir, alpha, R, gas_presence, gas_expulsion, gas_expulsion_ons
     g = "00"
 
 >>>>>>> parent of f1e8014... wrote script to parallelize vader codes but need to test it. Also addiing functions from 2disktest to vader_cluster (like FUV_fit, interpolation for grid, etc)
+=======
+
+    # print("star.mass: ", stars.mass)
+    # print("star.mass: ", stars.mass.value_in(units.MSun))
+
+    stellar = SeBa()
+    stellar.parameters.metallicity = 0.02
+    # stellar.particles.add_particles(Particles(mass=stars.stellar_mass))
+    stellar.particles.add_particles(stars)
+
+    print("star.mass: ", stars.mass.value_in(units.MSun))
+
+    initial_luminosity = stellar.particles.luminosity
+    stars.luminosity = initial_luminosity
+    stars.temperature = stellar.particles.temperature
+    dt = 5 | units.Myr
+
+    print("L(t=0 Myr) = {0}".format(initial_luminosity))
+    print("R(t=0 Myr) = {0}".format(stellar.particles.radius.in_(units.RSun)))
+    print("m(t=0 Myr) = {0}".format(stellar.particles.mass.in_(units.MSun)))
+    print("Temp(t=0 Myr) = {0}".format(stellar.particles[2].temperature.in_(units.K)))
+
+    channel_to_framework = stellar.particles.new_channel_to(stars)
+    write_set_to_file(stars, 'results/0.hdf5', 'amuse')
+
+    # temp, temp2 = [], []
+    lower_limit, upper_limit = 1000, 3000  # Limits for FUV, in Angstrom
+    fuv_filename_base = "p00/t{0}g{1}p00k2.flx.gz"
+    g = "00"
+
+>>>>>>> parent of f1e8014... wrote script to parallelize vader codes but need to test it. Also addiing functions from 2disktest to vader_cluster (like FUV_fit, interpolation for grid, etc)
     gravity = ph4(converter)
     gravity.parameters.timestep_parameter = 0.01
     gravity.parameters.epsilon_squared = (100 | units.AU) ** 2
@@ -358,12 +393,21 @@ def main(N, Rvir, Qvir, alpha, R, gas_presence, gas_expulsion, gas_expulsion_ons
         = stellar.particles.new_channel_to(gravity.particles)
     channel_from_gravity_to_framework \
         = gravity.particles.new_channel_to(stars)
+<<<<<<< HEAD
 
     Etot_init = gravity.kinetic_energy + gravity.potential_energy
     dE_gr = 0 | Etot_init.unit
     time = 0.0 | t_end.unit
     dt = stellar.particles.time_step.amin()
 
+=======
+
+    Etot_init = gravity.kinetic_energy + gravity.potential_energy
+    dE_gr = 0 | Etot_init.unit
+    time = 0.0 | t_end.unit
+    dt = stellar.particles.time_step.amin()
+
+>>>>>>> parent of f1e8014... wrote script to parallelize vader codes but need to test it. Also addiing functions from 2disktest to vader_cluster (like FUV_fit, interpolation for grid, etc)
     # Bright stars: no disks; emit FUV radiation
     bright_stars = [s for s in stars if s.mass.value_in(units.MSun) > 3]
 
