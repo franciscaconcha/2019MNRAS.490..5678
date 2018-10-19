@@ -55,8 +55,6 @@ def initialize_vader_code(r_min, r_max, disk_mass, n_cells=128, linear=True):
     return disk
 
 
-<<<<<<< HEAD
-<<<<<<< HEAD
 def remote_worker_code(dt):
     code = code_queue.get()
     evolve_single_disk(code, dt)
@@ -232,10 +230,7 @@ def resolve_encounter(stars, time, mass_factor_exponent=0.2, truncation_paramete
 
 
 
-=======
->>>>>>> parent of f1e8014... wrote script to parallelize vader codes but need to test it. Also addiing functions from 2disktest to vader_cluster (like FUV_fit, interpolation for grid, etc)
-=======
->>>>>>> parent of f1e8014... wrote script to parallelize vader codes but need to test it. Also addiing functions from 2disktest to vader_cluster (like FUV_fit, interpolation for grid, etc)
+
 def main(N, Rvir, Qvir, alpha, R, gas_presence, gas_expulsion, gas_expulsion_onset, gas_expulsion_timescale,
          t_ini, t_end, save_interval, run_number, save_path,
          gamma=1,
@@ -300,9 +295,7 @@ def main(N, Rvir, Qvir, alpha, R, gas_presence, gas_expulsion, gas_expulsion_ons
     stars[2].initial_disk_mass = 0 | units.MSun
     stars[2].total_star_mass = stars[2].mass
     stars[2].viscous_timescale = 0 | units.yr
-<<<<<<< HEAD
 
-<<<<<<< HEAD
     print "creating codes..."
 
     # Create individual instances of vader codes for each disk
@@ -321,7 +314,6 @@ def main(N, Rvir, Qvir, alpha, R, gas_presence, gas_expulsion, gas_expulsion_ons
 
 
     # Start gravity code, add all stars
-=======
     # print("star.mass: ", stars.mass)
     # print("star.mass: ", stars.mass.value_in(units.MSun))
 
@@ -350,9 +342,6 @@ def main(N, Rvir, Qvir, alpha, R, gas_presence, gas_expulsion, gas_expulsion_ons
     fuv_filename_base = "p00/t{0}g{1}p00k2.flx.gz"
     g = "00"
 
->>>>>>> parent of f1e8014... wrote script to parallelize vader codes but need to test it. Also addiing functions from 2disktest to vader_cluster (like FUV_fit, interpolation for grid, etc)
-=======
-
     # print("star.mass: ", stars.mass)
     # print("star.mass: ", stars.mass.value_in(units.MSun))
 
@@ -381,7 +370,6 @@ def main(N, Rvir, Qvir, alpha, R, gas_presence, gas_expulsion, gas_expulsion_ons
     fuv_filename_base = "p00/t{0}g{1}p00k2.flx.gz"
     g = "00"
 
->>>>>>> parent of f1e8014... wrote script to parallelize vader codes but need to test it. Also addiing functions from 2disktest to vader_cluster (like FUV_fit, interpolation for grid, etc)
     gravity = ph4(converter)
     gravity.parameters.timestep_parameter = 0.01
     gravity.parameters.epsilon_squared = (100 | units.AU) ** 2
@@ -393,21 +381,20 @@ def main(N, Rvir, Qvir, alpha, R, gas_presence, gas_expulsion, gas_expulsion_ons
         = stellar.particles.new_channel_to(gravity.particles)
     channel_from_gravity_to_framework \
         = gravity.particles.new_channel_to(stars)
-<<<<<<< HEAD
+
 
     Etot_init = gravity.kinetic_energy + gravity.potential_energy
     dE_gr = 0 | Etot_init.unit
     time = 0.0 | t_end.unit
     dt = stellar.particles.time_step.amin()
 
-=======
+
 
     Etot_init = gravity.kinetic_energy + gravity.potential_energy
     dE_gr = 0 | Etot_init.unit
     time = 0.0 | t_end.unit
     dt = stellar.particles.time_step.amin()
 
->>>>>>> parent of f1e8014... wrote script to parallelize vader codes but need to test it. Also addiing functions from 2disktest to vader_cluster (like FUV_fit, interpolation for grid, etc)
     # Bright stars: no disks; emit FUV radiation
     bright_stars = [s for s in stars if s.mass.value_in(units.MSun) > 3]
 

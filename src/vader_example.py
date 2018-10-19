@@ -52,23 +52,20 @@ def main():
         if disk.grid.r[x] > 10E13 | units.cm:
             print "yes"
             disk.grid[x].column_density = 1E-12 | units.g / (units.cm)**2.0
-<<<<<<< HEAD
-<<<<<<< HEAD
+
+
     print(disk.grid.column_density)"""
     disk.evolve_model(0.02 | units.Myr)
     pyplot.plot(numpy.array(disk.grid.r.value_in(units.AU)), numpy.array(disk.grid.column_density.value_in(units.g / (units.cm)**2)))
     pyplot.show()
-=======
-=======
->>>>>>> parent of f1e8014... wrote script to parallelize vader codes but need to test it. Also addiing functions from 2disktest to vader_cluster (like FUV_fit, interpolation for grid, etc)
+
+
+
     print(disk.grid.column_density)
     disk.evolve_model(0.04 | units.Myr)
     #print(disk.grid.mass_source_difference)
     print((disk.grid.area * disk.grid.column_density).sum())
-<<<<<<< HEAD
->>>>>>> parent of f1e8014... wrote script to parallelize vader codes but need to test it. Also addiing functions from 2disktest to vader_cluster (like FUV_fit, interpolation for grid, etc)
-=======
->>>>>>> parent of f1e8014... wrote script to parallelize vader codes but need to test it. Also addiing functions from 2disktest to vader_cluster (like FUV_fit, interpolation for grid, etc)
+
     disk.stop()
 
 
