@@ -53,7 +53,7 @@
 \usepackage{microtype}
 
 \usepackage{subfiles} % to split the paper into different files
-
+\usepackage{xcolor}
 \usepackage[decimalsymbol=., expproduct=times, separate-uncertainty=true, multi-part-units=single]{siunitx} % SI units 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -63,6 +63,7 @@
 % Please keep new commands to a minimum, and use \newcommand not \def to avoid
 % overwriting existing commands. Example:
 %\newcommand{\pcm}{\,cm$^{-2}$}	% per cm-squared
+\newcommand\note[1]{{\colorbox{yellow!60}{\color{magenta}#1}}}
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -100,12 +101,7 @@ Leiden Observatory, Leiden University, PO Box 9513, 2300 RA Leiden, The Netherla
 
 % Abstract of the paper
 \begin{abstract}
-There are different processes which may affect the evolution of circumstellar disks inside young star clusters and star forming regions. :)
-sweet black baby jeezus please move this sentence from shai-hulud to overleaf AGAIN
-SBBJ please move this sentence from overleaf to local copy
-h hi
-ga ga oh la la
-hiiii
+There are different processes which may affect the evolution of circumstellar disks inside young star clusters and star forming regions.
 \end{abstract}
 
 % Select between one and six entries from the list of approved keywords.
@@ -117,7 +113,7 @@ key 1 key 2
 \section{Introduction}
 \label{sec:introduction}
 
-Circumstellar disks are formed shortly after star formation. During their early years, they are immersed in the environment of star formation; that is, surrounded by left over gas and prone to dynamical interactions with other, nearby stars. 
+Circumstellar disks are formed shortly after star formation. During their early years, they are immersed in the environment of star formation; that is, surrounded by left over gas and prone to dynamical interactions with other, nearby stars. Young star forming regions, less than 2 Myr old, have been observed to have protoplanetary disks in more than 80\% of the cases \citep{fedele_timescale_2010}. Since stars are not born in isolation, and remaining gas can stay for up to X Myr \note{add ref}, the disks stay embedded in this environment during their first million years of evolution. This environment can be hostile for the disks in a myriad of ways. In terms of surrounding gas, the disks can be shrunk by ram pressure stripping and face-on accretion \citep{wijnen_face-accretion_2016, wijnen_protoplanetary_2017}. Regarding the stellar dense environment, disks can be subject to dynamical truncations \citep{portegieszwart2016, vincke2015, vincke2016}.
 The environment in which circumstellar disks are born can have an important impact on their evolution. Some of the mechanisms affecting their development correspond to their intrinsic viscous growth, as well as external agents such as truncation by dynamical encounters, external photevaporation, face-on accretion, and ram pressure stripping. 
 
 It is interesting to look into the evolution of circumstellar disks inside star cluster. Our very own Sun was born within a star cluster, so understanding how the cluster environment affects the evolution of the disks can help us understand the origins of our own Solar System. Previous work has been done to study the effects of viscous growth (me, Rossoti2014) and dynamical truncations on circumstellar disks inside star clusters (spz, pfalzner). This has been done both semi-analytically and numerically. 
