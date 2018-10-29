@@ -51,6 +51,8 @@
 \usepackage{subcaption}
 \usepackage[T1]{fontenc}
 \usepackage{microtype}
+\usepackage[utf8]{inputenc}
+\DeclareUnicodeCharacter{2010}{-}
 
 \usepackage{subfiles} % to split the paper into different files
 \usepackage{xcolor}
@@ -146,12 +148,28 @@ In this occasion we consider the characteristic radius as the radius inside whic
 Dynamical truncations are the same as in the previous paper. Defined by SPZ. We also use the mass from X.
 
 \subsection{Photoevaporation}
-External photoevaporation of protoplanetary disks is dominated by FUV radiation. We follow \citet{adams2004} in defining the FUV range as being between 
+To calculate the photoevaporative mass losses of the disks, we needed to obtain the mass loss ratio induced by the massive stars at different points of the simulation. For this we needed to first calculate the FUV luminosities of the massive stars at every time step, and then use this and other stellar values to obtain the amount of radiation that is reached by each disk. Below we explain how we performed each of these steps. 
 
+\subsubsection{Photoevaporative mass loss}
+To calculate the mass loss due to photoevaporation on each disk, we used the FRIED (Far-ultraviolet Radiation Induced Evaporation of Discs) grid developed by \citet{haworth2018}. The FRIED grid is an open access grid of calculations of externally evaporating circumstellar disks. This grid spans a six dimension parameter space consisting of disk sizes ($1 -- 400 au$), disk masses ($~10^{-4} -- 10^{2} M_{Jup}$), UV fields ($10 -- 10^{4} G_0$), stellar masses ($0.05 -- 1.9 M_{\odot}$) and disk outer surface densities. 
 
 We modeled only the external photoevaporation of the disk. We consider internal photoevaporation to be negligible for our analyses.
 
 We model external photoevaporation as a mass loss that affects the stellar disks. This mass loss was calculated using the FRIED grid. The FRIED grid is a grid which calculates FUV photoevaporative mass losses for a big parameter space of disks. 
+
+We separated our stars into two sub-groups: small stars and bright stars. 
+
+\subsubsection{FUV luminosities}
+External photoevaporation of protoplanetary disks is dominated by FUV radiation. We follow \citet{adams2004} in defining the FUV band ranging from 6 eV up to 13.6 eV, the Lyman break, or approximately from 912 Å to 2070 Å. Given the presence of spectral lines in this band, we chose to use synthetic stellar spectra rather than relying on black body approximations. The spectral library used is UVBLUE, by \citet{rodriguez-merino2005}. We chose this library for its high coverage of parameter space and high resolution, spanning our needed wavelength ranges. To make our computations less expensive we used versions of the spectra with reduced resolving power, with a resolution of 10000. This is five times lower than the full spectra, but sufficient for our calculations. 
+
+The UVBLUE library spans a three dimensional parameter space of stellar temperature, metallicity, and surface gravity. We used solar metallicity for all our stars, with a value of \note{X}. For the temperature and surface gravity, we chose the spectra that most close resembled the zero age main sequence (ZAMS) values of each star, according to the parametrized stellar evolution code SeBa \citep{portegieszwart1996, toonen2012}. \note{should I add a more detailed explanation of this process? (caption of fig 2.2 in Martijn's thesis)}
+
+Using the ZAMS spectra, we calculate the flux and corresponding luminosity using the radius of the star. Given that we know the mass of the stars, we built a relationship between stellar mass and FUV luminosity. This relation takes the shape of a segmented power law, as can be seen in Figure \ref{X}. A similar fit was obtained by \citet{parravano2003}.
+%Ask for more details of this process?
+
+% FUV luminosity vs mass figure!
+
+The mass range of our fit is $0.12 - 100 M_{\odot}$, however, we will only be using the range $1.9 - 100 M_{\odot}$. 
 
 \subsubsection{Getting the FUV luminosity of the stars}
 We need to calculate the FUV luminosity of each of the massive stars. For this, we use the UVBLUE spectral library. We choose all our stars to have solar metallicity. We take the ZAMS temperature of each massive star.

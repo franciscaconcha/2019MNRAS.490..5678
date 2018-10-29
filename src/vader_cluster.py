@@ -6,6 +6,12 @@ from matplotlib import pyplot
 import gzip
 import copy
 from scipy import interpolate
+import Queue
+import threading
+import multiprocessing
+
+
+code_queue = Queue.Queue()
 
 
 def column_density(r):
@@ -41,7 +47,7 @@ def initialize_vader_code(r_min, r_max, disk_mass, n_cells=128, linear=True):
         disk_mass  # Mass
     )
 
-    disk.parameters.verbosity = 1
+    #disk.parameters.verbosity = 1
 
     sigma = column_density(disk.grid.r)
     disk.grid.column_density = sigma
@@ -267,146 +273,49 @@ def main(N, Rvir, Qvir, alpha, R, gas_presence, gas_expulsion, gas_expulsion_ons
     bright_stars.disk_mass = 0 | units.MSun
     small_stars.disk_mass = 0.1 * small_stars.stellar_mass
 
-    print bright_stars.disk_mass
-    print small_stars.disk_mass
+    small_stars.disk_radius = 30 * (small_stars.stellar_mass.value_in(units.MSun) ** 0.5) | units.AU
+    bright_stars.disk_radius = 0 | units.AU
 
+    print small_stars.disk_radius
 
-    """disk_masses = 0.1 * stellar_masses
-    converter = nbody_system.nbody_to_si(stellar_masses.sum() + disk_masses.sum(), Rvir)
-
-    stars = new_plummer_model(N, converter)
-    stars.scale_to_standard(converter, virial_ratio=Qvir)
-
-    print("stellar masses: ", stellar_masses)
-
-    stars.mass = stellar_masses
-    stars.initial_characteristic_disk_radius = 30 * (stars.mass.value_in(units.MSun) ** 0.5) | units.AU
-    stars.disk_radius = stars.initial_characteristic_disk_radius
-    print stars.disk_radius
-    stars.initial_disk_mass = disk_masses
-    stars.disk_mass = stars.initial_disk_mass
-    stars.total_star_mass = stars.initial_disk_mass + stars.mass
-    stars.viscous_timescale = viscous_timescale(stars, alpha, temp_profile, Rref, Tref, mu, gamma)
-    stars.last_encounter = 0.0 | units.yr
-
-    # Bright star
-    stars[2].mass = 5 | units.MSun
-    stars[2].initial_characteristic_disk_radius = 0 | units.AU
-    stars[2].initial_disk_mass = 0 | units.MSun
-    stars[2].total_star_mass = stars[2].mass
-    stars[2].viscous_timescale = 0 | units.yr
-
-    print "creating codes..."
+    r_min = 0.1 | units.AU
+    disk_codes = []
 
     # Create individual instances of vader codes for each disk
     for s in small_stars:
         #s_code = initialize_vader_code(r_min, s.disk_radius, s.disk_mass)
-        s_code = initialize_vader_code(r_min, 10 | units.AU, s.disk_mass)
+        s_code = initialize_vader_code(r_min, s.disk_radius, s.disk_mass)
         disk_codes.append(s_code)
 
     print disk_codes[0].grid.column_density
     print "codes created. going to evolve..."
 
+    for disk in disk_codes:
+        pyplot.plot(numpy.array(disk.grid.r.value_in(units.AU)), numpy.array(disk.grid.column_density.value_in(units.g / (units.cm)**2) + [0]))
+    pyplot.show()
+
+
     evolve_parallel_disks(disk_codes, 0.04 | units.Myr)
 
     print "evolved"
-    #print disk_codes[0].grid.column_density
-
 
     # Start gravity code, add all stars
-    # print("star.mass: ", stars.mass)
-    # print("star.mass: ", stars.mass.value_in(units.MSun))
-
-    stellar = SeBa()
-    stellar.parameters.metallicity = 0.02
-    # stellar.particles.add_particles(Particles(mass=stars.stellar_mass))
-    stellar.particles.add_particles(stars)
-
-    print("star.mass: ", stars.mass.value_in(units.MSun))
-
-    initial_luminosity = stellar.particles.luminosity
-    stars.luminosity = initial_luminosity
-    stars.temperature = stellar.particles.temperature
-    dt = 5 | units.Myr
-
-    print("L(t=0 Myr) = {0}".format(initial_luminosity))
-    print("R(t=0 Myr) = {0}".format(stellar.particles.radius.in_(units.RSun)))
-    print("m(t=0 Myr) = {0}".format(stellar.particles.mass.in_(units.MSun)))
-    print("Temp(t=0 Myr) = {0}".format(stellar.particles[2].temperature.in_(units.K)))
-
-    channel_to_framework = stellar.particles.new_channel_to(stars)
-    write_set_to_file(stars, 'results/0.hdf5', 'amuse')
-
-    # temp, temp2 = [], []
-    lower_limit, upper_limit = 1000, 3000  # Limits for FUV, in Angstrom
-    fuv_filename_base = "p00/t{0}g{1}p00k2.flx.gz"
-    g = "00"
-
-    # print("star.mass: ", stars.mass)
-    # print("star.mass: ", stars.mass.value_in(units.MSun))
-
-    stellar = SeBa()
-    stellar.parameters.metallicity = 0.02
-    # stellar.particles.add_particles(Particles(mass=stars.stellar_mass))
-    stellar.particles.add_particles(stars)
-
-    print("star.mass: ", stars.mass.value_in(units.MSun))
-
-    initial_luminosity = stellar.particles.luminosity
-    stars.luminosity = initial_luminosity
-    stars.temperature = stellar.particles.temperature
-    dt = 5 | units.Myr
-
-    print("L(t=0 Myr) = {0}".format(initial_luminosity))
-    print("R(t=0 Myr) = {0}".format(stellar.particles.radius.in_(units.RSun)))
-    print("m(t=0 Myr) = {0}".format(stellar.particles.mass.in_(units.MSun)))
-    print("Temp(t=0 Myr) = {0}".format(stellar.particles[2].temperature.in_(units.K)))
-
-    channel_to_framework = stellar.particles.new_channel_to(stars)
-    write_set_to_file(stars, 'results/0.hdf5', 'amuse')
-
-    # temp, temp2 = [], []
-    lower_limit, upper_limit = 1000, 3000  # Limits for FUV, in Angstrom
-    fuv_filename_base = "p00/t{0}g{1}p00k2.flx.gz"
-    g = "00"
-
     gravity = ph4(converter)
     gravity.parameters.timestep_parameter = 0.01
     gravity.parameters.epsilon_squared = (100 | units.AU) ** 2
     gravity.particles.add_particles(stars)
 
-    channel_from_stellar_to_framework \
-        = stellar.particles.new_channel_to(stars)
-    channel_from_stellar_to_gravity \
-        = stellar.particles.new_channel_to(gravity.particles)
-    channel_from_gravity_to_framework \
-        = gravity.particles.new_channel_to(stars)
+    # Start stellar evolution code, add only massive stars
+    stellar = SeBa()
+    stellar.parameters.metallicity = 0.02
+    stellar.particles.add_particles(bright_stars)
 
+    # Communication channels
+    channel_from_stellar_to_framework = stellar.particles.new_channel_to(stars)
+    channel_from_stellar_to_gravity = stellar.particles.new_channel_to(gravity.particles)
+    channel_from_gravity_to_framework = gravity.particles.new_channel_to(stars)
 
-    Etot_init = gravity.kinetic_energy + gravity.potential_energy
-    dE_gr = 0 | Etot_init.unit
-    time = 0.0 | t_end.unit
-    dt = stellar.particles.time_step.amin()
-
-
-
-    Etot_init = gravity.kinetic_energy + gravity.potential_energy
-    dE_gr = 0 | Etot_init.unit
-    time = 0.0 | t_end.unit
-    dt = stellar.particles.time_step.amin()
-
-    # Bright stars: no disks; emit FUV radiation
-    bright_stars = [s for s in stars if s.mass.value_in(units.MSun) > 3]
-
-    # Small stars: with disks; radiation not considered
-    small_stars = [s for s in stars if s.mass.value_in(units.MSun) < 3]
-
-    print "INIT:"
-    print stars.x
-    print stars.y
-    print stars.z
-    initx, inity, initz = copy.deepcopy(stars.x), copy.deepcopy(stars.y), copy.deepcopy(stars.z)
-
+    ######## FRIED grid ########
     # Read FRIED grid
     grid = numpy.loadtxt('friedgrid.dat', skiprows=2)
 
@@ -414,25 +323,12 @@ def main(N, Rvir, Qvir, alpha, R, gas_presence, gas_expulsion, gas_expulsion_ons
     FRIED_grid = grid[:, [0, 1, 2, 4]]
     grid_log10Mdot = grid[:, 5]
 
-    grid_stellar_masses = FRIED_grid[:, 0]
+    grid_stellar_mass = FRIED_grid[:, 0]
     grid_FUV = FRIED_grid[:, 1]
     grid_disk_mass = FRIED_grid[:, 2]
-    grid_disk_radius = FRIED_grid[:, 3]"""
 
-    """print((disk.grid.area * disk.grid.column_density).sum())
-    print disk.grid.r
-    less = [disk.grid.r > 10E13 | units.cm]# = 1E-8 | units.g / (units.cm)**2
-    print less
-    #disk.grid.column_density[less] = 1
-    for x in range(len(disk.grid.column_density)):
-        if disk.grid.r[x] > 10E13 | units.cm:
-            print "yes"
-            disk.grid[x].column_density = 1E-12 | units.g / (units.cm)**2.0
-    print(disk.grid.column_density)
-    disk.evolve_model(0.04 | units.Myr)
-    #print(disk.grid.mass_source_difference)
-    print((disk.grid.area * disk.grid.column_density).sum())
-    disk.stop()"""
+
+    grid_disk_radius = FRIED_grid[:, 3]
 
 def new_option_parser():
     from amuse.units.optparse import OptionParser
