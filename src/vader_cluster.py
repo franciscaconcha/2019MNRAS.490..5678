@@ -9,6 +9,7 @@ from scipy import interpolate
 import Queue
 import threading
 import multiprocessing
+from decorators import timer
 
 
 code_queue = Queue.Queue()
@@ -235,8 +236,7 @@ def resolve_encounter(stars, time, mass_factor_exponent=0.2, truncation_paramete
             stars[i].last_encounter = time
 
 
-
-
+@timer
 def main(N, Rvir, Qvir, alpha, R, gas_presence, gas_expulsion, gas_expulsion_onset, gas_expulsion_timescale,
          t_ini, t_end, save_interval, run_number, save_path,
          gamma=1,
@@ -287,7 +287,7 @@ def main(N, Rvir, Qvir, alpha, R, gas_presence, gas_expulsion, gas_expulsion_ons
         s_code = initialize_vader_code(r_min, s.disk_radius, s.disk_mass)
         disk_codes.append(s_code)
 
-    print disk_codes[0].grid.column_density
+    #print disk_codes[0].grid.column_density
     print "codes created. going to evolve..."
 
     for disk in disk_codes:
@@ -382,3 +382,4 @@ def new_option_parser():
 if __name__ == '__main__':
     o, arguments = new_option_parser().parse_args()
     main(**o.__dict__)
+

@@ -6,6 +6,7 @@ from matplotlib import pyplot
 import gzip
 import copy
 from scipy import interpolate
+from decorators import timer
 
 
 def luminosity_fit(mass):
@@ -195,6 +196,7 @@ def radius_containing_mass(star, mass):
     return disk_characteristic_radius * numpy.log(1 / (1 - mass.value_in(units.MJupiter)/total_disk_mass)) | units.AU
 
 
+@timer
 def main(N, Rvir, Qvir, alpha, R, gas_presence, gas_expulsion, gas_expulsion_onset, gas_expulsion_timescale,
          t_ini, t_end, save_interval, run_number, save_path,
          gamma=1,
@@ -234,7 +236,7 @@ def main(N, Rvir, Qvir, alpha, R, gas_presence, gas_expulsion, gas_expulsion_ons
     small_stars.disk_radius = 30 * (small_stars.stellar_mass.value_in(units.MSun) ** 0.5) | units.AU
     bright_stars.disk_radius = 0 | units.AU
 
-    print small_stars.disk_radius
+    #print small_stars.disk_radius
 
     # Start gravity code, add all stars
     gravity = ph4(converter)
