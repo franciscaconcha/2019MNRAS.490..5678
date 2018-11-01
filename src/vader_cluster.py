@@ -15,9 +15,8 @@ from decorators import timer
 code_queue = Queue.Queue()
 
 
-def column_density(r):
-    rd = 0.1 | units.AU
-    rc = 10 | units.AU
+def column_density(r, rc):
+    rd = rc
     Md = 1 | units.MSun
 
     #if r < rd:
@@ -28,13 +27,14 @@ def column_density(r):
     return Sigma
 
 
-def initialize_vader_code(r_min, r_max, disk_mass, n_cells=128, linear=True):
+def initialize_vader_code(disk_radius, disk_mass, r_min=0.5 | units.AU, r_max=5000 | units.AU, n_cells=500, linear=True):
     """ Initialize vader code for given parameters.
 
-    :param r_min: minimum radius of disk. Must have units.AU
-    :param r_max: (maximum) radius of disk. Must have units.AU
+    :param disk_radius: disk radius. Must have units.Au
     :param disk_mass: disk mass. Must have units.MSun
-    :param n_cells: number of cells for grid
+    :param r_min: minimum radius of vader grid. Must have units.AU
+    :param r_max: maximum radius of vader grid. Must have units.AU
+    :param n_cells: number of cells for vader grid
     :param linear: linear interpolation
     :return: instance of vader code
     """
@@ -43,14 +43,14 @@ def initialize_vader_code(r_min, r_max, disk_mass, n_cells=128, linear=True):
     disk.initialize_keplerian_grid(
         n_cells,  # Number of cells
         linear,  # Linear?
-        r_min,  # Rmin
-        r_max,  # Rmax
-        disk_mass  # Mass
+        r_min,  # Grid Rmin
+        r_max,  # Grid Rmax
+        disk_mass  # Disk mass
     )
 
     #disk.parameters.verbosity = 1
 
-    sigma = column_density(disk.grid.r)
+    sigma = column_density(disk.grid.r, disk_radius)
     disk.grid.column_density = sigma
 
     # The pressure follows the ideal gas law with a mean molecular weight of 2.33 hydrogen masses.
@@ -276,28 +276,27 @@ def main(N, Rvir, Qvir, alpha, R, gas_presence, gas_expulsion, gas_expulsion_ons
     small_stars.disk_radius = 30 * (small_stars.stellar_mass.value_in(units.MSun) ** 0.5) | units.AU
     bright_stars.disk_radius = 0 | units.AU
 
-    print small_stars.disk_radius
+    #print small_stars.disk_mass
 
-    r_min = 0.1 | units.AU
     disk_codes = []
 
     # Create individual instances of vader codes for each disk
     for s in small_stars:
         #s_code = initialize_vader_code(r_min, s.disk_radius, s.disk_mass)
-        s_code = initialize_vader_code(r_min, s.disk_radius, s.disk_mass)
+        s_code = initialize_vader_code(s.disk_radius, s.disk_mass, linear=False)
         disk_codes.append(s_code)
 
     #print disk_codes[0].grid.column_density
     print "codes created. going to evolve..."
 
-    for disk in disk_codes:
+    """for disk in disk_codes:
         pyplot.plot(numpy.array(disk.grid.r.value_in(units.AU)), numpy.array(disk.grid.column_density.value_in(units.g / (units.cm)**2) + [0]))
     pyplot.show()
 
 
     evolve_parallel_disks(disk_codes, 0.04 | units.Myr)
 
-    print "evolved"
+    print "evolved"""
 
     # Start gravity code, add all stars
     gravity = ph4(converter)
@@ -355,7 +354,7 @@ def main(N, Rvir, Qvir, alpha, R, gas_presence, gas_expulsion, gas_expulsion_ons
         while gravity.model_time < t:
             gravity.evolve_model(t)
 
-            if stopping_condition.is_set():
+            """if stopping_condition.is_set():
                 channel_from_gravity_to_framework.copy()
                 encountering_stars = Particles(particles=[stopping_condition.particles(0)[0],
                                                           stopping_condition.particles(1)[0]])
@@ -396,7 +395,7 @@ def main(N, Rvir, Qvir, alpha, R, gas_presence, gas_expulsion, gas_expulsion_ons
 
     gravity.stop()
     E_handle.close()
-    Q_handle.close()
+    Q_handle.close()"""
 
 
 def new_option_parser():
