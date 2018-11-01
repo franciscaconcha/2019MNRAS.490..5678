@@ -304,6 +304,9 @@ def main(N, Rvir, Qvir, alpha, R, gas_presence, gas_expulsion, gas_expulsion_ons
     gravity.parameters.timestep_parameter = 0.01
     gravity.parameters.epsilon_squared = (100 | units.AU) ** 2
     gravity.particles.add_particles(stars)
+    # Enable stopping condition for dynamical encounters
+    stopping_condition = gravity.stopping_conditions.collision_detection
+    stopping_condition.enable()
 
     # Start stellar evolution code, add only massive stars
     stellar = SeBa()
@@ -326,9 +329,75 @@ def main(N, Rvir, Qvir, alpha, R, gas_presence, gas_expulsion, gas_expulsion_ons
     grid_stellar_mass = FRIED_grid[:, 0]
     grid_FUV = FRIED_grid[:, 1]
     grid_disk_mass = FRIED_grid[:, 2]
-
-
     grid_disk_radius = FRIED_grid[:, 3]
+
+    t = 0 | units.yr
+    E_ini = gravity.kinetic_energy + gravity.potential_energy
+
+    # For keeping track of energy
+    E_handle = file('{0}/energy.txt'.format(path), 'a')
+    Q_handle = file('{0}/virial.txt'.format(path), 'a')
+    E_list = []
+    Q_list = []
+
+    # Evolve!
+    while t < t_end - t_ini:
+        E_kin = gravity.kinetic_energy
+        E_pot = gravity.potential_energy
+
+        E_list.append([(E_kin + E_pot) / E_ini - 1])
+        Q_list.append([-1.0 * E_kin / E_pot])
+
+        # Update the collision radii of the stars based on the truncation factors and viscous spreading.
+        gravity.particles.radius = disk_characteristic_radius(stars, t, gamma) / truncation_factor
+        t += dt
+
+        while gravity.model_time < t:
+            gravity.evolve_model(t)
+
+            if stopping_condition.is_set():
+                channel_from_gravity_to_framework.copy()
+                encountering_stars = Particles(particles=[stopping_condition.particles(0)[0],
+                                                          stopping_condition.particles(1)[0]])
+                # TODO resolve_encounter should return sized ans masses of truncated disks and not edit star parameters
+                resolve_encounter(encountering_stars.get_intersecting_subset_in(stars), gravity.model_time + t_ini,
+                                  mass_factor_exponent, truncation_parameter, gamma)
+                # TODO here vader codes of the encountering stars should be replaced with new disks
+                # TODO i think this channel might not be needed anymore
+                channel_from_framework_to_gravity.copy_attributes(['radius'])
+
+        channel_from_gravity_to_framework.copy()
+
+        if (t + t_ini).value_in(units.yr) % save_interval.value_in(units.yr) == 0:
+            channel_from_gravity_to_framework.copy()
+
+            np.savetxt(E_handle, E_list)
+            np.savetxt(Q_handle, Q_list)
+
+            E_list = []
+            Q_list = []
+
+            # TODO this was done every few timesteps to calculate viscous growth. Now here I should do photoevap!
+            # and I think it should go on every time step, not in intervals
+
+            new_mass = disk_mass(stars, t + t_ini, gamma)
+            new_radius = disk_characteristic_radius(stars, t + t_ini, gamma)
+
+            stars.stellar_mass += stars.initial_disk_mass - new_mass
+            stars.initial_disk_mass = new_mass
+            stars.viscous_timescale *= (np.divide(new_radius, stars.initial_characteristic_disk_radius)) ** (2 - gamma)
+            stars.initial_characteristic_disk_radius = new_radius
+            stars.last_encounter = t + t_ini
+
+            write_set_to_file(stars,
+                              '{0}/R{1}_{2}.hdf5'.format(path, Rvir.value_in(units.parsec),
+                                                         int((t + t_ini).value_in(units.yr))),
+                              'amuse')
+
+    gravity.stop()
+    E_handle.close()
+    Q_handle.close()
+
 
 def new_option_parser():
     from amuse.units.optparse import OptionParser

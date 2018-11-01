@@ -5,10 +5,15 @@ import time
 def timer(func):
     def wrapper(*args, **kwargs):
         start_time = time.ctime()
-        print('Starting {0} for N={1}, endtime={2} at {3}'.format(
+        if kwargs:
+            print('Starting {0} for N={1}, endtime={2} at {3}'.format(
                 sys.argv[0],
                 kwargs['N'],
                 kwargs['t_end'],
+                start_time))
+        else:
+            print('Starting {0} at {1}'.format(
+                sys.argv[0],
                 start_time))
 
         start_time = time.time()

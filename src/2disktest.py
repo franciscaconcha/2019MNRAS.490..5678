@@ -212,7 +212,11 @@ def main(N, Rvir, Qvir, alpha, R, gas_presence, gas_expulsion, gas_expulsion_ons
          mu=2.3 | units.g / units.mol,
          filename=''):
 
-    #t_end = t_end | units.Myr
+    try:
+        float(t_end)
+        t_end = t_end | units.Myr
+    except TypeError:
+        pass
 
     max_stellar_mass = 100 | units.MSun
     stellar_masses = new_kroupa_mass_distribution(N, max_stellar_mass)  # , random=False)
@@ -233,7 +237,7 @@ def main(N, Rvir, Qvir, alpha, R, gas_presence, gas_expulsion, gas_expulsion_ons
     bright_stars.disk_mass = 0 | units.MSun
     small_stars.disk_mass = 0.1 * small_stars.stellar_mass
 
-    small_stars.disk_radius = 30 * (small_stars.stellar_mass.value_in(units.MSun) ** 0.5) | units.AU
+    small_stars.disk_radius = 100 * (small_stars.stellar_mass.value_in(units.MSun) ** 0.5) | units.AU
     bright_stars.disk_radius = 0 | units.AU
 
     #print small_stars.disk_radius
@@ -388,7 +392,10 @@ def main(N, Rvir, Qvir, alpha, R, gas_presence, gas_expulsion, gas_expulsion_ons
 
     print "total mass loss:"
     print time_total_mass_loss
-    #print radius_containing_mass(small_stars, (1 - time_total_mass_loss) * small_stars.disk_mass)
+
+    for t, ss in zip(time_total_mass_loss, small_stars):
+        print(ss.disk_radius.value_in(units.AU), radius_containing_mass(ss, (1 - t) * ss.disk_mass).value_in(units.AU))
+
 
 
         #print(round(stellar.particles[2].temperature.value_in(units.K) / 500) * 500)

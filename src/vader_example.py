@@ -6,12 +6,13 @@ from matplotlib import pyplot
 import gzip
 import copy
 from scipy import interpolate
+from decorators import timer
 
 
 def column_density(r):
-    rd = 0.1 | units.AU
-    rc = 10 | units.AU
-    Md = 1 | units.MSun
+    rd = 400 | units.AU
+    rc = 400 | units.AU
+    Md = 1 | units.MJupiter
 
     #if r < rd:
     #    return 1E-12
@@ -20,16 +21,16 @@ def column_density(r):
     Sigma = Sigma_0 * (r/rc) * numpy.exp(-r/rc)
     return Sigma
 
-
+@timer
 def main():
     disk = vader(redirection='none')
     disk.initialize_code()
     disk.initialize_keplerian_grid(
-        128,  # Number of cells
-        True,  # Linear?
-        0.1 | units.AU,  # Rmin
-        10 | units.AU,  # Rmax
-        1 | units.MSun  # Mass
+        500,  # Number of cells
+        False,  # Linear?
+        0.5 | units.AU,  # Rmin
+        5000 | units.AU,  # Rmax
+        1 | units.MJupiter  # Mass
     )
 
     #disk.parameters.verbosity = 1
@@ -51,11 +52,12 @@ def main():
     for x in range(len(disk.grid.column_density)):
         if disk.grid.r[x] > 10E13 | units.cm:
             print "yes"
-            disk.grid[x].column_density = 1E-12 | units.g / (units.cm)**2.0
+            disk.grid[x].column_density = 1E-12 | units.g / (units.cm)**2.0"""
 
 
-    print(disk.grid.column_density)"""
+    print(disk.grid.column_density[:400])
     disk.evolve_model(0.02 | units.Myr)
+    print(disk.grid.column_density[:400])
     #pyplot.plot(numpy.array(disk.grid.r.value_in(units.AU)), numpy.array(disk.grid.column_density.value_in(units.g / (units.cm)**2)))
     #pyplot.show()
 
