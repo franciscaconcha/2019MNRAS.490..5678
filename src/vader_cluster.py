@@ -9,18 +9,16 @@ from scipy import interpolate
 import Queue
 import threading
 import multiprocessing
+import sys
 from decorators import timer
 
 
 code_queue = Queue.Queue()
 
 
-def column_density(r, rc):
+def column_density(r, rc, mass):
     rd = rc
-    Md = 1 | units.MSun
-
-    #if r < rd:
-    #    return 1E-12
+    Md = mass
 
     Sigma_0 = Md / (2 * numpy.pi * rc**2 * (1 - numpy.exp(-rd/rc)))
     Sigma = Sigma_0 * (r/rc) * numpy.exp(-r/rc)
@@ -50,7 +48,7 @@ def initialize_vader_code(disk_radius, disk_mass, r_min=0.5 | units.AU, r_max=50
 
     #disk.parameters.verbosity = 1
 
-    sigma = column_density(disk.grid.r, disk_radius)
+    sigma = column_density(disk.grid.r, disk_radius, disk_mass)
     disk.grid.column_density = sigma
 
     # The pressure follows the ideal gas law with a mean molecular weight of 2.33 hydrogen masses.
@@ -188,11 +186,11 @@ def periastron_distance(stars):
     a = -mu / 2 / E
 
     # Semi-latus rectum
-    p = (np.cross(r.value_in(units.AU),
+    p = (numpy.cross(r.value_in(units.AU),
                   v.value_in(units.m / units.s)) | units.AU * units.m / units.s).length() ** 2 / mu
 
     # Eccentricity
-    e = np.sqrt(1 - p / a)
+    e = numpy.sqrt(1 - p / a)
 
     # Periastron distance
     return p / (1 + e)
@@ -209,7 +207,7 @@ def disk_radius(disk, density_limit=1E-5):
 
     for cell, r in zip(disk.grid.column_density, disk.grid.r):
         if cell.value_in(units.g / units.cm**2) < density_limit:
-            return prev_r
+            return prev_r.value_in(units.AU) | units.AU
         prev_r = r
 
 
@@ -229,9 +227,18 @@ def disk_mass(disk, radius):
     return total_mass | units.MJupiter
 
 
-def resolve_encounter(stars, disk_codes, time, mass_factor_exponent=0.2, truncation_parameter=1. / 3, gamma=1, verbose=False):
-    """Resolve encounter between two stars. Changes radius and mass of the stars' disks according to eqs. in paper.
+def resolve_encounter(stars,
+                      disk_codes,
+                      time,
+                      mass_factor_exponent,
+                      truncation_parameter,
+                      gamma,
+                      verbose=False):
+    """ Resolve encounter between two stars.
+        Return new disk radii and masses to create new vader codes.
+
     :param stars: pair of encountering stars.
+    :param disk_codes: vader codes of the disks in the encounter.
     :param time: time at which encounter occurs.
     :param mass_factor_exponent: exponent characterizing truncation mass dependence in a stellar encounter (eq. 13).
     :param truncation_parameter: factor characterizing the size of circumstellar disks after an encounter (eq. 13).
@@ -248,39 +255,34 @@ def resolve_encounter(stars, disk_codes, time, mass_factor_exponent=0.2, truncat
 
     # Check each star
     for i in range(2):
-        truncation_radius = closest_approach * truncation_parameter * \
-                            ((stars[i].mass / stars[1 - i].mass) ** mass_factor_exponent)
+        truncation_radius = (closest_approach * truncation_parameter * \
+                            ((stars[i].stellar_mass / stars[1 - i].stellar_mass) ** mass_factor_exponent)).value_in(units.AU) | units.AU
 
-        if stars[i].closest_encounter > closest_approach:  # This is the star's closest encounter so far
+        """if stars[i].closest_encounter > closest_approach:  # This is the star's closest encounter so far
             stars[i].closest_encounter = closest_approach
 
         if stars[i].strongest_truncation > truncation_radius:  # This is the star's strongest truncation so far
-            stars[i].strongest_truncation = truncation_radius
+            stars[i].strongest_truncation = truncation_radius"""
 
-        R_disk = disk_radius(stars[i], disk_codes[i])
+        R_disk = disk_radius(disk_codes[i])
         stars[i].radius = 0.49 * closest_approach  # So that we don't detect this encounter in the next time step
 
         if truncation_radius < R_disk:
             # Add accreted mass to star. Not sure if this should go here.
-            stars[i].stellar_mass += stars[i].initial_disk_mass - disk_mass(stars[i], time, gamma)
-            stars[i].initial_disk_mass = 1.58 * disk_mass_within_radius(stars[i], time, truncation_radius, gamma)
-            stars[i].viscous_timescale *= (truncation_radius
-                                           / stars[i].initial_characteristic_disk_radius) ** (2 - gamma)
-            stars[i].initial_characteristic_disk_radius = truncation_radius
+            #stars[i].stellar_mass += stars[i].initial_disk_mass - disk_mass(stars[i], time, gamma)
             stars[i].last_encounter = time
 
             new_radii.append(truncation_radius)
+            new_masses.append(disk_mass(disk_codes[i], truncation_radius))
 
+    return new_radii, new_masses
 
 
 @timer
-def main(N, Rvir, Qvir, alpha, R, gas_presence, gas_expulsion, gas_expulsion_onset, gas_expulsion_timescale,
-         t_ini, t_end, save_interval, run_number, save_path,
+def main(N, Rvir, Qvir, alpha, R, t_ini, t_end, save_interval, run_number, save_path,
          gamma=1,
          mass_factor_exponent=0.2,
          truncation_parameter=1. / 3,
-         gas_to_stars_mass_ratio=2.0,
-         gas_to_stars_plummer_radius_ratio=1.0,
          plummer_radius=0.5 | units.parsec,
          dt=2000 | units.yr,
          temp_profile=0.5,
@@ -310,19 +312,23 @@ def main(N, Rvir, Qvir, alpha, R, gas_presence, gas_expulsion, gas_expulsion_ons
     small_stars = stars[stars.stellar_mass.value_in(units.MSun) < 1.9]
 
     small_stars.disk_radius = 100 * (small_stars.stellar_mass.value_in(units.MSun) ** 0.5) | units.AU
-    bright_stars.disk_radius = 0 | units.AU
+    bright_stars.disk_radius = 100 | units.AU
 
     bright_stars.disk_mass = 0 | units.MSun
     small_stars.disk_mass = 0.1 * small_stars.stellar_mass
 
-    #print small_stars.disk_mass
+    if len(bright_stars) == 0:
+        print("No big stars!")
+        sys.exit()
 
     disk_codes = []
+    disk_codes_indices = {}  # Using this to keep track of codes later on, for the encounters
 
     # Create individual instances of vader codes for each disk
     for s in small_stars:
         s_code = initialize_vader_code(s.disk_radius, s.disk_mass, linear=False)
         disk_codes.append(s_code)
+        disk_codes_indices[s.key] = len(disk_codes) - 1
 
     # Start gravity code, add all stars
     gravity = ph4(converter)
@@ -375,20 +381,42 @@ def main(N, Rvir, Qvir, alpha, R, gas_presence, gas_expulsion, gas_expulsion_ons
         Q_list.append([-1.0 * E_kin / E_pot])
 
         # Update the collision radii of the stars based on the truncation factors and viscous spreading.
-        #gravity.particles.radius = disk_characteristic_radius(stars, t, gamma) / truncation_factor
+        # TODO give proper collision radii to the stars
+        gravity.particles.radius = 100 * stars.disk_radius
+        #print gravity.particles.radius
         t += dt
         gravity.evolve_model(t)
 
         if stopping_condition.is_set():
-                channel_from_gravity_to_framework.copy()
-                encountering_stars = Particles(particles=[stopping_condition.particles(0)[0],
-                                                          stopping_condition.particles(1)[0]])
-                # TODO resolve_encounter should return sizes and masses of truncated disks and not edit star parameters
-                resolve_encounter(encountering_stars.get_intersecting_subset_in(stars), gravity.model_time + t_ini,
-                                  mass_factor_exponent, truncation_parameter, gamma)
-                # TODO here vader codes of the encountering stars should be replaced with new disks
-                # TODO i think this channel might not be needed anymore
-                channel_from_framework_to_gravity.copy_attributes(['radius'])
+            #print("encounter")
+            channel_from_gravity_to_framework.copy()
+            #print("after copy")
+            encountering_stars = Particles(particles=[stopping_condition.particles(0)[0],
+                                                      stopping_condition.particles(1)[0]])
+            #print("after defining encountering_stars")
+            #print encountering_stars.key
+            #print small_stars.key
+            #print encountering_stars in small_stars
+
+            code_index = [disk_codes_indices[encountering_stars[0].key], disk_codes_indices[encountering_stars[1].key]]
+
+            # TODO resolve_encounter should return sizes and masses of truncated disks and not edit star parameters
+            new_radii, new_masses = resolve_encounter(encountering_stars.get_intersecting_subset_in(stars),
+                                                      [disk_codes[code_index[0]],
+                                                       disk_codes[code_index[1]]],
+                                                      gravity.model_time + t_ini,
+                                                      mass_factor_exponent,
+                                                      truncation_parameter,
+                                                      gamma)
+
+            # Going to take the old codes involved in the encounter and replace them with new codes
+            for i in range(2):
+                disk = disk_codes[code_index[i]]
+                sigma = column_density(disk.grid.r, new_radii[i], new_masses[i])
+                disk_codes[code_index[i]].grid.column_density = sigma
+
+            # TODO i think this channel might not be needed anymore... or maybe for the collisional radius
+            #channel_from_framework_to_gravity.copy_attributes(['radius'])
 
         channel_from_gravity_to_framework.copy()
 
