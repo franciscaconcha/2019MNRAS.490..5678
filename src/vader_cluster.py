@@ -198,6 +198,21 @@ def periastron_distance(stars):
     return p / (1 + e)
 
 
+def disk_radius(disk, density_limit):
+    """ Calculate the radius of a disk in a vader grid.
+
+    :param disk: Disk to calculate radius on.
+    :param density_limit: Density limit to designate disk border.
+    :return: Disk radius in units.AU
+    """
+    prev_r = disk.grid.r[0]
+
+    for cell, r in zip(disk.grid.column_density, disk.grid.r):
+        if cell.value_in(units.g / units.cm**2) < density_limit:
+            return prev_r
+        prev_r = r
+
+
 def resolve_encounter(stars, time, mass_factor_exponent=0.2, truncation_parameter=1. / 3, gamma=1, verbose=False):
     """Resolve encounter between two stars. Changes radius and mass of the stars' disks according to eqs. in paper.
     :param stars: pair of encountering stars.
@@ -213,6 +228,8 @@ def resolve_encounter(stars, time, mass_factor_exponent=0.2, truncation_paramete
 
     closest_approach = periastron_distance(stars)
 
+    new_radii, new_masses = [], []
+
     # Check each star
     for i in range(2):
         truncation_radius = closest_approach * truncation_parameter * \
@@ -224,16 +241,20 @@ def resolve_encounter(stars, time, mass_factor_exponent=0.2, truncation_paramete
         if stars[i].strongest_truncation > truncation_radius:  # This is the star's strongest truncation so far
             stars[i].strongest_truncation = truncation_radius
 
-        R_disk = disk_characteristic_radius(stars[i], time, gamma)
+        R_disk = disk_characteristic_radius(stars[i], time, gamma)  # TODO change this to vader radius
         stars[i].radius = 0.49 * closest_approach  # So that we don't detect this encounter in the next time step
 
         if truncation_radius < R_disk:
+            # Add accreted mass to star. Not sure if this should go here.
             stars[i].stellar_mass += stars[i].initial_disk_mass - disk_mass(stars[i], time, gamma)
             stars[i].initial_disk_mass = 1.58 * disk_mass_within_radius(stars[i], time, truncation_radius, gamma)
             stars[i].viscous_timescale *= (truncation_radius
                                            / stars[i].initial_characteristic_disk_radius) ** (2 - gamma)
             stars[i].initial_characteristic_disk_radius = truncation_radius
             stars[i].last_encounter = time
+
+            new_radii.append(truncation_radius)
+
 
 
 @timer
@@ -252,7 +273,11 @@ def main(N, Rvir, Qvir, alpha, R, gas_presence, gas_expulsion, gas_expulsion_ons
          mu=2.3 | units.g / units.mol,
          filename=''):
 
-    t_end = t_end | units.Myr
+    try:
+        float(t_end)
+        t_end = t_end | units.Myr
+    except TypeError:
+        pass
 
     max_stellar_mass = 100 | units.MSun
     stellar_masses = new_kroupa_mass_distribution(N, max_stellar_mass)  # , random=False)
@@ -263,18 +288,16 @@ def main(N, Rvir, Qvir, alpha, R, gas_presence, gas_expulsion, gas_expulsion_ons
     stars.stellar_mass = stellar_masses
 
     # Bright stars: no disks; emit FUV radiation
-    #bright_stars = [s for s in stars if s.stellar_mass.value_in(units.MSun) > 1.9]
     bright_stars = stars[stars.stellar_mass.value_in(units.MSun) > 1.9]
 
     # Small stars: with disks; radiation not considered
-    #small_stars = [s for s in stars if s.stellar_mass.value_in(units.MSun) < 1.9]
     small_stars = stars[stars.stellar_mass.value_in(units.MSun) < 1.9]
+
+    small_stars.disk_radius = 100 * (small_stars.stellar_mass.value_in(units.MSun) ** 0.5) | units.AU
+    bright_stars.disk_radius = 0 | units.AU
 
     bright_stars.disk_mass = 0 | units.MSun
     small_stars.disk_mass = 0.1 * small_stars.stellar_mass
-
-    small_stars.disk_radius = 30 * (small_stars.stellar_mass.value_in(units.MSun) ** 0.5) | units.AU
-    bright_stars.disk_radius = 0 | units.AU
 
     #print small_stars.disk_mass
 
@@ -282,27 +305,15 @@ def main(N, Rvir, Qvir, alpha, R, gas_presence, gas_expulsion, gas_expulsion_ons
 
     # Create individual instances of vader codes for each disk
     for s in small_stars:
-        #s_code = initialize_vader_code(r_min, s.disk_radius, s.disk_mass)
         s_code = initialize_vader_code(s.disk_radius, s.disk_mass, linear=False)
         disk_codes.append(s_code)
-
-    #print disk_codes[0].grid.column_density
-    print "codes created. going to evolve..."
-
-    """for disk in disk_codes:
-        pyplot.plot(numpy.array(disk.grid.r.value_in(units.AU)), numpy.array(disk.grid.column_density.value_in(units.g / (units.cm)**2) + [0]))
-    pyplot.show()
-
-
-    evolve_parallel_disks(disk_codes, 0.04 | units.Myr)
-
-    print "evolved"""
 
     # Start gravity code, add all stars
     gravity = ph4(converter)
     gravity.parameters.timestep_parameter = 0.01
     gravity.parameters.epsilon_squared = (100 | units.AU) ** 2
     gravity.particles.add_particles(stars)
+
     # Enable stopping condition for dynamical encounters
     stopping_condition = gravity.stopping_conditions.collision_detection
     stopping_condition.enable()
@@ -334,8 +345,8 @@ def main(N, Rvir, Qvir, alpha, R, gas_presence, gas_expulsion, gas_expulsion_ons
     E_ini = gravity.kinetic_energy + gravity.potential_energy
 
     # For keeping track of energy
-    E_handle = file('{0}/energy.txt'.format(path), 'a')
-    Q_handle = file('{0}/virial.txt'.format(path), 'a')
+    #E_handle = file('{0}/energy.txt'.format(path), 'a')
+    #Q_handle = file('{0}/virial.txt'.format(path), 'a')
     E_list = []
     Q_list = []
 
@@ -348,17 +359,15 @@ def main(N, Rvir, Qvir, alpha, R, gas_presence, gas_expulsion, gas_expulsion_ons
         Q_list.append([-1.0 * E_kin / E_pot])
 
         # Update the collision radii of the stars based on the truncation factors and viscous spreading.
-        gravity.particles.radius = disk_characteristic_radius(stars, t, gamma) / truncation_factor
+        #gravity.particles.radius = disk_characteristic_radius(stars, t, gamma) / truncation_factor
         t += dt
+        gravity.evolve_model(t)
 
-        while gravity.model_time < t:
-            gravity.evolve_model(t)
-
-            """if stopping_condition.is_set():
+        if stopping_condition.is_set():
                 channel_from_gravity_to_framework.copy()
                 encountering_stars = Particles(particles=[stopping_condition.particles(0)[0],
                                                           stopping_condition.particles(1)[0]])
-                # TODO resolve_encounter should return sized ans masses of truncated disks and not edit star parameters
+                # TODO resolve_encounter should return sizes and masses of truncated disks and not edit star parameters
                 resolve_encounter(encountering_stars.get_intersecting_subset_in(stars), gravity.model_time + t_ini,
                                   mass_factor_exponent, truncation_parameter, gamma)
                 # TODO here vader codes of the encountering stars should be replaced with new disks
@@ -367,7 +376,7 @@ def main(N, Rvir, Qvir, alpha, R, gas_presence, gas_expulsion, gas_expulsion_ons
 
         channel_from_gravity_to_framework.copy()
 
-        if (t + t_ini).value_in(units.yr) % save_interval.value_in(units.yr) == 0:
+        """if (t + t_ini).value_in(units.yr) % save_interval.value_in(units.yr) == 0:
             channel_from_gravity_to_framework.copy()
 
             np.savetxt(E_handle, E_list)
@@ -425,24 +434,13 @@ def new_option_parser():
     result.add_option("-c", dest="R", type="float", default=30.0,
                       help="Initial disk radius [%default]")
 
-    result.add_option("-e", dest="gas_expulsion_onset", type="float", default=0.6 | units.Myr,
-                      help="the moment when the gas starts dispersing [%default]")
-    result.add_option("-E", dest="gas_expulsion_timescale", type="float", default=0.1 | units.Myr,
-                      help="the time after which half of the initial gas is expulsed assuming gas Plummer radius of 1 parsec [%default]")
-
     # Time parameters
     result.add_option("-I", dest="t_ini", type="int", default=0 | units.yr,
                       help="initial time [%default]")
     result.add_option("-t", dest="dt", type="int", default=2000 | units.yr,
                       help="time interval of recomputing circumstellar disk sizes and checking for energy conservation [%default]")
-    result.add_option("-x", dest="t_end", type="float", default=2 | units.Myr,
+    result.add_option("-e", dest="t_end", type="float", default=2 | units.Myr,
                       help="end time of the simulation [%default]")
-
-    # Gas behaviour
-    result.add_option("-l", dest="gas_presence", action="store_false", default=False,
-                      help="gas presence [%default]")
-    result.add_option("-k", dest="gas_expulsion", action="store_false", default=False,
-                      help="gas expulsion [%default]")
 
     return result
 
