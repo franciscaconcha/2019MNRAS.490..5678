@@ -21,12 +21,13 @@ def column_density(r):
     Sigma = Sigma_0 * (r/rc) * numpy.exp(-r/rc)
     return Sigma
 
+
 def disk_radius(disk, density_limit):
     """ Calculate the radius of a disk in a vader grid.
 
-    :param disk: Disk to calculate radius on.
-    :param density_limit: Density limit to designate disk border.
-    :return: Disk radius in units.AU
+    :param disk: vader code of disk
+    :param density_limit: density limit to designate disk border
+    :return: disk radius in units.AU
     """
     prev_r = disk.grid.r[0]
 
@@ -34,6 +35,23 @@ def disk_radius(disk, density_limit):
         if cell.value_in(units.g / units.cm**2) < density_limit:
             return prev_r
         prev_r = r
+
+
+def disk_mass(disk, radius):
+    """ Calculate the mass of a vader disk inside a certain radius.
+
+    :param disk: vader code of disk
+    :param radius: disk radius to consider for mass calculation
+    :return: disk mass in units.MJupiter
+    """
+    mass_cells = disk.grid.r[disk.grid.r <= radius]
+    total_mass = 0
+
+    for m, d, a in zip(mass_cells, disk.grid.column_density, disk.grid.area):
+        total_mass += d.value_in(units.MJupiter / units.cm**2) * a.value_in(units.cm**2)
+
+    return total_mass | units.MJupiter
+
 
 @timer
 def main():
@@ -70,7 +88,8 @@ def main():
 
     disk.evolve_model(0.04 | units.Myr)
     print(disk.grid.column_density)
-    print(disk_radius(disk, 1E-4))
+    r = disk_radius(disk, 1E-4)
+    disk_mass(disk, r)
     #pyplot.plot(numpy.array(disk.grid.r.value_in(units.AU)), numpy.array(disk.grid.column_density.value_in(units.g / (units.cm)**2)))
     #pyplot.show()
 

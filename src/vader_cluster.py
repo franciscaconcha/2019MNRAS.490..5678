@@ -198,7 +198,7 @@ def periastron_distance(stars):
     return p / (1 + e)
 
 
-def disk_radius(disk, density_limit):
+def disk_radius(disk, density_limit=1E-5):
     """ Calculate the radius of a disk in a vader grid.
 
     :param disk: Disk to calculate radius on.
@@ -213,7 +213,23 @@ def disk_radius(disk, density_limit):
         prev_r = r
 
 
-def resolve_encounter(stars, time, mass_factor_exponent=0.2, truncation_parameter=1. / 3, gamma=1, verbose=False):
+def disk_mass(disk, radius):
+    """ Calculate the mass of a vader disk inside a certain radius.
+
+    :param disk: vader code of disk
+    :param radius: disk radius to consider for mass calculation
+    :return: disk mass in units.MJupiter
+    """
+    mass_cells = disk.grid.r[disk.grid.r <= radius]
+    total_mass = 0
+
+    for m, d, a in zip(mass_cells, disk.grid.column_density, disk.grid.area):
+        total_mass += d.value_in(units.MJupiter / units.cm**2) * a.value_in(units.cm**2)
+
+    return total_mass | units.MJupiter
+
+
+def resolve_encounter(stars, disk_codes, time, mass_factor_exponent=0.2, truncation_parameter=1. / 3, gamma=1, verbose=False):
     """Resolve encounter between two stars. Changes radius and mass of the stars' disks according to eqs. in paper.
     :param stars: pair of encountering stars.
     :param time: time at which encounter occurs.
@@ -241,7 +257,7 @@ def resolve_encounter(stars, time, mass_factor_exponent=0.2, truncation_paramete
         if stars[i].strongest_truncation > truncation_radius:  # This is the star's strongest truncation so far
             stars[i].strongest_truncation = truncation_radius
 
-        R_disk = disk_characteristic_radius(stars[i], time, gamma)  # TODO change this to vader radius
+        R_disk = disk_radius(stars[i], disk_codes[i])
         stars[i].radius = 0.49 * closest_approach  # So that we don't detect this encounter in the next time step
 
         if truncation_radius < R_disk:
