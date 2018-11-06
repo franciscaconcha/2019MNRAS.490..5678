@@ -258,14 +258,10 @@ def resolve_encounter(stars,
         truncation_radius = (closest_approach * truncation_parameter * \
                             ((stars[i].stellar_mass / stars[1 - i].stellar_mass) ** mass_factor_exponent)).value_in(units.AU) | units.AU
 
-        """if stars[i].closest_encounter > closest_approach:  # This is the star's closest encounter so far
-            stars[i].closest_encounter = closest_approach
-
-        if stars[i].strongest_truncation > truncation_radius:  # This is the star's strongest truncation so far
-            stars[i].strongest_truncation = truncation_radius"""
-
         R_disk = disk_radius(disk_codes[i])
-        stars[i].radius = 0.49 * closest_approach  # So that we don't detect this encounter in the next time step
+
+        # Update collisional radius so that we don't detect this encounter in the next time step
+        stars[i].collisional_radius = 0.49 * closest_approach
 
         if truncation_radius < R_disk:
             # Add accreted mass to star. Not sure if this should go here.
@@ -317,6 +313,10 @@ def main(N, Rvir, Qvir, alpha, R, t_ini, t_end, save_interval, run_number, save_
     bright_stars.disk_mass = 0 | units.MSun
     small_stars.disk_mass = 0.1 * small_stars.stellar_mass
 
+    # Initially all stars have the same collisional radius
+    # TODO if we get too few encounters, we can make this smaller
+    stars.collisional_radius = 0.02 | units.parsec
+
     if len(bright_stars) == 0:
         print("No big stars!")
         sys.exit()
@@ -349,6 +349,9 @@ def main(N, Rvir, Qvir, alpha, R, t_ini, t_end, save_interval, run_number, save_
     channel_from_stellar_to_framework = stellar.particles.new_channel_to(stars)
     channel_from_stellar_to_gravity = stellar.particles.new_channel_to(gravity.particles)
     channel_from_gravity_to_framework = gravity.particles.new_channel_to(stars)
+    channel_from_framework_to_gravity = stars.new_channel_to(gravity.particles,
+                                                             attributes=['collisional_radius'],
+                                                             target_names=['radius'])
 
     ######## FRIED grid ########
     # Read FRIED grid
@@ -363,7 +366,7 @@ def main(N, Rvir, Qvir, alpha, R, t_ini, t_end, save_interval, run_number, save_
     grid_disk_mass = FRIED_grid[:, 2]
     grid_disk_radius = FRIED_grid[:, 3]
 
-    t = 0 | units.yr
+    t = 0 | t_end.unit
     E_ini = gravity.kinetic_energy + gravity.potential_energy
 
     # For keeping track of energy
@@ -372,8 +375,13 @@ def main(N, Rvir, Qvir, alpha, R, t_ini, t_end, save_interval, run_number, save_
     E_list = []
     Q_list = []
 
+    print stellar.particles.luminosity
+
     # Evolve!
-    while t < t_end - t_ini:
+    while t < t_end:
+        dt = min(dt, t_end - t)
+        stellar.evolve_model(t + dt/2)
+        channel_from_stellar_to_gravity.copy()
         E_kin = gravity.kinetic_energy
         E_pot = gravity.potential_energy
 
@@ -381,16 +389,14 @@ def main(N, Rvir, Qvir, alpha, R, t_ini, t_end, save_interval, run_number, save_
         Q_list.append([-1.0 * E_kin / E_pot])
 
         # Update the collision radii of the stars based on the truncation factors and viscous spreading.
-        # TODO give proper collision radii to the stars
-        gravity.particles.radius = 100 * stars.disk_radius
-        #print gravity.particles.radius
-        t += dt
-        gravity.evolve_model(t)
+        # TODO update the collisional radius...
+        gravity.particles.radius = stars.collisional_radius
+
+        gravity.evolve_model(t + dt)
 
         if stopping_condition.is_set():
             #print("encounter")
             channel_from_gravity_to_framework.copy()
-            #print("after copy")
             encountering_stars = Particles(particles=[stopping_condition.particles(0)[0],
                                                       stopping_condition.particles(1)[0]])
             #print("after defining encountering_stars")
@@ -398,9 +404,10 @@ def main(N, Rvir, Qvir, alpha, R, t_ini, t_end, save_interval, run_number, save_
             #print small_stars.key
             #print encountering_stars in small_stars
 
+            #print encountering_stars[0].key, encountering_stars[1].key
+            #print disk_codes_indices
             code_index = [disk_codes_indices[encountering_stars[0].key], disk_codes_indices[encountering_stars[1].key]]
 
-            # TODO resolve_encounter should return sizes and masses of truncated disks and not edit star parameters
             new_radii, new_masses = resolve_encounter(encountering_stars.get_intersecting_subset_in(stars),
                                                       [disk_codes[code_index[0]],
                                                        disk_codes[code_index[1]]],
@@ -409,16 +416,23 @@ def main(N, Rvir, Qvir, alpha, R, t_ini, t_end, save_interval, run_number, save_
                                                       truncation_parameter,
                                                       gamma)
 
-            # Going to take the old codes involved in the encounter and replace them with new codes
-            for i in range(2):
-                disk = disk_codes[code_index[i]]
-                sigma = column_density(disk.grid.r, new_radii[i], new_masses[i])
-                disk_codes[code_index[i]].grid.column_density = sigma
+            print new_radii
 
-            # TODO i think this channel might not be needed anymore... or maybe for the collisional radius
-            #channel_from_framework_to_gravity.copy_attributes(['radius'])
+            if new_radii:  # If encounter did not truncate, new_radii and new_masses will be empty
+                # Going to take the old codes involved in the encounter and replace them with new codes
+                print("new radii!")
+                for i in range(2):
+                    disk = disk_codes[code_index[i]]
+                    sigma = column_density(disk.grid.r, new_radii[i], new_masses[i])
+                    disk_codes[code_index[i]].grid.column_density = sigma
 
-        channel_from_gravity_to_framework.copy()
+        # Copy stars' new collisional radii (updated in resolve_encounter) to gravity
+        channel_from_framework_to_gravity.copy()
+
+        stellar.evolve_model(t + dt)
+        channel_from_stellar_to_gravity.copy()
+        channel_from_stellar_to_framework.copy()
+        t += dt
 
         """if (t + t_ini).value_in(units.yr) % save_interval.value_in(units.yr) == 0:
             channel_from_gravity_to_framework.copy()
@@ -444,11 +458,13 @@ def main(N, Rvir, Qvir, alpha, R, t_ini, t_end, save_interval, run_number, save_
             write_set_to_file(stars,
                               '{0}/R{1}_{2}.hdf5'.format(path, Rvir.value_in(units.parsec),
                                                          int((t + t_ini).value_in(units.yr))),
-                              'amuse')
+                              'amuse')"""
 
     gravity.stop()
-    E_handle.close()
-    Q_handle.close()"""
+    #E_handle.close()
+    #Q_handle.close()
+    stellar.stop()
+    print stellar.particles.luminosity
 
 
 def new_option_parser():
