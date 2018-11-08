@@ -261,6 +261,8 @@ def resolve_encounter(stars,
         truncation_radius = (closest_approach.value_in(units.AU) / 3) *\
                             numpy.sqrt(stars[i].stellar_mass.value_in(units.MSun)
                                        / stars[1 - i].stellar_mass.value_in(units.MSun)) | units.AU
+        #truncation_radius = (closest_approach * truncation_parameter * \
+        #                    ((stars[i].stellar_mass / stars[1 - i].stellar_mass) ** mass_factor_exponent)).value_in(units.AU) | units.AU
 
         if stars[i].disk_radius == 0 | units.AU:
             new_radii.append(None)
@@ -335,7 +337,7 @@ def main(N, Rvir, Qvir, alpha, R, t_ini, t_end, save_interval, run_number, save_
 
     # Initially all stars have the same collisional radius
     # TODO if we get too few encounters, we can make this smaller
-    stars.collisional_radius = 10 * stars.disk_radius
+    stars.collisional_radius = 0.02 | units.parsec
 
     disk_codes = []
     disk_codes_indices = {}  # Using this to keep track of codes later on, for the encounters
@@ -343,12 +345,32 @@ def main(N, Rvir, Qvir, alpha, R, t_ini, t_end, save_interval, run_number, save_
     # Create individual instances of vader codes for each disk
     for s in small_stars:
         s_code = initialize_vader_code(s.disk_radius, s.disk_mass, linear=False)
+
+        s_code.parameters.alpha = alpha
+        s_code.parameters.verbosity = False
+        s_code.parameters.post_timestep_function = True
+        s_code.parameters.maximum_tolerated_change = 1E99
+        s_code.parameters.number_of_user_parameters = 6
+        s_code.parameters.inner_pressure_boundary_torque = 0. | units.g * units.cm**2. / units.s**2.
+        s_code.set_parameter(0, 0.)
+        s_code.set_parameter(2, 1E-12)
+        s_code.set_parameter(3, 300)
+        s_code.set_parameter(4, 2.33 * constants.u.value_in(units.g) * 1.008)
+
         disk_codes.append(s_code)
         disk_codes_indices[s.key] = len(disk_codes) - 1
-        print s.disk_radius, get_disk_radius(s_code)
+
+    print small_stars[0].disk_radius
+    print get_disk_radius(disk_codes[0], density_limit=1E-11)
+    print disk_codes[0]
+    print disk_codes[0].grid
+    print disk_codes[0].grid.column_density
+    disk_codes[0].evolve_model(0.02 | units.Myr)
+    print get_disk_radius(disk_codes[0], density_limit=1E-11)
+    print disk_codes[0].grid.column_density
 
     # Start gravity code, add all stars
-    """gravity = ph4(converter)
+    gravity = ph4(converter)
     gravity.parameters.timestep_parameter = 0.01
     gravity.parameters.epsilon_squared = (100 | units.AU) ** 2
     gravity.particles.add_particles(stars)
@@ -439,7 +461,6 @@ def main(N, Rvir, Qvir, alpha, R, t_ini, t_end, save_interval, run_number, save_
                 # Going to take the old codes involved in the encounter and replace them with new codes
                 #print("new radii!")
                 for i in range(2):
-                    print "new_radii[{0}]={1}, encountering...disk_radius[{0}]={2}".format(i, new_radii[i], encountering_stars.get_intersecting_subset_in(stars)[i].disk_radius)
                     if new_radii[i] == encountering_stars.get_intersecting_subset_in(stars)[i].disk_radius:
                         continue
                     else:
@@ -455,9 +476,9 @@ def main(N, Rvir, Qvir, alpha, R, t_ini, t_end, save_interval, run_number, save_
         channel_from_framework_to_gravity.copy()
         stellar.evolve_model(t + dt)
         channel_from_stellar_to_gravity.copy()
-        channel_from_stellar_to_framework.copy()"""
+        channel_from_stellar_to_framework.copy()
 
-    """"print "before evolving"
+        """"print "before evolving"
         print disk_codes[0].grid.r
         evolve_parallel_disks(disk_codes, t + dt)
         #evolve_single_disk(disk_codes[0], t+dt)
@@ -465,13 +486,13 @@ def main(N, Rvir, Qvir, alpha, R, t_ini, t_end, save_interval, run_number, save_
         print "after evolving"
         print disk_codes[0].grid.r"""
 
-    """print "going to run disk codes..."
+        """print "going to run disk codes..."
         for s in small_stars:
             disk_codes[disk_codes_indices[s.key]].evolve_model(t + dt)
             s.disk_radius = get_disk_radius(disk_codes[disk_codes_indices[s.key]], density_limit=1E-6)
         print "done"""""
 
-        #t += dt
+        t += dt
 
     """if (t + t_ini).value_in(units.yr) % save_interval.value_in(units.yr) == 0:
             channel_from_gravity_to_framework.copy()
@@ -499,12 +520,12 @@ def main(N, Rvir, Qvir, alpha, R, t_ini, t_end, save_interval, run_number, save_
                                                          int((t + t_ini).value_in(units.yr))),
                               'amuse')"""
 
-    """print stellar.particles.luminosity
+    print stellar.particles.luminosity
     print small_stars.disk_radius
     gravity.stop()
     #E_handle.close()
     #Q_handle.close()
-    stellar.stop()"""
+    stellar.stop()
 
 
 def new_option_parser():
