@@ -11,6 +11,7 @@ import threading
 import multiprocessing
 import sys
 from decorators import timer
+import time
 
 
 code_queue = Queue.Queue()
@@ -471,11 +472,12 @@ def main(N, Rvir, Qvir, alpha, R, t_ini, t_end, save_interval, run_number, save_
         channel_from_stellar_to_gravity.copy()
         channel_from_stellar_to_framework.copy()
 
-        print "before evolving"
+        #print "before evolving"
         evolve_parallel_disks(disk_codes, t + dt)
         #evolve_single_disk(disk_codes[0], t+dt)
         #disk_codes[0].evolve_model(t + dt)
-        print "after evolving"
+        #print "after evolving"
+        print get_disk_radius(disk_codes[0], density_limit=1E-11)
 
         """print "going to run disk codes..."
         for s in small_stars:
