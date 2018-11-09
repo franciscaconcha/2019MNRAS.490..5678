@@ -81,7 +81,7 @@ def evolve_parallel_disks(codes, dt):
 def evolve_single_disk(code, time):
     disk = code
     disk.evolve_model(time)
-    disk.stop()
+    #disk.stop()
 
 
 def distance(star1, star2):
@@ -346,16 +346,9 @@ def main(N, Rvir, Qvir, alpha, R, t_ini, t_end, save_interval, run_number, save_
     for s in small_stars:
         s_code = initialize_vader_code(s.disk_radius, s.disk_mass, linear=False)
 
+        s_code.parameters.inner_pressure_boundary_torque = 0.0 | units.g * units.cm**2 / units.s**2
         s_code.parameters.alpha = alpha
-        s_code.parameters.verbosity = False
-        s_code.parameters.post_timestep_function = True
-        s_code.parameters.maximum_tolerated_change = 1E99
-        s_code.parameters.number_of_user_parameters = 6
-        s_code.parameters.inner_pressure_boundary_torque = 0. | units.g * units.cm**2. / units.s**2.
-        s_code.set_parameter(0, 0.)
-        s_code.set_parameter(2, 1E-12)
-        s_code.set_parameter(3, 300)
-        s_code.set_parameter(4, 2.33 * constants.u.value_in(units.g) * 1.008)
+        s_code.parameters.maximum_tolerated_change = 1E50
 
         disk_codes.append(s_code)
         disk_codes_indices[s.key] = len(disk_codes) - 1
@@ -478,13 +471,11 @@ def main(N, Rvir, Qvir, alpha, R, t_ini, t_end, save_interval, run_number, save_
         channel_from_stellar_to_gravity.copy()
         channel_from_stellar_to_framework.copy()
 
-        """"print "before evolving"
-        print disk_codes[0].grid.r
+        print "before evolving"
         evolve_parallel_disks(disk_codes, t + dt)
         #evolve_single_disk(disk_codes[0], t+dt)
         #disk_codes[0].evolve_model(t + dt)
         print "after evolving"
-        print disk_codes[0].grid.r"""
 
         """print "going to run disk codes..."
         for s in small_stars:
@@ -520,6 +511,8 @@ def main(N, Rvir, Qvir, alpha, R, t_ini, t_end, save_interval, run_number, save_
                                                          int((t + t_ini).value_in(units.yr))),
                               'amuse')"""
 
+    for d in disk_codes:
+        d.stop()
     print stellar.particles.luminosity
     print small_stars.disk_radius
     gravity.stop()
