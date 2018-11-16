@@ -1,1 +1,0 @@
-testingMode.o: testingMode.c

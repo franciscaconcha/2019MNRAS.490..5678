@@ -1,1 +1,0 @@
-inner boundary conditions reset after first grid value assignments
