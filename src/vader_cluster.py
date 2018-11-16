@@ -11,7 +11,6 @@ import threading
 import multiprocessing
 import sys
 from decorators import timer
-import time
 
 
 code_queue = Queue.Queue()
@@ -234,20 +233,15 @@ def get_disk_mass(disk, radius):
 def resolve_encounter(stars,
                       disk_codes,
                       time,
-                      mass_factor_exponent,
-                      truncation_parameter,
-                      gamma,
                       verbose=False):
     """ Resolve encounter between two stars.
-        Return new disk radii and masses to create new vader codes.
+        Return updated vader codes.
 
-    :param stars: pair of encountering stars.
-    :param disk_codes: vader codes of the disks in the encounter.
-    :param time: time at which encounter occurs.
-    :param mass_factor_exponent: exponent characterizing truncation mass dependence in a stellar encounter (eq. 13).
-    :param truncation_parameter: factor characterizing the size of circumstellar disks after an encounter (eq. 13).
-    :param gamma: radial viscosity dependence exponent.
-    :param verbose: verbose option for debugging.
+    :param stars: pair of encountering stars
+    :param disk_codes: vader codes of the disks in the encounter
+    :param time: time at which encounter occurs
+    :param verbose: verbose option for debugging
+    :return: updated vader disk codes
     """
     # For debugging
     if verbose:
@@ -261,14 +255,12 @@ def resolve_encounter(stars,
 
     # Check each star
     for i in range(2):
-        if disk_codes[i] is None:  # Bright star, no disk
+        if disk_codes[i] is None:  # Bright star, no disk code
             new_codes.append(None)
         else:
             truncation_radius = (closest_approach.value_in(units.AU) / 3) *\
                                  numpy.sqrt(stars[i].stellar_mass.value_in(units.MSun)
-                                     / stars[1 - i].stellar_mass.value_in(units.MSun)) | units.AU
-            #truncation_radius = (closest_approach * truncation_parameter * \
-            #                    ((stars[i].stellar_mass / stars[1 - i].stellar_mass) ** mass_factor_exponent)).value_in(units.AU) | units.AU
+                                      / stars[1 - i].stellar_mass.value_in(units.MSun)) | units.AU
 
             R_disk = get_disk_radius(disk_codes[i])
             print "R_disk = {0}, truncation radius={1}".format(R_disk, truncation_radius)
@@ -278,7 +270,6 @@ def resolve_encounter(stars,
                 # TODO Add accreted mass to star. Not sure if this should go here.
                 #stars[i].stellar_mass += stars[i].initial_disk_mass - get_disk_mass(stars[i], time, gamma)
                 stars[i].last_encounter = time
-
                 new_codes.append(truncate_disk(disk_codes[i], truncation_radius))
             else:
                 new_codes.append(disk_codes[i])
@@ -366,7 +357,7 @@ def main(N, Rvir, Qvir, alpha, R, t_ini, t_end, save_interval, run_number, save_
     small_stars.disk_mass = 0.1 * small_stars.stellar_mass
 
     # Initially all stars have the same collisional radius
-    # TODO if we get too few encounters, we can make this smaller
+    # TODO check this value
     stars.collisional_radius = 0.02 | units.parsec
 
     disk_codes = []
@@ -384,15 +375,6 @@ def main(N, Rvir, Qvir, alpha, R, t_ini, t_end, save_interval, run_number, save_
             disk_codes_indices[s.key] = len(disk_codes) - 1
         else:  # Attach None to bright stars' codes
             s.code = None
-
-    #print small_stars[0].disk_radius
-    #print get_disk_radius(disk_codes[0], density_limit=1E-11)
-    #print disk_codes[0]
-    #print disk_codes[0].grid
-    #print disk_codes[0].grid.column_density
-    #disk_codes[0].evolve_model(0.02 | units.Myr)
-    #print get_disk_radius(disk_codes[0], density_limit=1E-11)
-    #print disk_codes[0].grid.column_density
 
     # Start gravity code, add all stars
     gravity = ph4(converter)
@@ -466,6 +448,7 @@ def main(N, Rvir, Qvir, alpha, R, t_ini, t_end, save_interval, run_number, save_
             encountering_stars = Particles(particles=[stopping_condition.particles(0)[0],
                                                       stopping_condition.particles(1)[0]])
 
+            # This is to manage encounters involving bright stars (which have no associated vader code)
             try:
                 code_index = [disk_codes_indices[encountering_stars[0].key],
                               disk_codes_indices[encountering_stars[1].key]]
@@ -489,10 +472,7 @@ def main(N, Rvir, Qvir, alpha, R, t_ini, t_end, save_interval, run_number, save_
 
             new_codes = resolve_encounter(encountering_stars.get_intersecting_subset_in(stars),
                                           star_codes,
-                                          gravity.model_time + t_ini,
-                                          mass_factor_exponent,
-                                          truncation_parameter,
-                                          gamma)
+                                          gravity.model_time + t_ini)
 
             if new_codes[0] is not None and new_codes[1] is not None:
                 print "small-small"
@@ -526,7 +506,7 @@ def main(N, Rvir, Qvir, alpha, R, t_ini, t_end, save_interval, run_number, save_
             s.disk_radius = get_disk_radius(c)
 
         # Photoevaporation
-        """for s in bright_stars:  # For each massive/bright star
+        for s in bright_stars:  # For each massive/bright star
 
             # Calculate FUV luminosity of the bright star, in LSun
             lum = luminosity_fit(s.stellar_mass.value_in(units.MSun))
@@ -588,11 +568,11 @@ def main(N, Rvir, Qvir, alpha, R, t_ini, t_end, save_interval, run_number, save_
                 # Photoevaporative mass loss in log10(MSun/yr)
                 photoevap_Mdot = interpolate.griddata(subgrid, Mdot_values, xi, method="nearest")  # MSun/yr
 
-                #Calculate total mass lost due to photoevaporation during dt
+                # Calculate total mass lost due to photoevaporation during dt
                 total_photoevap_mass_loss = float(numpy.power(10, photoevap_Mdot) * dt.value_in(units.yr))
 
                 print total_photoevap_mass_loss
-                z += 1"""
+                z += 1
         t += dt
 
     for d in disk_codes:
