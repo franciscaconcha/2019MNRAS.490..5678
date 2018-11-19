@@ -80,7 +80,11 @@ def evolve_parallel_disks(codes, dt):
 
 def evolve_single_disk(code, time):
     disk = code
-    disk.evolve_model(time)
+    try:
+        disk.evolve_model(time)
+    except:
+        print "Disk did not converge"
+        
     #disk.stop()  # If I keep the stop it crashes after the 1st timestep
 
 
@@ -295,18 +299,22 @@ def evaporate(disk, mass, density_limit=1E-11):
         Goes through the disk outside-in removing mass until the needed amount is reached.
 
     :param disk: vader disk to truncate
-    :param mass: mass lost to photoevaporation
+    :param mass: mass lost to photoevaporation in MSun
     :param density_limit: density limit for radius calculation
     :return: vader code with disk at new radius
     """
-    removed_mass = 0
+    removed_mass = 0 | units.MSun
 
     for d, r, a in zip(disk.grid[::-1].column_density, disk.grid[::-1].r, disk.grid[::-1].area):
-        if d <= density_limit:
+        if d <= density_limit | units.g / (units.cm ** 2):
             continue
         else:
-            cell_mass = d * a
-            removed_mass += cell_mass
+            #print "removing mass"
+            cell_mass_msun = d.value_in(units.MSun / (units.AU**2)) * a.value_in(units.AU**2) | units.MSun
+            #print cell_mass_msun
+            #print removed_mass
+            #print mass
+            removed_mass += cell_mass_msun
             if removed_mass >= mass:
                 return truncate_disk(disk, r)
     return disk
@@ -351,7 +359,7 @@ def main(N, Rvir, Qvir, alpha, R, t_ini, t_end, save_interval, run_number, save_
     small_stars = stars[stars.stellar_mass.value_in(units.MSun) < 1.9]
 
     small_stars.disk_radius = 100 * (small_stars.stellar_mass.value_in(units.MSun) ** 0.5) | units.AU
-    bright_stars.disk_radius = 100 | units.AU
+    bright_stars.disk_radius = 0 | units.AU
 
     bright_stars.disk_mass = 0 | units.MSun
     small_stars.disk_mass = 0.1 * small_stars.stellar_mass
@@ -364,15 +372,23 @@ def main(N, Rvir, Qvir, alpha, R, t_ini, t_end, save_interval, run_number, save_
     disk_codes_indices = {}  # Using this to keep track of codes later on, for the encounters
 
     # Create individual instances of vader codes for each disk
+    print "start radii:"
     for s in stars:
         if s in small_stars:
             s_code = initialize_vader_code(s.disk_radius, s.disk_mass, linear=False)
 
             s_code.parameters.inner_pressure_boundary_torque = 0.0 | units.g * units.cm**2 / units.s**2
             s_code.parameters.alpha = alpha
-            s_code.parameters.maximum_tolerated_change = 1E50
+            s_code.parameters.maximum_tolerated_change = 1E99
+
             disk_codes.append(s_code)
             disk_codes_indices[s.key] = len(disk_codes) - 1
+
+            # Saving these values to keep track of dispersed disks later on
+            #s.initial_disk_size = s.disk_radius
+            s.dispersed_disk_mass = 0.01 * s.disk_mass
+            s.dispersed = False
+            print get_disk_radius(s_code)
         else:  # Attach None to bright stars' codes
             s.code = None
 
@@ -423,8 +439,6 @@ def main(N, Rvir, Qvir, alpha, R, t_ini, t_end, save_interval, run_number, save_
 
     print stellar.particles.luminosity
 
-    print small_stars.disk_radius
-
     # Evolve!
     while t < t_end:
         dt = min(dt, t_end - t)
@@ -466,7 +480,7 @@ def main(N, Rvir, Qvir, alpha, R, t_ini, t_end, save_interval, run_number, save_
 
             #print disk_codes[code_index[0]].grid
             if encountering_stars.get_intersecting_subset_in(stars)[0] in small_stars and encountering_stars.get_intersecting_subset_in(stars)[1] in small_stars:
-                print "before resolve_encounter:"
+                #print "before resolve_encounter:"
                 print get_disk_radius(disk_codes[disk_codes_indices[encountering_stars.get_intersecting_subset_in(stars)[0].key]]), \
                     get_disk_radius(disk_codes[disk_codes_indices[encountering_stars.get_intersecting_subset_in(stars)[1].key]])
 
@@ -476,34 +490,44 @@ def main(N, Rvir, Qvir, alpha, R, t_ini, t_end, save_interval, run_number, save_
 
             if new_codes[0] is not None and new_codes[1] is not None:
                 print "small-small"
-                print "after trunc: {0}, {1}".format(get_disk_radius(disk_codes[code_index[0]]),
-                                                   get_disk_radius(disk_codes[code_index[1]]))
+                #print "after trunc: {0}, {1}".format(get_disk_radius(disk_codes[code_index[0]]),
+                #                                   get_disk_radius(disk_codes[code_index[1]]))
                 disk_codes[code_index[0]] = new_codes[0]
                 disk_codes[code_index[1]] = new_codes[1]
-                print disk_codes[code_index[0]], new_codes[0]
-                print "after after trunc: {0}, {1}".format(get_disk_radius(disk_codes[code_index[0]]),
-                                                   get_disk_radius(disk_codes[code_index[1]]))
+                #print disk_codes[code_index[0]], new_codes[0]
+                #print "after after trunc: {0}, {1}".format(get_disk_radius(disk_codes[code_index[0]]),
+                #                                   get_disk_radius(disk_codes[code_index[1]]))
             elif new_codes[0] is None and new_codes[1] is not None:
                 print "big-small"
-                print "pre trunc: {0}".format(get_disk_radius(disk_codes[code_index[1]]))
+                #print "pre trunc: {0}".format(get_disk_radius(disk_codes[code_index[1]]))
                 disk_codes[code_index[1]] = new_codes[1]
-                print "post trunc: {0}".format(get_disk_radius(disk_codes[code_index[1]]))
+                #print "post trunc: {0}".format(get_disk_radius(disk_codes[code_index[1]]))
             elif new_codes[0] is not None and new_codes[1] is None:
                 print "small-big"
-                print "pre trunc: {0}".format(get_disk_radius(disk_codes[code_index[0]]))
+                #print "pre trunc: {0}".format(get_disk_radius(disk_codes[code_index[0]]))
                 disk_codes[code_index[0]] = new_codes[0]
-                print "post trunc: {0}".format(get_disk_radius(disk_codes[code_index[0]]))
+                #print "post trunc: {0}".format(get_disk_radius(disk_codes[code_index[0]]))
 
         # Copy stars' new collisional radii (updated in resolve_encounter) to gravity
         channel_from_framework_to_gravity.copy()
-        stellar.evolve_model(t + dt)
+        stellar.evolve_model(t + dt/2)
         channel_from_stellar_to_gravity.copy()
         channel_from_stellar_to_framework.copy()
 
         # Viscous evolution
         evolve_parallel_disks(disk_codes, t + dt)
+
+        # Check for dispersed disks
         for s, c in zip(small_stars, disk_codes):
-            s.disk_radius = get_disk_radius(c)
+            if get_disk_mass(c, get_disk_radius(c)) <= s.dispersed_disk_mass:  # Disk has been dispersed
+                s.dispersed = True
+                s.dispersal_time = t
+                print "prev: len(disk_codes)={0}, len(disk_code_indices)={1}".format(len(disk_codes), len(disk_codes_indices))
+                del disk_codes[disk_codes_indices[s.key]]  # Delete dispersed disk from code list
+                del disk_codes_indices[s.key]
+                print "Star's {0} disk dispersed, deleted code".format(s.key)
+                print "post: len(disk_codes)={0}, len(disk_code_indices)={1}".format(len(disk_codes),
+                                                                                 len(disk_codes_indices))
 
         # Photoevaporation
         for s in bright_stars:  # For each massive/bright star
@@ -512,7 +536,7 @@ def main(N, Rvir, Qvir, alpha, R, t_ini, t_end, save_interval, run_number, save_
             lum = luminosity_fit(s.stellar_mass.value_in(units.MSun))
 
             z = 0
-            for ss in small_stars:
+            for ss in small_stars[small_stars.dispersed == False]:  # We ignore dispersed disks
                 dist = distance(s, ss)
                 radiation_ss = radiation_at_distance(lum.value_in(units.erg / units.s),
                                                      dist.value_in(units.cm))
@@ -529,8 +553,11 @@ def main(N, Rvir, Qvir, alpha, R, t_ini, t_end, save_interval, run_number, save_
                 xi = numpy.ndarray(shape=(1, 4), dtype=float)
                 xi[0][0] = ss.stellar_mass.value_in(units.MSun)
                 xi[0][1] = radiation_ss_G0
-                xi[0][2] = ss.disk_mass.value_in(units.MJupiter)
-                xi[0][3] = ss.disk_radius.value_in(units.AU)
+                #xi[0][2] = ss.disk_mass.value_in(units.MJupiter)
+                xi[0][3] = get_disk_radius(disk_codes[disk_codes_indices[ss.key]]).value_in(units.AU)
+                xi[0][2] = get_disk_mass(disk_codes[disk_codes_indices[ss.key]], xi[0][3] | units.AU).value_in(units.MJupiter)
+                #xi[0][3] = ss.disk_radius.value_in(units.AU)
+                #xi[0][3] = get_disk_radius(ss).value_in(units.AU)
 
                 # Building the subgrid (of FRIED grid) over which I will perform the interpolation
                 subgrid = numpy.ndarray(shape=(8, 4), dtype=float)
@@ -568,17 +595,24 @@ def main(N, Rvir, Qvir, alpha, R, t_ini, t_end, save_interval, run_number, save_
                 # Photoevaporative mass loss in log10(MSun/yr)
                 photoevap_Mdot = interpolate.griddata(subgrid, Mdot_values, xi, method="nearest")  # MSun/yr
 
-                # Calculate total mass lost due to photoevaporation during dt
-                total_photoevap_mass_loss = float(numpy.power(10, photoevap_Mdot) * dt.value_in(units.yr))
+                # Calculate total mass lost due to photoevaporation during dt, in MSun
+                total_photoevap_mass_loss = float(numpy.power(10, photoevap_Mdot) * dt.value_in(units.yr)) | units.MSun
 
-                print total_photoevap_mass_loss
+                print "mass loss: {0}".format(total_photoevap_mass_loss)
+                print "pre evaporate: {0}".format(get_disk_radius(disk_codes[disk_codes_indices[ss.key]]))
+                disk_codes[disk_codes_indices[ss.key]] = evaporate(disk_codes[disk_codes_indices[ss.key]],
+                                                                   total_photoevap_mass_loss)
+                print "post evaporate: {0}".format(get_disk_radius(disk_codes[disk_codes_indices[ss.key]]))
                 z += 1
         t += dt
+        print t
 
+    print "end radii:"
     for d in disk_codes:
+        print get_disk_radius(d)
         d.stop()
     print stellar.particles.luminosity
-    print small_stars.disk_radius
+    #print small_stars.disk_radius
     gravity.stop()
     #E_handle.close()
     #Q_handle.close()
