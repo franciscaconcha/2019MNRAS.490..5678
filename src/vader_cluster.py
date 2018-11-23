@@ -11,9 +11,7 @@ import threading
 import multiprocessing
 import sys
 from decorators import timer
-
-
-code_queue = Queue.Queue()
+import time
 
 
 def column_density(grid, r0, mass, lower_density=1E-12 | units.g / units.cm**2):
@@ -26,11 +24,12 @@ def column_density(grid, r0, mass, lower_density=1E-12 | units.g / units.cm**2):
     return Sigma
 
 
-def initialize_vader_code(disk_radius, disk_mass, r_min=0.05 | units.AU, r_max=5000 | units.AU, n_cells=500, linear=True):
+def initialize_vader_code(disk_radius, disk_mass, alpha, r_min=0.05 | units.AU, r_max=5000 | units.AU, n_cells=500, linear=True):
     """ Initialize vader code for given parameters.
 
     :param disk_radius: disk radius. Must have units.Au
     :param disk_mass: disk mass. Must have units.MSun
+    :param alpha: turbulence parameter for viscosity
     :param r_min: minimum radius of vader grid. Must have units.AU
     :param r_max: maximum radius of vader grid. Must have units.AU
     :param n_cells: number of cells for vader grid
@@ -58,6 +57,10 @@ def initialize_vader_code(disk_radius, disk_mass, r_min=0.05 | units.AU, r_max=5
     T = 100. | units.K
     disk.grid.pressure = sigma * constants.kB * T / (2.33 * mH)
 
+    disk.parameters.inner_pressure_boundary_torque = 0.0 | units.g * units.cm ** 2 / units.s ** 2
+    disk.parameters.alpha = alpha
+    disk.parameters.maximum_tolerated_change = 1E99
+
     return disk
 
 
@@ -68,14 +71,24 @@ def remote_worker_code(dt):
 
 
 def evolve_parallel_disks(codes, dt):
-    for ci in codes:
-        code_queue.put(ci)
     n_cpu = multiprocessing.cpu_count()
-    for i in range(n_cpu):
-        th = threading.Thread(target=remote_worker_code, args=[dt])
+    threads = []
+
+    print "Starting threads..."
+
+    for i in range(len(codes)):
+        #th = threading.Thread(target=remote_worker_code, args=[dt])
+        th = threading.Thread(target=evolve_single_disk, args=[codes[i], dt])
         th.daemon = True
+        threads.append(th)
         th.start()
-    code_queue.join() 	    # block until all tasks are done
+
+    print "All threads started"
+
+    for t in threads:
+        t.join()
+
+    print "All threads finished"
 
 
 def evolve_single_disk(code, time):
@@ -84,7 +97,7 @@ def evolve_single_disk(code, time):
         disk.evolve_model(time)
     except:
         print "Disk did not converge"
-        
+
     #disk.stop()  # If I keep the stop it crashes after the 1st timestep
 
 
@@ -375,11 +388,7 @@ def main(N, Rvir, Qvir, alpha, R, t_ini, t_end, save_interval, run_number, save_
     print "start radii:"
     for s in stars:
         if s in small_stars:
-            s_code = initialize_vader_code(s.disk_radius, s.disk_mass, linear=False)
-
-            s_code.parameters.inner_pressure_boundary_torque = 0.0 | units.g * units.cm**2 / units.s**2
-            s_code.parameters.alpha = alpha
-            s_code.parameters.maximum_tolerated_change = 1E99
+            s_code = initialize_vader_code(s.disk_radius, s.disk_mass, alpha, linear=False)
 
             disk_codes.append(s_code)
             disk_codes_indices[s.key] = len(disk_codes) - 1
@@ -441,6 +450,7 @@ def main(N, Rvir, Qvir, alpha, R, t_ini, t_end, save_interval, run_number, save_
 
     # Evolve!
     while t < t_end:
+        print t
         dt = min(dt, t_end - t)
         stellar.evolve_model(t + dt/2)
         channel_from_stellar_to_gravity.copy()
@@ -520,14 +530,18 @@ def main(N, Rvir, Qvir, alpha, R, t_ini, t_end, save_interval, run_number, save_
         # Check for dispersed disks
         for s, c in zip(small_stars, disk_codes):
             if get_disk_mass(c, get_disk_radius(c)) <= s.dispersed_disk_mass:  # Disk has been dispersed
+                print small_stars
                 s.dispersed = True
                 s.dispersal_time = t
                 print "prev: len(disk_codes)={0}, len(disk_code_indices)={1}".format(len(disk_codes), len(disk_codes_indices))
+                disk_codes[disk_codes_indices[s.key]].stop()
                 del disk_codes[disk_codes_indices[s.key]]  # Delete dispersed disk from code list
                 del disk_codes_indices[s.key]
                 print "Star's {0} disk dispersed, deleted code".format(s.key)
                 print "post: len(disk_codes)={0}, len(disk_code_indices)={1}".format(len(disk_codes),
                                                                                  len(disk_codes_indices))
+                print small_stars
+
 
         # Photoevaporation
         for s in bright_stars:  # For each massive/bright star
@@ -553,11 +567,8 @@ def main(N, Rvir, Qvir, alpha, R, t_ini, t_end, save_interval, run_number, save_
                 xi = numpy.ndarray(shape=(1, 4), dtype=float)
                 xi[0][0] = ss.stellar_mass.value_in(units.MSun)
                 xi[0][1] = radiation_ss_G0
-                #xi[0][2] = ss.disk_mass.value_in(units.MJupiter)
                 xi[0][3] = get_disk_radius(disk_codes[disk_codes_indices[ss.key]]).value_in(units.AU)
                 xi[0][2] = get_disk_mass(disk_codes[disk_codes_indices[ss.key]], xi[0][3] | units.AU).value_in(units.MJupiter)
-                #xi[0][3] = ss.disk_radius.value_in(units.AU)
-                #xi[0][3] = get_disk_radius(ss).value_in(units.AU)
 
                 # Building the subgrid (of FRIED grid) over which I will perform the interpolation
                 subgrid = numpy.ndarray(shape=(8, 4), dtype=float)
@@ -598,14 +609,14 @@ def main(N, Rvir, Qvir, alpha, R, t_ini, t_end, save_interval, run_number, save_
                 # Calculate total mass lost due to photoevaporation during dt, in MSun
                 total_photoevap_mass_loss = float(numpy.power(10, photoevap_Mdot) * dt.value_in(units.yr)) | units.MSun
 
-                print "mass loss: {0}".format(total_photoevap_mass_loss)
+                #print "mass loss: {0}".format(total_photoevap_mass_loss)
                 print "pre evaporate: {0}".format(get_disk_radius(disk_codes[disk_codes_indices[ss.key]]))
                 disk_codes[disk_codes_indices[ss.key]] = evaporate(disk_codes[disk_codes_indices[ss.key]],
                                                                    total_photoevap_mass_loss)
                 print "post evaporate: {0}".format(get_disk_radius(disk_codes[disk_codes_indices[ss.key]]))
-                z += 1
+                #z += 1
         t += dt
-        print t
+        print "active threads: {0}".format(threading.active_count())
 
     print "end radii:"
     for d in disk_codes:
@@ -641,7 +652,7 @@ def new_option_parser():
                       help="virial ratio [%default]")
 
     # Disk parameters
-    result.add_option("-a", dest="alpha", type="float", default=1E-4,
+    result.add_option("-a", dest="alpha", type="float", default=1E-2,
                       help="turbulence parameter [%default]")
     result.add_option("-c", dest="R", type="float", default=30.0,
                       help="Initial disk radius [%default]")
