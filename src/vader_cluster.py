@@ -430,6 +430,9 @@ def main(N, Rvir, Qvir, alpha, R, t_ini, t_end, save_interval, run_number, save_
     stellar = SeBa()
     stellar.parameters.metallicity = 0.02
     stellar.particles.add_particles(bright_stars)
+    # Enable stopping on supernova explosion
+    detect_supernova = stellar.stopping_conditions.supernova_detection
+    detect_supernova.enable()
 
     # Communication channels
     channel_from_stellar_to_framework = stellar.particles.new_channel_to(stars)
@@ -544,6 +547,16 @@ def main(N, Rvir, Qvir, alpha, R, t_ini, t_end, save_interval, run_number, save_
         stellar.evolve_model(t + dt/2)
         channel_from_stellar_to_gravity.copy()
         channel_from_stellar_to_framework.copy()
+
+        # Detect supernova explosion after evolving stellar evolution
+        # Delete star that went through supernova explosion
+        if detect_supernova.is_set():
+            channel_from_stellar_to_framework.copy()
+            channel_from_gravity_to_framework.copy()
+            particles_in_supernova = Particles(particles=detect_supernova.particles(0))
+            supernova_star = particles_in_supernova.get_intersecting_subset_in(stars)
+            del stars[stars.key == supernova_star.key]
+            del bright_stars[bright_stars.key == supernova_star.key]
 
         # Viscous evolution
         evolve_parallel_disks(disk_codes, t + dt)
@@ -661,6 +674,7 @@ def main(N, Rvir, Qvir, alpha, R, t_ini, t_end, save_interval, run_number, save_
         print get_disk_radius(d)
         d.stop()
     print stellar.particles.luminosity
+    print stars
     #print small_stars.disk_radius
     gravity.stop()
     #E_handle.close()
