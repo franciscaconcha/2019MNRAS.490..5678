@@ -658,7 +658,7 @@ def main(N, Rvir, Qvir, alpha, R, t_ini, t_end, save_interval, run_number, save_
                                                               run_number,
                                                               N,
                                                               Rvir.value_in(units.parsec),
-                                                              t_ini.value_in(units.Myr)),
+                                                              t.value_in(units.Myr)),
                               'hdf5')
 
             numpy.savetxt(E_handle, E_list)
