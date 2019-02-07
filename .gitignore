@@ -10,3 +10,6 @@
 *.fls
 *.bbl
 *.blg
+/vader
+/MJCWilhelm-amuse_vader_interface
+

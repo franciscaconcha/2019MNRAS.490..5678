@@ -6,6 +6,7 @@ from matplotlib import pyplot
 import gzip
 import copy
 from scipy import interpolate
+from decorators import timer
 
 
 def luminosity_fit(mass):
@@ -195,6 +196,7 @@ def radius_containing_mass(star, mass):
     return disk_characteristic_radius * numpy.log(1 / (1 - mass.value_in(units.MJupiter)/total_disk_mass)) | units.AU
 
 
+@timer
 def main(N, Rvir, Qvir, alpha, R, gas_presence, gas_expulsion, gas_expulsion_onset, gas_expulsion_timescale,
          t_ini, t_end, save_interval, run_number, save_path,
          gamma=1,
@@ -210,58 +212,46 @@ def main(N, Rvir, Qvir, alpha, R, gas_presence, gas_expulsion, gas_expulsion_ons
          mu=2.3 | units.g / units.mol,
          filename=''):
 
-    t_end = t_end | units.Myr
+    try:
+        float(t_end)
+        t_end = t_end | units.Myr
+    except TypeError:
+        pass
 
-    # Test run: 2 disks + one massive star
-    max_stellar_mass = 2 | units.MSun
-    stellar_masses = new_kroupa_mass_distribution(3, max_stellar_mass)  # , random=False)
-    disk_masses = 0.1 * stellar_masses
-    converter = nbody_system.nbody_to_si(stellar_masses.sum() + disk_masses.sum(), Rvir)
-
+    max_stellar_mass = 100 | units.MSun
+    stellar_masses = new_kroupa_mass_distribution(N, max_stellar_mass)  # , random=False)
+    converter = nbody_system.nbody_to_si(stellar_masses.sum(), Rvir)
     stars = new_plummer_model(N, converter)
     stars.scale_to_standard(converter, virial_ratio=Qvir)
 
-    print("stellar masses: ", stellar_masses)
-
     stars.stellar_mass = stellar_masses
-    stars.initial_characteristic_disk_radius = 30 * (stars.stellar_mass.value_in(units.MSun) ** 0.5) | units.AU
-    stars.disk_radius = stars.initial_characteristic_disk_radius
-    print stars.disk_radius
-    stars.initial_disk_mass = disk_masses
-    stars.disk_mass = stars.initial_disk_mass
-    stars.mass = stars.initial_disk_mass + stars.stellar_mass
-    stars.viscous_timescale = viscous_timescale(stars, alpha, temp_profile, Rref, Tref, mu, gamma)
-    stars.last_encounter = 0.0 | units.yr
 
-    # Bright star
-    stars[2].stellar_mass = 5 | units.MSun
-    stars[2].initial_characteristic_disk_radius = 0 | units.AU
-    stars[2].initial_disk_mass = 0 | units.MSun
-    stars[2].total_star_mass = stars[2].mass
-    stars[2].viscous_timescale = 0 | units.yr
+    # Bright stars: no disks; emit FUV radiation
+    #bright_stars = [s for s in stars if s.stellar_mass.value_in(units.MSun) > 1.9]
+    bright_stars = stars[stars.stellar_mass.value_in(units.MSun) > 1.9]
 
-    #print("star.mass: ", stars.mass)
-    #print("star.mass: ", stars.mass.value_in(units.MSun))
+    # Small stars: with disks; radiation not considered
+    #small_stars = [s for s in stars if s.stellar_mass.value_in(units.MSun) < 1.9]
+    small_stars = stars[stars.stellar_mass.value_in(units.MSun) < 1.9]
 
+    bright_stars.disk_mass = 0 | units.MSun
+    small_stars.disk_mass = 0.1 * small_stars.stellar_mass
+
+    small_stars.disk_radius = 100 * (small_stars.stellar_mass.value_in(units.MSun) ** 0.5) | units.AU
+    bright_stars.disk_radius = 0 | units.AU
+
+    #print small_stars.disk_radius
+
+    # Start gravity code, add all stars
+    gravity = ph4(converter)
+    gravity.parameters.timestep_parameter = 0.01
+    gravity.parameters.epsilon_squared = (100 | units.AU) ** 2
+    gravity.particles.add_particles(stars)
+
+    # Start stellar evolution code, add only massive stars
     stellar = SeBa()
     stellar.parameters.metallicity = 0.02
-    #stellar.particles.add_particles(Particles(mass=stars.stellar_mass))
-    stellar.particles.add_particles(stars)
-
-    print("star.mass: ", stars.mass.value_in(units.MSun))
-
-    initial_luminosity = stellar.particles.luminosity
-    stars.luminosity = initial_luminosity
-    stars.temperature = stellar.particles.temperature
-    dt = 5 | units.Myr
-
-    print("L(t=0 Myr) = {0}".format(initial_luminosity))
-    print("R(t=0 Myr) = {0}".format(stellar.particles.radius.in_(units.RSun)))
-    print("m(t=0 Myr) = {0}".format(stellar.particles.mass.in_(units.MSun)))
-    print("Temp(t=0 Myr) = {0}".format(stellar.particles[2].temperature.in_(units.K)))
-
-    channel_to_framework = stellar.particles.new_channel_to(stars)
-    write_set_to_file(stars, 'results/0.hdf5', 'amuse')
+    stellar.particles.add_particles(bright_stars)
 
     #temp, temp2 = [], []
     lower_limit, upper_limit = 1000, 3000  # Limits for FUV, in Angstrom
@@ -285,23 +275,6 @@ def main(N, Rvir, Qvir, alpha, R, gas_presence, gas_expulsion, gas_expulsion_ons
     time = 0.0 | t_end.unit
     dt = stellar.particles.time_step.amin()
 
-
-    print stars.stellar_mass
-
-    # Bright stars: no disks; emit FUV radiation
-    bright_stars = stars[stars.stellar_mass.value_in(units.MSun) > 1.9]
-    print bright_stars
-
-    # Small stars: with disks; radiation not considered
-    small_stars = stars[stars.stellar_mass.value_in(units.MSun) < 1.9]
-
-
-    print "INIT:"
-    print stars.x
-    print stars.y
-    print stars.z
-    initx, inity, initz = copy.deepcopy(stars.x), copy.deepcopy(stars.y), copy.deepcopy(stars.z)
-
     # Read FRIED grid
     grid = numpy.loadtxt('friedgrid.dat', skiprows=2)
 
@@ -314,7 +287,8 @@ def main(N, Rvir, Qvir, alpha, R, gas_presence, gas_expulsion, gas_expulsion_ons
     grid_disk_mass = FRIED_grid[:, 2]
     grid_disk_radius = FRIED_grid[:, 3]
 
-    time_total_mass_loss = 0
+    time_total_mass_loss = numpy.zeros(len(small_stars))
+
 
     while time < t_end:
         dt = min(dt, t_end - time)
@@ -332,8 +306,9 @@ def main(N, Rvir, Qvir, alpha, R, gas_presence, gas_expulsion, gas_expulsion_ons
         for s in bright_stars:  # For each massive/bright star
 
             # Calculate FUV luminosity of the bright star, in LSun
-            lum = luminosity_fit(s.mass.value_in(units.MSun))
+            lum = luminosity_fit(s.stellar_mass.value_in(units.MSun))
 
+            z = 0
             for ss in small_stars:
                 dist = distance(s, ss)
                 radiation_ss = radiation_at_distance(lum.value_in(units.erg / units.s),
@@ -348,7 +323,7 @@ def main(N, Rvir, Qvir, alpha, R, gas_presence, gas_expulsion, gas_expulsion_ons
                 # For the small star, I want to interpolate the photoevaporative mass loss
                 # xi will be the point used for the interpolation. Adding star values...
                 xi = numpy.ndarray(shape=(1, 4), dtype=float)
-                xi[0][0] = ss.mass.value_in(units.MSun)
+                xi[0][0] = ss.stellar_mass.value_in(units.MSun)
                 xi[0][1] = radiation_ss_G0
                 xi[0][2] = ss.disk_mass.value_in(units.MJupiter)
                 xi[0][3] = ss.disk_radius.value_in(units.AU)
@@ -357,7 +332,7 @@ def main(N, Rvir, Qvir, alpha, R, gas_presence, gas_expulsion, gas_expulsion_ons
                 subgrid = numpy.ndarray(shape=(8, 4), dtype=float)
 
                 # Finding indices between which ss.mass is located in the grid
-                stellar_mass_i, stellar_mass_j = find_indices(grid_stellar_masses, ss.mass.value_in(units.MSun))
+                stellar_mass_i, stellar_mass_j = find_indices(grid_stellar_masses, ss.stellar_mass.value_in(units.MSun))
                 subgrid[0] = FRIED_grid[stellar_mass_i]
                 subgrid[1] = FRIED_grid[stellar_mass_j]
 
@@ -392,7 +367,8 @@ def main(N, Rvir, Qvir, alpha, R, gas_presence, gas_expulsion, gas_expulsion_ons
                 #Calculate total mass lost due to photoevaporation during dt
                 total_photoevap_mass_loss = float(numpy.power(10, photoevap_Mdot) * dt.value_in(units.yr))
 
-                time_total_mass_loss += total_photoevap_mass_loss
+                time_total_mass_loss[z] += total_photoevap_mass_loss
+                z += 1
                 #print total_photoevap_mass_loss
 
                 """if time.value_in(units.Myr) % 10 == 0:
@@ -416,29 +392,16 @@ def main(N, Rvir, Qvir, alpha, R, gas_presence, gas_expulsion, gas_expulsion_ons
 
     print "total mass loss:"
     print time_total_mass_loss
-    print radius_containing_mass(small_stars, (1 - time_total_mass_loss) * small_stars.disk_mass)
 
-    print "END:"
-    print stars.x
-    print stars.y
-    print stars.z
-    #pyplot.scatter(initx.value_in(units.parsec), inity.value_in(units.parsec), s=500, label="init")
-    #pyplot.scatter(stars.x.value_in(units.parsec), stars.y.value_in(units.parsec),
-    #               s=100 * stars[2].radius.value_in(units.RSun), label="end")
-    #pyplot.legend()
-    #pyplot.show()
+    for t, ss in zip(time_total_mass_loss, small_stars):
+        print(ss.disk_radius.value_in(units.AU), radius_containing_mass(ss, (1 - t) * ss.disk_mass).value_in(units.AU))
+
+
 
         #print(round(stellar.particles[2].temperature.value_in(units.K) / 500) * 500)
         #write_set_to_file(stars, 'results/{0}.hdf5'.format(int(stellar.model_time.value_in(units.Myr))), 'amuse')
 
     #stellar.evolve_model(t_end)
-
-    print("***")
-    print("L(t={0}) = {1}".format(stellar.model_time, stellar.particles.luminosity.in_(units.LSun)))
-    print("R(t={0}) = {1}".format(stellar.model_time, stellar.particles.radius.in_(units.RSun)))
-    print("m(t={0}) = {1}".format(stellar.model_time, stellar.particles.mass.in_(units.MSun)))
-    print("Temp(t={0}) = {1}".format(stellar.model_time, stellar.particles[2].temperature.in_(units.K)))
-
 
     stellar.stop()
 

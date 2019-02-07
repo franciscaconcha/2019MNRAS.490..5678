@@ -51,6 +51,8 @@
 \usepackage{subcaption}
 \usepackage[T1]{fontenc}
 \usepackage{microtype}
+\usepackage[utf8]{inputenc}
+\DeclareUnicodeCharacter{2010}{-}
 
 \usepackage{subfiles} % to split the paper into different files
 \usepackage{xcolor}
@@ -207,12 +209,16 @@ External photoevaporation of circumstellar disks in proximity to OB-type stars i
 
 The UVBLUE spectral library spans a three dimensional parameter space of stellar temperature, metallicity, and surface gravity. We used solar metallicity for all our stars. For the temperature and surface gravity, we chose the spectra that most closely resembled the zero age main sequence (ZAMS) values of each star, according to the parametrized stellar evolution code SeBa \citep{portegieszwart1996, toonen2012}. \note{should I add a more detailed explanation of this process?}
 
+\subsection{Photoevaporation}
+To calculate the photoevaporative mass losses of the disks, we needed to obtain the mass loss ratio induced by the massive stars at different points of the simulation. For this we needed to first calculate the FUV luminosities of the massive stars at every time step, and then use this and other stellar values to obtain the amount of radiation that is reached by each disk. Below we explain how we performed each of these steps. 
+
+\subsubsection{Photoevaporative mass loss}
+To calculate the mass loss due to photoevaporation on each disk, we used the FRIED (Far-ultraviolet Radiation Induced Evaporation of Discs) grid developed by \citet{haworth2018}. The FRIED grid is an open access grid of calculations of externally evaporating circumstellar disks. This grid spans a six dimension parameter space consisting of disk sizes ($1 -- 400 au$), disk masses ($~10^{-4} -- 10^{2} M_{Jup}$), UV fields ($10 -- 10^{4} G_0$), stellar masses ($0.05 -- 1.9 M_{\odot}$) and disk outer surface densities. 
+
 Using the ZAMS spectra, we calculated the flux and corresponding luminosity using the radius of the star. Given that we knew the masses of the stars, we built a relationship between stellar mass and FUV luminosity. This relation takes the shape of a segmented power law, as can be seen in Figure X. A similar fit was obtained by \citet{parravano2003}.
 %Ask for more details of this process?
 
 % FUV luminosity vs mass figure!
-
-% Add table?
 
 The mass range of our fit is $0.12 - 100 M_{\odot}$, however, we were only interested in the range $1.9 - 100 M_{\odot}$. As is further explained in section \ref{grid}, we only considered stars with masses higher that $1.9 M_{\odot}$ to be emitting FUV radiation, and $100 M_{\odot}$ was the upper limit for our stellar mass distribution. These bright stars were also subject to stellar evolution, which was implemented with SeBa through the AMUSE interface. The FUV luminosity of each bright star is calculated in every time step, after going through stellar evolution. The small, disked stars were not subject to stellar evolution.
 
