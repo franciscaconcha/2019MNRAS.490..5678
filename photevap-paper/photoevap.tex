@@ -94,7 +94,7 @@ Leiden Observatory, Leiden University, PO Box 9513, 2300 RA Leiden, The Netherla
 \pubyear{2018}
 
 % Don't change these lines
-\hypersetup{draft}
+%\hypersetup{draft}
 \begin{document}
 \label{firstpage}
 \pagerange{\pageref{firstpage}--\pageref{lastpage}}
@@ -102,7 +102,7 @@ Leiden Observatory, Leiden University, PO Box 9513, 2300 RA Leiden, The Netherla
 
 % Abstract of the paper
 \begin{abstract}
-Circumstellar disks develop shortly after star formation, and during their first million years of evolution they are immersed in surroundings with high gas and stellar densities. This environment is unfavorable for disk survival: they can be truncated by dynamical encounters, evaporated by the radiation of bright OB stars nearby, shrunk by ram pressure stripping, and diminished by stellar winds and supernovae explosions. Circumstellar disks are also subject to viscous spreading, a consequence of angular momentum conservation. In the present work we used numerical and semi-analytical approaches to quantify the effects of dynamical truncations, external photoevaporation, and viscous evolution of circumstellar disks inside star clusters. We ran simulations of stellar clusters with $N=$\note{X} stars in a Plummer sphere with virial radius \note{Y pc}. We evolved these clusters for \note{Z} Myr, and analyzed the mean disk lifetimes at the end of the simulations. \note{We find that...} testing overleaf github stuff
+Circumstellar disks develop as a result of the star formation process, and during their first million years of evolution they are immersed in surroundings with high gas and stellar densities. This environment is unfavorable for disk survival: they can be truncated by dynamical encounters, evaporated by the radiation of bright OB stars nearby, shrunk by ram pressure stripping, and diminished by stellar winds and supernovae explosions. Circumstellar disks are also subject to viscous spreading, a consequence of angular momentum conservation. In the present work we used numerical and semi-analytical approaches to quantify the effects of dynamical truncations, external photoevaporation, and viscous evolution of circumstellar disks inside star clusters. We ran simulations of stellar clusters with $N=$\note{X} stars in a Plummer sphere with virial radius \note{Y pc}. We evolved these clusters for \note{Z} Myr, and analyzed the mean disk lifetimes at the end of the simulations. \note{We find that...}
 \end{abstract}
 
 % Select between one and six entries from the list of approved keywords.
@@ -114,43 +114,38 @@ key 1 key 2
 \section{Introduction}
 \label{sec:introduction}
 
-Circumstellar disks develop shortly after star formation \citep{williams2011}. Young star forming regions, less than $\SI{2}{Myr}$ old, have been observed to have protoplanetary disks in more than 80\% of the cases \citep{fedele2010}. Since most stars are not born in isolation, and gas left over from the star formation process can linger for a few Myr \citep{goodwin2009,portegieszwart2010}, the disks remain embedded in this environment during their first stages of evolution. These conditions can be hostile for the disks in a myriad of ways. The surrounding gas can shrink the disks through ram pressure stripping and face-on accretion \citep{wijnen2016, wijnen2017}. Regarding the stellar dense environment, disks can be subject to dynamical truncations \citep{portegieszwart2016, vincke2015, vincke2016} or be affected by processes related to stellar evolution, such as stellar winds \citep{pelupessy2012}, supernovae explosions \citep{close2017}, and photoevaporation due to bright OB stars in the vicinity \citep[e.g.][]{haworth2017, guarcello2016}. Since planet formation related processes seem to start very quickly in circumstellar disks ($< 0.1 - \SI{1}{Myr}$, \citet{manara2018,najita2014}), understanding the mechanisms that affect disk evolution is directly connected with understanding planetary system formation and survival. Our own Sun was born within a star cluster \citep{adams2010,portegieszwart2009}, so discerning how the cluster environment affects the evolution of the disks can help us comprehend the origins of our home, the Solar System. 
+Circumstellar disks develop as a result of the star formation process \citep{williams2011}. Star forming regions less than $\SI{2}{Myr}$ old have been observed to have protoplanetary disks in $\sim60\%$ of their stars \citep{fedele2010}. \note{Since at least a non negligible fraction of stars are not born in isolation} \citep{bressert2010,king2012}, and gas left over from the star formation process can linger for a few Myr \citep{goodwin2009,portegieszwart2010}, the disks remain embedded in this environment during their first stages of evolution. These conditions can be hostile for the disks in a myriad of ways. The surrounding gas can shrink the disks through ram pressure stripping and face-on accretion \citep{wijnen2016, wijnen2017}. Regarding the stellar dense environment, disks can be subject to dynamical truncations \citep{vincke2015,portegieszwart2016,vincke2016} or be affected by processes related to stellar evolution, such as stellar winds \citep{pelupessy2012}, supernovae explosions \citep{close2017}, and photoevaporation due to bright OB stars in the vicinity \citep[e.g.][]{guarcello2016,haworth2017}. Since planet formation related processes seem to start very quickly in circumstellar disks ($< 0.1 - \SI{1}{Myr}$, \citet{najita2014,manara2018}), understanding the mechanisms that affect disk evolution is directly connected with understanding planetary system formation and survival. Our own Sun was born within a star cluster \citep{portegieszwart2009}, so discerning how the cluster environment affects the evolution of the disks can help us comprehend the origins of our home, the Solar System. 
 
-There are observational indications that the environment in which the disks are surrounded just after their formation is unfavorable for their survival. Circumstellar disks have been observed to be evaporating in several star forming regions \cite[e.g.][]{mann2014,fang2012,dejuanovelar2012}. Moreover, observations suggest that disk fractions in cluster environments decline by a factor of $\sim2$ in regions close to an O-type star \citep{balog2007,guarcello2007,guarcello2009,fang2012,guarcello2016}. \citet{fatuzzo2008} estimated an FUV radiation field of up to $G_0 \approx 1000$ in star clusters of $N > 1000$ stars\footnote{$G_0$ is the FUV field in Habing units,  $\SI{1}{G_0} = \SI{1.6e-3}{\erg\per\second\per\square\cm}$. The solar vicinity is estimated to have a background FUV field of $G_0 = 1$ \citep{habing1968,parravano2003}.}, while \citet{facchini2016} showed that disks of sizes $\sim\SI{150}{au}$ are subject to photoevaporation even in very low FUV fields ($G_0 = 30$). Observational evidence of the imprints of dynamical truncations has been reported in regions of high stellar density \citep{olczak2008,reche2009,dejuanovelar2012}. Tidal stripping which can be explained by disk-star interaction has been observed in the RW Aurigae system \citep{cabrit2006,dai2015}. There is evidence that our own Solar System might have been affected by a close encounter with another star during its early stages \citep{pfalzner2018, jilkova2015}. It has also been observed that disks in dense regions are generally smaller than disks in more sparse regions \citep{mann2014,dejuanovelar2012} \note{i'm sure i have more references about this}, and it is still up for debate if this is a consequence of dynamical encounters or external photoevaporation, or a combination of both. 
+There are observational indications that the environment in which the disks are surrounded just after their formation is unfavorable for their survival. Circumstellar disks have been observed to be evaporating in several star forming regions \cite[e.g.][]{fang2012,dejuanovelar2012,mann2014}. Moreover, observations suggest that disk fractions in cluster environments decline by a factor of $\sim2$ in regions close to an O-type star \citep{balog2007,guarcello2007,guarcello2009,fang2012,guarcello2016}. \citet{fatuzzo2008} estimated an FUV radiation field of up to $G_0 \approx 1000$ in star clusters of $N > 1000$ stars\footnote{$G_0$ is the FUV field in Habing units,  $\SI{1}{G_0} = \SI{1.6e-3}{\erg\per\second\per\square\cm}$. The solar vicinity is estimated to have a background FUV field of $G_0 = 1$ \citep{habing1968,parravano2003}.}, while \citet{facchini2016} showed that disks of sizes $\sim\SI{150}{au}$ are subject to photoevaporation even in very low FUV fields ($G_0 = 30$). Observational evidence of the imprints of dynamical truncations has been reported in regions of high stellar density \citep{olczak2008,reche2009,dejuanovelar2012}. Tidal stripping that can be explained by disk-star interaction has been observed in the RW Aurigae system \citep{cabrit2006,dai2015}. There is evidence that our own Solar System might have been affected by a close encounter with another star during its early stages \citep{jilkova2015,pfalzner2018}. It has also been observed that disks in dense regions are generally smaller than the ones in sparser regions \citep{clarke2007,dejuanovelar2012,mann2014}, and it is still up for debate if this is a consequence of dynamical encounters or external photoevaporation, or a combination of both. 
 
-Circumstellar disks are not only affected by external mechanisms, but also by their own viscous growth. The combination of outwardly decreasing angular velocity, together with outwardly increasing angular momentum, causes shearing forces inside the disks. These forces induce the transport of angular momentum from the inner regions, locally lower in angular momentum, to the outer parts, which have higher local angular momentum. As a consequence of this, mass is accreted from the innermost regions of the disk into its host star, while the outermost regions expand \citep{lynden-bell1974}. Observational reports of viscous spreading of disks around T Tauri stars have been described by \citet{isella2009} and \citet{guilloteau2011}. 
+Circumstellar disks are not only affected by external mechanisms, but also by their own viscous growth. The combination of outwardly decreasing angular velocity, together with outwardly increasing angular momentum, causes shearing forces inside the disks. These forces induce the transport of angular momentum from the inner regions, locally lower in angular momentum, to the outer parts, which have higher local angular momentum. As a consequence mass is accreted from the innermost regions of the disk into its host star, while the outermost regions expand \citep{lynden-bell1974}. Observational reports of viscous spreading of disks around T Tauri stars have been described by \citet{isella2009} and \citet{guilloteau2011}. 
 
-From a computational perspective, different approaches have been implemented to assemble these processes together and study their effects on the lifetimes of circumstellar disks. \note{photoevaporation...}. Analyses of the impact of dynamical truncations have been carried out in different ways. The effects of close encounters on a single SPH disk have been analyzed in several studies \note{citation, pfalzner, winter}. Another approach, in which the dynamics of the cluster are evolved separately, and then the effects of encounters are quantizied over an SPH disks, have also been published \note{pfalzner + vincke}. Directly adding SPH disks to a simulation of a massive star cluster is extremly computationally expensive. The closest effort corresponds to the recent work by \citet{rosotti2014}. Individual SPH codes were coupled to each one of the $\SI{1}{M_\odot}$ stars in a small ($N=100$) cluster. This allowed them to study the effects of viscous spreading of the disks and dynamical truncations in a self-consistent way, but were clearly limited by the computational resources needed for this problem. Parametrized \citep[e.g.][]{concha-ramirez2019,portegieszwart2016}\note{add more} and statistical approaches \citep[e.g.][]{olczak2006,malmberg2011}\note{add more} have also been developed. 
-Similar work has been carried out by \citet{adams2006,winter2018a} but they average the $G_0$ on cluster environments of different sizes and use this over an SPH disk were truncations are dealt with separately (using Monte Carlo for \citet{winter2018a}).
+From a computational perspective, different approaches have been implemented to assemble these processes together and study their effects on the lifetimes of circumstellar disks. External photoevaporation has been modeled with radiation hydrodynamics codes that solve the flow equations through the disk boundaries, together with photodissociation region (PDR) codes to obtain the temperature profiles of the disks \citep[e.g.][]{haworth2016,facchini2016}. This approach has also been coupled with $\alpha$-disk models to account for viscous spreading \citep[e.g.][]{adams2004,anderson2013,gorti2015,rosotti2017}. The UV radiation fields to which the disks would be subject to in a clustered environment have been estimated from observations and used to calculate the PDR around the hydrodynamic disk. \citet{haworth2018a} introduced the concept of pre-computing photevaporative mass losses in terms of the surface density of the disks, an approach that we expand on in section \ref{photoevaporation}. 
 
-In \citet{concha-ramirez2019} we investigated the effect of viscous growth and dynamical truncations on protoplanetary disks inside stars clusters. Both mechanisms were implemented with parametrized models. We showed that considering only viscous evolution and dynamical encounters yields circumstellar disks too large to be comparable to the compact disks observed in star forming regions. We argued that other processes must be at play to produce the observed disk size, mass, and acretion rate distributions. In the present work we expand our model by improving our description of the viscous growth of the disks, and by adding external photevaporation to the processes that can shrink the disks. In this way we look to better represent the environment of star forming regions. 
+Computational analyses of the impact of dynamical truncations have also been carried out in different ways. The effects of close encounters on a single N-body disk of test particles have been investigated in several studies \citep[e.g.][]{breslau2014,jilkova2016,bhandare2016,pfalzner2018}. In these cases, viscosity is usually neglected since the time scale for a dynamical encounter is much shorter than the viscous time scale for disk spreading. \citet{winter2018,winter2018a} used a ring of test particles around a star to obtain linearized expressions of the effect of a stellar perturber, and then used them to model an SPH disk including viscous spreading. Another approach, in which the dynamics of the cluster are evolved separately and the effects of dynamical encounters over the disks are calculated \textit{a posteriori}, has also been used for this problem \citep[e.g.][]{olczak2006,olczak2010,malmberg2011,steinhausen2014,vincke2015,vincke2016,vincke2018}. Directly adding SPH disks to a simulation of a massive star cluster is extremely computationally expensive. The closest effort corresponds to the recent work by \citet{rosotti2014}, in which individual SPH codes were coupled to each one of the $\SI{1}{M_\odot}$ stars in a small ($N=100$) cluster. This allowed them to study the effects of viscous spreading of the disks and dynamical truncations in a self-consistent way, but were clearly limited by the computational resources needed for this problem. Parametrized approaches have also been developed, where the cluster dynamics and effects of truncations \citep{portegieszwart2016} and viscous spreading \citep{concha-ramirez2019} are considered simultaneously. The truncation of the disks is calculated with expressions obtained from the similarity solutions of \citet{lynden-bell1974}.
 
-Instead of the parametrized description used in our previous work, we now modeled the circumstellar disks using the numerical code VADER \citep{krumholz2015}. VADER solves the equations of angular momentum and mass transport in a thin, axisymmetric disk, providing us with a numerical tool to implement the viscous expansion that is less computationally expensive than SPH disks. While the dynamical truncations were still parametrized, the mass loss due to external photevaporation was calculated using the FRIED grid \citep{haworth2018}. This grid consists of photoevaporative mass loss rates for disks of different sizes and masses, immersed in several different FUV fields. We used the Astrophysical Multipurpose Software Environment \citep[AMUSE\footnote{\url{http://amusecode.org}},][]{portegieszwart2013,pelupessy2013} framework to bring these codes together along with cluster dynamics and stellar evolution. All the code developed for the simulations, data analyses, and figures of this paper is available in a Github repository\footnote{ZENODO LINK}.
+In \citet{concha-ramirez2019} we investigated the effect of viscous growth and dynamical truncations on protoplanetary disks inside stars clusters. Both mechanisms were implemented with parametrized models. We showed that considering only viscous evolution and dynamical encounters yields circumstellar disks too large to be comparable to the compact disks observed in star forming regions. We argued that other processes must be at play to produce the observed disk size, mass, and accretion rate distributions. In the present work we expand our model by improving our description of the viscous growth of the disks, and by adding external photevaporation to the processes that can shrink them. In this way we look to better represent the environment of star forming regions. 
+
+Instead of the parametrized description used in our previous work, we now modeled the circumstellar disks using the numerical code VADER \citep{krumholz2015}. This code solves the equations of angular momentum and mass transport in a thin, axisymmetric disk, providing us with a numerical tool to implement the viscous expansion that is less computationally expensive than SPH disks. While the dynamical truncations were still parametrized, the mass loss due to external photevaporation was calculated using the FRIED grid \citep{haworth2018}. This grid consists of pre-calculated mass loss rates for disks of different sizes and masses, immersed in several different external FUV fields. We used the Astrophysical Multipurpose Software Environment \citep[AMUSE\footnote{\url{http://amusecode.org}},][]{portegieszwart2019} framework to bring these codes together along with cluster dynamics and stellar evolution. All the code developed for the simulations, data analyses, and figures of this paper is available in a Github repository\footnote{ZENODO LINK}.
 
 
 \section{Model}
 \label{sec:model}
 
-The circumstellar disks in our simulations were subject to viscous growth, dynamical truncations, and external photoevaporation. 
-
 \subsection{Viscous growth of circumstellar disks}\label{viscous}
-We implemented the protoplanetary disks with viscous evolution using the numerical code VADER (Viscous Accretion Disk Evolution Resource) by \citet{krumholz2015}. VADER is an open source viscous evolution code which solves the equations of mass transport, angular momentum transport, and internal energy in a thin, axisymmetric disk. An AMUSE interface for VADER was developed in the context of this work and is available online\note{add footnote w/ link -- check if Martijn is ok with this!}.  
+We implement the circumstellar disks with viscous evolution using the Viscous Accretion Disk Evolution Resource (VADER) by \citet{krumholz2015}. This is an open source viscous evolution code which uses finite-volume discretization to solve the equations of mass transport, angular momentum, and internal energy in a thin, axisymmetric disk. An AMUSE interface for VADER was developed in the context of this work and is available online\note{add footnote w/ link -- check if Martijn is ok with this!}.  
 
-Each VADER disk is composed of a grid of radial cells .... 
-
-\note{add description of vader disks}
-
-For our initial disk column density we used the standard disk profile introduced by \citet{lynden-bell1974}:
+For the initial disk column density we use the standard disk profile introduced by \citet{lynden-bell1974}:
 
 \begin{equation}\label{profile}
-\Sigma(r, t=0) = \Sigma_0 \frac{r_c}{r} \exp\left(\frac{-r}{r_c}\right)
+\Sigma(r, t=0) = \Sigma_0 \frac{r_c}{r} \exp\left(\frac{-r}{r_c}\right),
 \end{equation}
 
 \noindent
 with
 
 \begin{equation}
-\Sigma_0 = \frac{m_d}{2 \pi {r_c}^2 \left(1 - \exp\left(-r_d/r_c\right)\right)}
+\Sigma_0 = \frac{m_d}{2 \pi {r_c}^2 \left(1 - \exp\left(-r_d/r_c\right)\right)},
 \end{equation}
 
 \noindent
@@ -160,65 +155,57 @@ where $r_c$ is the characteristic radius of the disk, $r_d$ and $m_d$ are the in
 \Sigma(r, t=0) \approx \frac{m_d}{2 \pi r_d \left(1 - \exp^{-1}\right)} \frac{\exp(-r/r_d)}{r}.
 \end{equation}
 
-This expression allows for the disk to expand freely at the outer boundary, while keeping the condition of zero torque at the inner boundary $r_i$ ($\Sigma(r_i)$ = 0).
+This expression allows the disk to expand freely at the outer boundary while keeping the condition of zero torque at the inner boundary $r_i$ ($\Sigma(r_i)$ = 0).
 
-To define the radius of our disks, we set the column density outside $r_d$ to a negligible value $\Sigma_{edge} = \SI{e-12}{\gram\per\square\cm}$. 
+To establish the radius of the disks we set the column density outside $r_d$ to a negligible value $\Sigma_{\mathrm{edge}} = \SI{e-12}{\gram\per\square\cm}$. 
 
-The temperature profile of our disks is given by
+The temperature profile of the disks is given by
 
 \begin{equation}
-T(r) = T_m \left(\frac{r}{\SI{1}{au}}\right)^{-1/2}
+T(r) = T_m \left(\frac{r}{\SI{1}{au}}\right)^{-1/2},
 \end{equation}
 
 \noindent
-where $T_m$ is the midplane temperature at $\SI{1}{au}$. Based on \citet{anderson2013} we adopt the value $T_m = \SI{300}{\K}$.
+where $T_m$ is the midplane temperature at $\SI{1}{au}$. Based on \citet{anderson2013} we adopt $T_m = \SI{300}{\K}$.
 
-
-Each of our disks consisted of a grid of 500 logarithmically spaced cells, in a range between $0.05$ and $\SI{5000}{au}$, with a Keplerian rotation profile. The accreted mass that flows through the inner boundary was added to the mass of the host star.
+Each disk is composed of a grid of 500 logarithmically spaced cells, in a range between $0.05$ and $\SI{5000}{au}$, with a Keplerian rotation profile. The fact that the size of the grid is much bigger than the disk sizes (which are intially around $\SI{100}{au}$, see section \ref{initdisks}) allows for the disks to expand freely without reaching the border of the grid. The mass flow through the outer boundary of the grid is set to zero in order to maintain the density $\Sigma_{\mathrm{edge}}$ needed to define the disk radius. The mass flow through the inner boundary of the grid is considered as accreted mass and added to the mass of the host star.
 
 \subsection{Dynamical truncations}\label{truncations}
-Between encounters, the circumstellar disks evolved according to the numerical solutions of the transport equations used by VADER. A close encounter with another disk induces a discontinuity in this evolution. To modify the VADER disks we first calculated parametrized values for truncation radius and mass loss. \citet{rosotti2014} approximated the truncation radius to a third of the encounter distance for stars of the same mass. To this we added the mass dependence of \citet{bhandare2016}. Our truncation radius then takes the form:
+Between encounters, circumstellar disks evolve according to the numerical solutions of the transport equations used by VADER. A close encounter with another disk induces a discontinuity in this evolution. To modify the disks we calculate parametrized truncation radii. For two stars of the same mass, \citet{rosotti2014} approximated the truncation radius to a third of the encounter distance. To this we add the mass dependence of \citet{bhandare2016}, to have an expression for an encounter between stars of different masses. The truncation radius then takes the form:
 
 \begin{equation}\label{truncationradius}
-{r^\prime} = \frac{r_{enc}}{3}\left(\frac{M}{m}\right)^{0.5}
+{r^\prime} = \frac{r_{enc}}{3}\left(\frac{M}{m}\right)^{0.5},
 \end{equation}
 
 \noindent 
 where $M$ and $m$ are the masses of the encountering stars.
 
-To implement disk truncations on the VADER disk codes, we first calculated the corresponding truncation radius for the encounter, according to equation \ref{truncationradius}. We then move outside-in through the disk cells and change the value of the column density to a lower value $\Sigma_{edge}$, as described in section \ref{truncations}. We stopped at the value corresponding to the truncation radius. In this way we defined a new disk edge at that position.
+To implement truncations we first calculate the corresponding truncation radius of the encounter, according to equation \ref{truncationradius}. To define $r^\prime$ as the new disk radius we change the column density of all the disk cells outside $r^\prime$ to the lower value $\Sigma_{\mathrm{edge}}$, as described in section \ref{truncations}.
 
-Close dynamical encounters not only affect the radius of the affected disks, but also their mass. We followed \citet{portegieszwart2016} to define the amount of mass loss from each disk as:
+%Close dynamical encounters not only affect the radius of the affected disks, but also their mass. We followed \citet{portegieszwart2016} to define the amount of mass loss from each disk as:
 
-\begin{equation}
-dm = m_{d}\frac{r^{1/2} - R^{1/2}}{r^{1/2}}
-\end{equation}
+%\begin{equation}
+%dm = m_{d}\frac{r^{1/2} - R^{1/2}}{r^{1/2}}
+%\end{equation}
 
-\noindent
-where $r$ and $R$ are the radii of the disks involved. We calculated the amount of mass that each disk accretes by:
+%\noindent
+%where $r$ and $R$ are the radii of the disks involved. We calculated the amount of mass that each disk accretes by:
 
-\begin{equation}\label{accmass}
-dm_{acc} = f \frac{m}{M + m} dm
-\end{equation}
+%\begin{equation}\label{accmass}
+%dm_{acc} = f \frac{m}{M + m} dm
+%\end{equation}
 
-\noindent
-where $f \leq 1$ is a mass transfer efficiency factor. For our calculations we used $f = 1$. Both equations of mass accretion were applied symmetrically to each of the disks involved in the close encounter.
+%\noindent
+%where $f \leq 1$ is a mass transfer efficiency factor. For our calculations we used $f = 1$. Both equations of mass accretion were applied symmetrically to each of the disks involved in the close encounter.
 
 \subsection{External photoevaporation}\label{photoevaporation}
-To calculate the photoevaporative mass losses of the disks, we needed to obtain the mass loss ratio induced by the massive stars at different points of the simulation. For this we needed to first calculate the FUV luminosities of the massive stars at every time step, and then use this and other stellar values to obtain the amount of radiation that is reached by each disk. Below we explain how we performed each of these steps. 
+The amount of mass lost from disks as a result of external photoevaporation depends on the FUV luminosity of the bright stars in the cluster. This luminosity, together with the distance from each of the bright stars to the disks, is used to obtain the amount of radiation received by each disk. Below we explain what we consider to be bright stars and how we calculate the mass loss ratio.
 
-\subsubsection{Photoevaporative mass loss}\label{grid}
-To calculate the mass loss due to photoevaporation on each disk, we used the FRIED (Far-ultraviolet Radiation Induced Evaporation of Discs) grid developed by \citet{haworth2018}. The FRIED grid is an open access grid of calculations of externally evaporating circumstellar disks. It spans a six dimension parameter space consisting of disk sizes ($1 - 400 au$), disk masses ($~10^{-4} - 10^{2} M_{Jup}$), UV fields ($10 - 10^{4} G_0$), stellar masses ($0.05 - 1.9 M_{\odot}$) and disk outer surface densities. The seemingly
-three dimensional subspace of disk mass, edge density and disk radius is in fact two dimensional, as any combination of disk radius and disk mass has only one edge density associated with it. Because of this, we only took into account a four dimensional grid of radiation field strength, host star mass, disk mass and disk radius.
-
-Following the stellar mass ranges of the FRIED grid, we separated the stars in our clusters in two subgroups: \textit{bright stars} and \textit{small stars}. Bright stars are all stars with initial masses higher than $1.9 M_{\odot}$, while small stars have masses lower or equal than $1.9 M_{\odot}$. Only the small stars will have disks around them. The big stars will be considered as only generating FUV radiation and affecting the disks around the smaller stars. In this way we made sure that we stayed within the stellar mass limits of the grid. Low mass stars ($\lesssim 1 M_\odot$) have a negligible UV flux \citep{adams2006}, so this approximation holds well for our purposes. Calculation of the FUV radiation emitted by the bright stars is further explained in section \ref{FUVluminosities}. In terms of gravitational evolution, both star groups were indistinguishable and they evolved together normally in the gravity code. These star subgroups were considered only for the calculation of FUV radiation and photoevaporative mass loss.
-
-The FRIED grid allows to take a circumstellar disk with a specific mass, size, and density, around a star with a certain mass, and from the FUV radiation that it receives, obtain the photoevaporative mass loss. However, the parameters of our disks not always exactly matched the ones in the grid. We performed an interpolation over the grid to calculate the photoevaporative mass losses needed for our specific disks. Because of computational constraints, we performed the interpolations on a subspace of the grid, such that it contains at least one data point above and below the phase space point of the disk in each dimension.
 
 \subsubsection{FUV luminosities}\label{FUVluminosities}
-External photoevaporation of protoplanetary disks in proximity to OB-type stars is dominated by FUV radiation \citep{guarcello2016,storzer1999,gorti2016a}. We followed \citet{adams2004} in defining the FUV band ranging from 6 eV up to 13.6 eV, the Lyman break, or approximately from 912 Å to 2070 Å. Given the presence of spectral lines in this band, we chose to use synthetic stellar spectra rather than relying on black body approximations. Our spectral library of choice was UVBLUE \citep{rodriguez-merino2005}, for its high coverage of parameter space and high resolution, spanning our needed wavelength ranges. To make our computations less expensive we used versions of the spectra with a resolving power five times lower than the full ones, which was sufficient for our calculations. 
+External photoevaporation of circumstellar disks in proximity to OB-type stars is dominated by FUV radiation \citep{guarcello2016,storzer1999,gorti2016a}. We follow \citet{adams2004} in defining the FUV band ranging from 6 eV up to 13.6 eV, or approximately from 912 Å to 2070 Å. Given the presence of spectral lines in this band, we use synthetic stellar spectra rather than relying on black body approximations. The spectral library used is UVBLUE \citep{rodriguez-merino2005}, for its high coverage of parameter space and high resolution, spanning the needed wavelength ranges. To make computations less expensive we use versions of the spectra with a resolving power five times lower than the full ones, which was sufficient for the calculations. 
 
-The UVBLUE spectral library spans a three dimensional parameter space of stellar temperature, metallicity, and surface gravity. We used solar metallicity for all our stars, with a value of \note{X}. For the temperature and surface gravity, we chose the spectra that most close resembled the zero age main sequence (ZAMS) values of each star, according to the parametrized stellar evolution code SeBa \citep{portegieszwart1996, toonen2012}. \note{should I add a more detailed explanation of this process?}
+The UVBLUE spectral library spans a three dimensional parameter space of stellar temperature, metallicity, and surface gravity. We used solar metallicity for all our stars. For the temperature and surface gravity, we chose the spectra that most closely resembled the zero age main sequence (ZAMS) values of each star, according to the parametrized stellar evolution code SeBa \citep{portegieszwart1996, toonen2012}. \note{should I add a more detailed explanation of this process?}
 
 Using the ZAMS spectra, we calculated the flux and corresponding luminosity using the radius of the star. Given that we knew the masses of the stars, we built a relationship between stellar mass and FUV luminosity. This relation takes the shape of a segmented power law, as can be seen in Figure X. A similar fit was obtained by \citet{parravano2003}.
 %Ask for more details of this process?
@@ -227,21 +214,29 @@ Using the ZAMS spectra, we calculated the flux and corresponding luminosity usin
 
 % Add table?
 
-The mass range of our fit is $0.12 - 100 M_{\odot}$, however, we were only interested in the range $1.9 - 100 M_{\odot}$. As explained in section \ref{grid}, we only considered stars with masses higher that $1.9 M_{\odot}$ to be emitting FUV radiation, and $100 M_{\odot}$ was the upper limit for our stellar mass distribution. These stars were also subject to stellar evolution, which was implemented with SeBa through the AMUSE interface. The FUV luminosity of each bright star is calculated in every time step, after going through stellar evolution.
+The mass range of our fit is $0.12 - 100 M_{\odot}$, however, we were only interested in the range $1.9 - 100 M_{\odot}$. As is further explained in section \ref{grid}, we only considered stars with masses higher that $1.9 M_{\odot}$ to be emitting FUV radiation, and $100 M_{\odot}$ was the upper limit for our stellar mass distribution. These bright stars were also subject to stellar evolution, which was implemented with SeBa through the AMUSE interface. The FUV luminosity of each bright star is calculated in every time step, after going through stellar evolution. The small, disked stars were not subject to stellar evolution.
 
-\subsubsection{Calculation of photoevaporative mass loss}\label{massloss}
-As explained in section \ref{grid}, we separated the stars in our cluster into two subgroups: bright stars, which emit FUV radiation and do not have disks, and small stars, which have disks around them. As such, small stars are the only ones affected by external photoevaporation, induced by the FUV radiation of the bright stars.
+\subsubsection{Mass loss ratio due to external photoevaporation}\label{grid}
+To calculate the ratio of mass loss due to external photoevaporation on each disk we used the FRIED (Far-ultraviolet Radiation Induced Evaporation of Discs) grid developed by \citet{haworth2018}. The FRIED grid is an open access grid of calculations of externally evaporating circumstellar disks. It spans a six dimension parameter space consisting of disk sizes ($1 - 400 au$), disk masses ($~10^{-4} - 10^{2} M_{Jup}$), UV fields ($10 - 10^{4} G_0$), stellar masses ($0.05 - 1.9 M_{\odot}$) and disk outer surface densities. The seemingly three dimensional subspace of disk mass, edge density, and disk radius is in fact two dimensional, as any combination of disk radius and disk mass has only one edge density associated with it. Because of this, we only took into account a four dimensional grid of radiation field strength, host star mass, disk mass and disk radius.
 
-To calculate the amount of mass loss for the disks around the small stars, the following process was carried out in every time step of our simulation:
+Following the stellar mass ranges of the FRIED grid, we separated the stars in our clusters into two subgroups: \textit{bright stars} and \textit{small stars}. Bright stars are all stars with initial masses higher than $1.9 M_{\odot}$, while small stars have masses lower or equal than $1.9 M_{\odot}$. Only the small stars will have disks around them. The bright stars will be considered as only generating FUV radiation and affecting the disks around the smaller stars. In this way we made sure that we stayed within the stellar mass limits of the grid. Low mass stars ($\lesssim 1 M_\odot$) have a negligible UV flux \citep{adams2006}, so this approximation holds well for our purposes. Calculation of the FUV radiation emitted by the bright stars is further explained in section \ref{FUVluminosities}. In terms of gravitational evolution, both star groups were indistinguishable and they evolved together normally in the gravity code. These star subgroups were considered only for the calculation of FUV radiation and mass loss.
 
+The FRIED grid allows to take a circumstellar disk with a specific mass, size, and density, around a star with a certain mass, and from the FUV radiation that it receives, obtain the photoevaporation mass loss. However, the parameters of our disks not always exactly matched the ones in the grid. We performed an interpolation over the grid to calculate the mass losses of the disks in our simulations. Because of computational constraints, we performed the interpolations on a subspace of the grid, such that it contains at least one data point above and below the phase space point of the disk in each dimension. In \note{Appendix X} we show that such a subgrid is enough to perform the interpolation.
+
+\subsubsection{Disk truncation due to photoevaporation}\label{omnomnom}
+Once the mass lost due to photoevaporation was calculated for every disk, the disks had to be truncated at a point that coincided with the amount of mass lost in the process. For this, we move outside-in through the disk and remove mass from each cell, by turning its column density to our limit value $\Sigma_{\mathrm{edge}}$. We stopped at the point where the mass removed from the disk is equal to the calculated mass loss due to photoevaporation.
+
+\subsubsection{Summary of the photoevaporation truncation process}
+In summary, in every simulation time step, the following procedures were carried out to simulate disk truncation due to photoevaporation:
+\note{should I write the following in pseudocode format to make it clearer?}
 \begin{enumerate}
-\item For each bright star, we calculated its FUV luminosity $L_{FUV}$ 
-\item For each small star, we calculated the distance to each bright star $d$
-\item Using $L_{FUV}$ and $d$, we calculated the amount of FUV radiation, $\ell_{FUV}$, received by the small star \note{check for proper symbols}
-\item Using $\ell_{FUV}$ and the stellar mass, disk mass, and disk size of the small star, we built a subgrid of the FRIED grid and interpolated on it to calculate $\dot{M}_FUV$, the photoevaporative mass loss 
-\item We calculate the total photoevaporative mass loss for the time step for each small star, and subtract that amount of mass from the disk mass
-\item The disk radius of each small star is shrunk depending on the amount of mass lost due to photoevaporation
+\item For each bright star we calculated its FUV luminosity $L_{FUV}$ as described in section \ref{FUVluminosities}.
+\item For each small star we calculated the distance to each bright star, $d$.
+\item Using $L_{FUV}$ and $d$ we calculated the amount of FUV radiation, $\ell_{FUV}$, received by the small star. \note{check for proper symbols}
+\item Using $\ell_{FUV}$ and the stellar mass, disk mass, and disk size of the small star, we built a subgrid of the FRIED grid and interpolated on it to calculate $\dot{M}_FUV$, the photoevaporation mass loss.
+\item We subtracted that amount of mass from the disk mass.
 \end{enumerate}
+
 
 \subsection{Evolution of the disks}
 For each simulation we did the following:
@@ -256,9 +251,9 @@ For each simulation we did the following:
 
 -On each timestep we calculate the positions of the stars, and the radiation that each small stars gets from all the massive stars, in the distance
 
--This gives us the total photoevaporative mass loss rate for each small star
+-This gives us the total photoevaporation mass loss rate for each small star
 
--We update the size of the circumstellar disk according to the viscous growth and to the photoevaporative mass loss rate
+-We update the size of the circumstellar disk according to the viscous growth and to the photoevaporation mass loss rate
 
 
 We consider the disks to be completely evaporated when they have lost 99\% of their initial mass, based on \citet{anderson2013}.
@@ -272,7 +267,7 @@ We run X simulations with N stars each located in Plummer (King?) spheres of Z s
 
 We then plot the cumulative distributions of the protoplanetary disks. To calculate the size of the protoplanetary disks we take the mass inside a characteristic radius. We set this radius to 95\% to make it similar to observations (check reference on my previous paper).
 
-\subsubsection{Disks}
+\subsubsection{Disks}\label{initdisks}
 The initial sizes of our circumstellar disks were given by:
 
 \begin{equation}
@@ -299,11 +294,11 @@ Our model encompassed a simplified implementation of the processes inside young 
 r_g = \frac{GM_*\left\langle\mu\right\rangle}{kT} \approx \SI{100}{au} \left(\frac{T}{\SI{1000}{K}}\right)^{-1}\left(\frac{M_*}{\SI{1}{M_\odot}}\right).
 \end{equation}
 
-The photoevaporative flows are different for disks with radius $r_{disk} < r_g$ (subcritical) and $r_{disk} > r_g$ (supercritical). \citet{adams2004} showed that the mass outflow rates are different for each of these cases, and that many disks fall in the subcritical regime. They also showed that even for disks where photoevaporation is suppressed because they have reached the subcritical size, significant mass loss still takes place as long as $r_{disk}/r_g \gtrsim 0.1-0.2$. This difference in photoevaporation regimes was not considered in our implementation, where all mass is equally removed independent of the radius of the disk where is it located. Also, our implementation only considered photoevaporative mass loss as working from the outside in, and did not include mass that can be removed from the surface of the disk at smaller radii. 
+The photoevaporation flows are different for disks with radius $r_{disk} < r_g$ (subcritical) and $r_{disk} > r_g$ (supercritical). \citet{adams2004} showed that the mass outflow rates are different for each of these cases, and that many disks fall in the subcritical regime. They also showed that even for disks where photoevaporation is suppressed because they have reached the subcritical size, significant mass loss still takes place as long as $r_{disk}/r_g \gtrsim 0.1-0.2$. This difference in photoevaporation regimes was not considered in our implementation, where all mass is equally removed independent of the radius of the disk where is it located. Also, our implementation only considered photoevaporation mass loss as working from the outside in, and did not include mass that can be removed from the surface of the disk at smaller radii. 
 
 Furthermore, our implementation completely ignored the photoevaporation caused by the radiation of the disk's host star. \note{elaborate} \citep{fatuzzo2008}
 
-We also did not differentiate between FUV and EUV radiation. This approximation is valid since it is unlikely that EUV radiation drives the photoevaporative mass loss of disks \citep{owen2012}. FUV photons have a much larger penetrating depth than EUV, and the former generate an ionization front several radii away from the disk surface which absorbs the incident EUV flux \citep{adams2004}. 
+We also did not differentiate between FUV and EUV radiation. This approximation is valid since it is unlikely that EUV radiation drives the mass loss of disks \citep{owen2012}. FUV photons have a much larger penetrating depth than EUV, and the former generate an ionization front several radii away from the disk surface which absorbs the incident EUV flux \citep{adams2004}. 
 
 -We ignore dust growth and ignore different components for dust and gas disks 
 
