@@ -69,32 +69,29 @@ def initialize_vader_code(disk_radius, disk_mass, alpha, r_min=0.05 | units.AU, 
 
 def evolve_parallel_disks(codes, dt):
     n_cpu = multiprocessing.cpu_count()
-    threads = []
+    processes = []
 
-    print "Starting threads..."
+    print "Starting processes... n_cpu = {0}".format(n_cpu)
 
     for i in range(len(codes)):
-        #th = threading.Thread(target=remote_worker_code, args=[dt])
-        th = threading.Thread(target=evolve_single_disk, args=[codes[i], dt])
-        th.daemon = True
-        threads.append(th)
-        th.start()
+        p = multiprocessing.Process(name=str(i), target=evolve_single_disk, args=(codes[i], dt, ))
+        processes.append(p)
+        p.start()
 
-    print "All threads started"
+    for p in processes:
+        p.join()
 
-    for t in threads:
-        t.join()
-
-    print "All threads finished"
+    print "All processes finished"
 
 
 def evolve_single_disk(code, time):
+    print "current process: {0}".format(multiprocessing.current_process().name)
     disk = code
     try:
         disk.evolve_model(time)
     except:
         print "Disk did not converge"
-        disk.parameters.inner_pressure_boundary_type = 3
+        #disk.parameters.inner_pressure_boundary_type = 3
         #disk.parameters.inner_boundary_function = False
 
 
@@ -444,7 +441,7 @@ def main(N, Rvir, Qvir, alpha, R, t_ini, t_end, save_interval, run_number, save_
 
     ######## FRIED grid ########
     # Read FRIED grid
-    grid = numpy.loadtxt('friedgrid.dat', skiprows=2)
+    grid = numpy.loadtxt('../friedgrid.dat', skiprows=2)
 
     # Getting only the useful parameters from the grid (not including Mdot)
     FRIED_grid = grid[:, [0, 1, 2, 4]]
