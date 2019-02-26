@@ -63,6 +63,7 @@ def initialize_vader_code(disk_radius, disk_mass, alpha, r_min=0.05 | units.AU, 
     disk.parameters.inner_pressure_boundary_torque = 0.0 | units.g * units.cm ** 2 / units.s ** 2
     disk.parameters.alpha = alpha
     disk.parameters.maximum_tolerated_change = 1E99
+    disk.set_parameter(0, False)  # Disk parameter for non-convergence. True: disk diverged
 
     return disk
 
@@ -84,13 +85,14 @@ def evolve_parallel_disks(codes, dt):
     print "All processes finished"
 
 
-def evolve_single_disk(code, time):
+def evolve_single_disk(code, dt):
     print "current process: {0}".format(multiprocessing.current_process().name)
     disk = code
     try:
-        disk.evolve_model(time)
+        disk.evolve_model(dt)
     except:
         print "Disk did not converge"
+        disk.set_parameter(0, True)
         #disk.parameters.inner_pressure_boundary_type = 3
         #disk.parameters.inner_boundary_function = False
 
@@ -330,7 +332,7 @@ def evaporate(disk, mass, density_limit=1E-11):
     return disk
 
 
-@timer
+#@timer
 def main(N, Rvir, Qvir, alpha, R, t_ini, t_end, save_interval, run_number, save_path,
          gamma=1,
          mass_factor_exponent=0.2,
@@ -464,10 +466,10 @@ def main(N, Rvir, Qvir, alpha, R, t_ini, t_end, save_interval, run_number, save_
     print stars
 
     write_set_to_file(stars,
-                      '{0}/N{1}_R{2}_{3}.hdf5'.format(path,
+                      '{0}/{1}/N{2}_t{3}.hdf5'.format(save_path,
                                                       run_number,
                                                       N,
-                                                      Rvir.value_in(units.parsec),
+                                                      # Rvir.value_in(units.parsec),
                                                       t.value_in(units.Myr)),
                       'hdf5')
 
@@ -558,9 +560,23 @@ def main(N, Rvir, Qvir, alpha, R, t_ini, t_end, save_interval, run_number, save_
         # Viscous evolution
         evolve_parallel_disks(disk_codes, t + dt)
 
-        # Add accreted mass from disk to host star
+        # Check disks
         for s, c in zip(small_stars, disk_codes):
+            # Check for diverged disks
+            if c.get_parameter(0):  # Disk diverged
+                print "codes len: {0}".format(len(disk_codes))
+                s.dispersed = True
+                s.code = False
+                s.dispersal_time = t
+                c.stop()
+                del disk_codes[disk_codes_indices[s.key]]  # Delete diverged code
+                del disk_codes_indices[s.key]
+                print "deleted diverged code"
+                print "codes len: {0}".format(len(disk_codes))
+
+            # Add accreted mass from disk to host star
             s.stellar_mass += c.inner_boundary_mass_out.value_in(units.MSun) | units.MSun
+
             # Check for dispersed disks
             if get_disk_mass(c, get_disk_radius(c)) <= s.dispersed_disk_mass:  # Disk has been dispersed
                 #print small_stars
@@ -651,18 +667,19 @@ def main(N, Rvir, Qvir, alpha, R, t_ini, t_end, save_interval, run_number, save_
 
         if t.value_in(units.yr) % save_interval.value_in(units.yr) == 0:
             write_set_to_file(stars,
-                              '{0}/N{1}_R{2}_{3}.hdf5'.format(path,
-                                                              run_number,
-                                                              N,
-                                                              Rvir.value_in(units.parsec),
-                                                              t.value_in(units.Myr)),
+                              '{0}/{1}/N{2}_t{3}.hdf5'.format(save_path,
+                                                          run_number,
+                                                          N,
+                                                          #Rvir.value_in(units.parsec),
+                                                          t.value_in(units.Myr)),
                               'hdf5')
 
-            numpy.savetxt(E_handle, E_list)
-            numpy.savetxt(Q_handle, Q_list)
+        numpy.savetxt(E_handle, E_list)
+        numpy.savetxt(Q_handle, Q_list)
 
-            E_list = []
-            Q_list = []
+        E_list = []
+        Q_list = []
+
 
         t += dt
 
@@ -709,8 +726,8 @@ def new_option_parser():
     # Time parameters
     result.add_option("-I", dest="t_ini", type="int", default=0 | units.yr,
                       help="initial time [%default]")
-    result.add_option("-t", dest="dt", type="int", default=2000 | units.yr,
-                      help="time interval of recomputing circumstellar disk sizes and checking for energy conservation [%default]")
+    result.add_option("-t", dest="dt", type="int", default=1000 | units.yr,
+                      help="dt for simulation [%default]")
     result.add_option("-e", dest="t_end", type="float", default=2 | units.Myr,
                       help="end time of the simulation [%default]")
 
