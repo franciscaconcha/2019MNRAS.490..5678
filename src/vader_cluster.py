@@ -25,7 +25,7 @@ def column_density(grid, r0, mass, lower_density=1E-12 | units.g / units.cm**2):
     return Sigma
 
 
-def initialize_vader_code(disk_radius, disk_mass, alpha, r_min=0.05 | units.AU, r_max=5000 | units.AU, n_cells=500, linear=True):
+def initialize_vader_code(disk_radius, disk_mass, alpha, r_min=0.05 | units.AU, r_max=2000 | units.AU, n_cells=50, linear=True):
     """ Initialize vader code for given parameters.
 
     :param disk_radius: disk radius. Must have units.Au
@@ -71,22 +71,30 @@ def initialize_vader_code(disk_radius, disk_mass, alpha, r_min=0.05 | units.AU, 
 def evolve_parallel_disks(codes, dt):
     n_cpu = multiprocessing.cpu_count()
     processes = []
+    threads = []
 
-    print "Starting processes... n_cpu = {0}".format(n_cpu)
+    #print "Starting processes... n_cpu = {0}".format(n_cpu)
 
     for i in range(len(codes)):
         p = multiprocessing.Process(name=str(i), target=evolve_single_disk, args=(codes[i], dt, ))
         processes.append(p)
         p.start()
+        #th = threading.Thread(target=evolve_single_disk, args=[codes[i], dt])
+        #th.daemon = True
+        #threads.append(th)
+        #th.start()
+
+    #for t in threads:
+    #    t.join()
 
     for p in processes:
         p.join()
 
-    print "All processes finished"
+    #print "All processes finished"
 
 
 def evolve_single_disk(code, dt):
-    print "current process: {0}".format(multiprocessing.current_process().name)
+    #print "current process: {0}".format(multiprocessing.current_process().name)
     disk = code
     try:
         disk.evolve_model(dt)
@@ -332,7 +340,7 @@ def evaporate(disk, mass, density_limit=1E-11):
     return disk
 
 
-#@timer
+@timer
 def main(N, Rvir, Qvir, alpha, R, t_ini, t_end, save_interval, run_number, save_path,
          gamma=1,
          mass_factor_exponent=0.2,
@@ -355,6 +363,7 @@ def main(N, Rvir, Qvir, alpha, R, t_ini, t_end, save_interval, run_number, save_
     path = "{0}/{1}/".format(save_path, run_number)
     try:
         os.makedirs(path)
+        print "Results path created"
     except OSError, e:
         if e.errno != 17:
             raise
@@ -660,12 +669,17 @@ def main(N, Rvir, Qvir, alpha, R, t_ini, t_end, save_interval, run_number, save_
                 ss.photoevap_mass_loss += total_photoevap_mass_loss
 
                 #print "mass loss: {0}".format(total_photoevap_mass_loss)
-                print "pre evaporate: {0}".format(get_disk_radius(disk_codes[disk_codes_indices[ss.key]]))
+
+                #print "pre evaporate: {0}".format(get_disk_radius(disk_codes[disk_codes_indices[ss.key]]))
                 disk_codes[disk_codes_indices[ss.key]] = evaporate(disk_codes[disk_codes_indices[ss.key]],
                                                                    total_photoevap_mass_loss)
-                print "post evaporate: {0}".format(get_disk_radius(disk_codes[disk_codes_indices[ss.key]]))
+                ss.disk_radius = get_disk_radius(disk_codes[disk_codes_indices[ss.key]])
+                #print "post evaporate: {0}".format(get_disk_radius(disk_codes[disk_codes_indices[ss.key]]))
 
-        if t.value_in(units.yr) % save_interval.value_in(units.yr) == 0:
+        #print "save: {0}".format(t.value_in(units.yr) % save_interval.value_in(units.yr))
+
+        if t.value_in(units.yr) % save_interval.value_in(units.yr) < 1:
+            print "saving!"
             write_set_to_file(stars,
                               '{0}/{1}/N{2}_t{3}.hdf5'.format(save_path,
                                                           run_number,
@@ -682,6 +696,7 @@ def main(N, Rvir, Qvir, alpha, R, t_ini, t_end, save_interval, run_number, save_
 
 
         t += dt
+
 
     print "end radii:"
     for d in disk_codes:
