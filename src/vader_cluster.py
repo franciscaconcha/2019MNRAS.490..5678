@@ -582,6 +582,7 @@ def main(N, Rvir, Qvir, alpha, R, t_ini, t_end, save_interval, run_number, save_
                 del disk_codes_indices[s.key]
                 print "deleted diverged code"
                 print "codes len: {0}".format(len(disk_codes))
+                break
 
             # Add accreted mass from disk to host star
             s.stellar_mass += c.inner_boundary_mass_out.value_in(units.MSun) | units.MSun
