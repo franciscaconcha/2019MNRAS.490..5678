@@ -8,6 +8,7 @@ import copy
 from scipy import interpolate
 from decorators import timer
 import os
+import time
 
 from matplotlib import rc
 import matplotlib as mpl
@@ -22,6 +23,7 @@ mpl.rcParams['ytick.major.pad'] = 8  # to avoid overlapping x/y labels
 # Had to do this for now as a workaround, will try to get rid of it soon
 global plot_colors
 plot_colors = {"gas": "#ca5670", "no_gas": "#638ccc", "gas_expulsion": "#72a555"}
+
 
 def column_density(grid, r0, mass, lower_density=1E-12 | units.g / units.cm**2):
     r = grid.value_in(units.AU) | units.AU
@@ -64,6 +66,7 @@ def get_disk_mass(disk, radius):
         total_mass += d.value_in(units.MJupiter / units.cm**2) * a.value_in(units.cm**2)
 
     return total_mass | units.MJupiter
+
 
 def initialize_vader_code(disk_radius, disk_mass, alpha, r_min=0.05 | units.AU, r_max=2000 | units.AU, n_cells=50, linear=True):
     """ Initialize vader code for given parameters.
@@ -110,12 +113,20 @@ def initialize_vader_code(disk_radius, disk_mass, alpha, r_min=0.05 | units.AU, 
 
 @timer
 def main():
-    cells = [10, 100, 250, 500]
+    cells = [10, 50, 100, 150, 200, 250, 500]
     rout = [2500, 5000] | units.au
 
-    t_end = 10 | units.Myr
     profiles = {}
     radii = {}
+    disk_radii = {}
+
+    #disk = initialize_vader_code(100 | units.au, 0.1 | units.MSun, 1E-6, r_max=5000 | units.au, n_cells=100, linear=False)
+
+    #while t < t_end:
+    #    t += dt
+    #    disk.evolve_model(t)
+    #    print get_disk_radius(disk)
+    #disk.stop()
 
     path = "tests_results"
     try:
@@ -127,17 +138,49 @@ def main():
         # time.sleep might help here
         pass
 
+    times = []
+    t = 0 | units.Myr
+    dt = 0.05 | units.Myr
+    t_end = 10 | units.Myr
+
+    while t < t_end:
+        t += dt
+        times.append(t.value_in(units.Myr))
+
+    dl = 1E-3  # density limit for radius
+
+    c_times = []
+
     for c in cells:
+        start_time = time.ctime()
+        print "Starting run for {0} cells at {1}".format(c, start_time)
+        start_time = time.time()
+
         profiles[c] = []
         radii[c] = []
+        disk_radii[c] = []
         for r in rout:
             disk = initialize_vader_code(100 | units.au, 0.1 | units.MSun, 5E-3, r_max=r, n_cells=c, linear=False)
-            disk.evolve_model(t_end)
+            t = 0 | units.Myr
+            dt = 0.05 | units.Myr
+            radius = []
+            while t < t_end:
+                t += dt
+                disk.evolve_model(t)
+                radius.append(get_disk_radius(disk, density_limit=dl).value_in(units.au))
             p = disk.grid.column_density
             r = disk.grid.r
             disk.stop()
             profiles[c].append(p)
             radii[c].append(r)
+            disk_radii[c].append(radius)
+
+        elapsed = int(time.time() - start_time)
+        print "Ended."
+        print 'ELAPSED TIME = {:02d}:{:02d}:{:02d}'.format(elapsed // 3600, (elapsed % 3600 // 60), elapsed % 60)
+
+        minutes = elapsed % 3600 // 60
+        c_times.append(minutes)
 
     for key, val in profiles.items():
         name = "{0}/{1}cells.txt".format(path, key)
@@ -151,20 +194,37 @@ def main():
         d_2500 = profiles[c][0].value_in(units.g / units.cm ** 2)
         d_5000 = profiles[c][1].value_in(units.g / units.cm ** 2)
 
-        fig = pyplot.figure(figsize=(12, 8))
-        ax = pyplot.gca()
-        #fig, (ax1, ax2) = pyplot.subplots(2, 1, sharex=True)
-        pyplot.xlabel("Disk radius [au]")
-        pyplot.ylabel("Column density [g / cm**2]")
-        pyplot.title("{0} cells".format(c))
+        #fig = pyplot.figure(figsize=(12, 8))
+        #ax = pyplot.gca()
+        fig, (ax1, ax2) = pyplot.subplots(1, 2, figsize=(16, 8))
+        #pyplot.subplots_adjust(hspace=0.5)
+        #pyplot.tight_layout()
+        ax1.set_xlabel("Grid [au]")
+        ax1.set_ylabel("Column density [g / cm**2]")
+        ax1.set_title("{0} cells".format(c))
 
-        ax.plot(r_2500, d_2500, lw=3, label='2500 au')
-        ax.plot(r_5000, d_5000, lw=3, label='5000 au')
-        pyplot.legend(loc='upper right')
+        ax1.loglog(r_2500, d_2500, lw=3, label='2500 au')
+        ax1.plot(r_5000, d_5000, lw=3, label='5000 au')
+        ax1.axhline(y=dl, c='k', ls='--')
+        ax1.legend(loc='upper right')
 
-        pyplot.savefig('{0}/Density_{1}cells.png'.format(path, c))
+        ax2.set_xlabel("Time (Myr)")
+        ax2.set_ylabel("Disk radius (au)")
+        #print times
+        #print disk_radii[c]
+        ax2.plot(times, disk_radii[c][0], lw=3, label='2500 au')
+        ax2.plot(times, disk_radii[c][1], lw=3, label='5000 au')
 
+        fig.savefig('{0}/Density_{1}cells_4.png'.format(path, c))
 
+    # Plot times
+    fig2 = pyplot.figure(figsize=(12, 8))
+    ax = pyplot.gca()
+    ax.plot(cells, c_times, c='r', lw=3)
+    ax.set_title('Evolving disk for {0} Myr'.format(t_end.value_in(units.Myr)))
+    ax.set_xlabel('Number of cells of disk')
+    ax.set_ylabel('Time [minutes]')
+    fig2.savefig('{0}/timing.png'.format(path))
 
 
 if __name__ == '__main__':

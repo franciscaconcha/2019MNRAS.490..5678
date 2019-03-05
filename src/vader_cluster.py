@@ -281,7 +281,7 @@ def resolve_encounter(stars,
 
     # Check each star
     for i in range(2):
-        if disk_codes[i] is False:  # Bright star, no disk code
+        if disk_codes[i] is None:  # Bright star, no disk code
             new_codes.append(None)
         else:
             truncation_radius = (closest_approach.value_in(units.AU) / 3) *\
@@ -293,7 +293,8 @@ def resolve_encounter(stars,
 
             if truncation_radius < R_disk:
                 print "truncating encounter"
-                stars[i].last_encounter = time
+                stars[i].encounters += 1
+                #stars[i].last_encounter = time
                 new_codes.append(truncate_disk(disk_codes[i], truncation_radius))
             else:
                 new_codes.append(disk_codes[i])
@@ -377,6 +378,7 @@ def main(N, Rvir, Qvir, alpha, R, t_ini, t_end, save_interval, run_number, save_
     stars.scale_to_standard(converter, virial_ratio=Qvir)
 
     stars.stellar_mass = stellar_masses
+    stars.encounters = 0  # Counter for dynamical encounters
 
     # Bright stars: no disks; emit FUV radiation
     bright_stars = stars[stars.stellar_mass.value_in(units.MSun) > 1.9]
@@ -400,7 +402,7 @@ def main(N, Rvir, Qvir, alpha, R, t_ini, t_end, save_interval, run_number, save_
 
     # Initially all stars have the same collisional radius
     # TODO check this value
-    stars.collisional_radius = 0.02 | units.parsec
+    stars.collisional_radius = 30 | units.parsec
 
     disk_codes = []
     disk_codes_indices = {}  # Using this to keep track of codes later on, for the encounters
@@ -450,6 +452,10 @@ def main(N, Rvir, Qvir, alpha, R, t_ini, t_end, save_interval, run_number, save_
                                                              attributes=['collisional_radius'],
                                                              target_names=['radius'])
 
+    print gravity.particles.radius
+    channel_from_framework_to_gravity.copy()
+    print gravity.particles.radius.value_in(units.au)
+
     ######## FRIED grid ########
     # Read FRIED grid
     grid = numpy.loadtxt('../friedgrid.dat', skiprows=2)
@@ -496,12 +502,14 @@ def main(N, Rvir, Qvir, alpha, R, t_ini, t_end, save_interval, run_number, save_
 
         # Update the collision radii of the stars based on the truncation factors and viscous spreading.
         # TODO update the collisional radius...
-        gravity.particles.radius = stars.collisional_radius
+        #gravity.particles.radius = stars.collisional_radius
 
         gravity.evolve_model(t + dt)
 
         if stopping_condition.is_set():
             print("encounter")
+            print "before enc stars.disk_radius:"
+            print stars.disk_radius
             channel_from_gravity_to_framework.copy()
             encountering_stars = Particles(particles=[stopping_condition.particles(0)[0],
                                                       stopping_condition.particles(1)[0]])
@@ -511,14 +519,18 @@ def main(N, Rvir, Qvir, alpha, R, t_ini, t_end, save_interval, run_number, save_
                 code_index = [disk_codes_indices[encountering_stars[0].key],
                               disk_codes_indices[encountering_stars[1].key]]
                 star_codes = [disk_codes[code_index[0]], disk_codes[code_index[1]]]
+                print "small - small"
             except KeyError:
                 if encountering_stars[0] in bright_stars:
+                    print "bright - small"
                     code_index = [None, disk_codes_indices[encountering_stars[1].key]]
                     star_codes = [None, disk_codes[code_index[1]]]
                 elif encountering_stars[1] in bright_stars:
+                    print "small - bright"
                     code_index = [disk_codes_indices[encountering_stars[0].key], None]
                     star_codes = [disk_codes[code_index[0]], None]
                 else:
+                    print "bright - bright"
                     star_codes = [None, None]
 
             if encountering_stars.get_intersecting_subset_in(stars)[0] in small_stars and encountering_stars.get_intersecting_subset_in(stars)[1] in small_stars:
@@ -531,27 +543,36 @@ def main(N, Rvir, Qvir, alpha, R, t_ini, t_end, save_interval, run_number, save_
                                           gravity.model_time + t_ini)
 
             if new_codes[0] is not None and new_codes[1] is not None:
-                print "small-small"
+                #print "small-small"
                 #print "after trunc: {0}, {1}".format(get_disk_radius(disk_codes[code_index[0]]),
                 #                                   get_disk_radius(disk_codes[code_index[1]]))
                 disk_codes[code_index[0]] = new_codes[0]
                 disk_codes[code_index[1]] = new_codes[1]
+                encountering_stars.get_intersecting_subset_in(stars)[0].disk_radius = get_disk_radius(disk_codes[code_index[0]])
+                encountering_stars.get_intersecting_subset_in(stars)[1].disk_radius = get_disk_radius(disk_codes[code_index[1]])
                 #print disk_codes[code_index[0]], new_codes[0]
                 #print "after after trunc: {0}, {1}".format(get_disk_radius(disk_codes[code_index[0]]),
                 #                                   get_disk_radius(disk_codes[code_index[1]]))
             elif new_codes[0] is None and new_codes[1] is not None:
-                print "big-small"
+                #print "big-small"
                 #print "pre trunc: {0}".format(get_disk_radius(disk_codes[code_index[1]]))
                 disk_codes[code_index[1]] = new_codes[1]
+                encountering_stars.get_intersecting_subset_in(stars)[1].disk_radius = get_disk_radius(disk_codes[code_index[1]])
                 #print "post trunc: {0}".format(get_disk_radius(disk_codes[code_index[1]]))
             elif new_codes[0] is not None and new_codes[1] is None:
-                print "small-big"
+                #print "small-big"
                 #print "pre trunc: {0}".format(get_disk_radius(disk_codes[code_index[0]]))
                 disk_codes[code_index[0]] = new_codes[0]
+                encountering_stars.get_intersecting_subset_in(stars)[0].disk_radius = get_disk_radius(disk_codes[code_index[0]])
                 #print "post trunc: {0}".format(get_disk_radius(disk_codes[code_index[0]]))
+
+            print "after enc stars.disk_radius:"
+            print stars.disk_radius
 
         # Copy stars' new collisional radii (updated in resolve_encounter) to gravity
         channel_from_framework_to_gravity.copy()
+        #print "after evolution collisional_radius:"
+        #print gravity.particles.radius.value_in(units.au)
         stellar.evolve_model(t + dt/2)
         channel_from_stellar_to_gravity.copy()
         channel_from_stellar_to_framework.copy()
@@ -620,7 +641,7 @@ def main(N, Rvir, Qvir, alpha, R, t_ini, t_end, save_interval, run_number, save_
                 #      ss.disk_radius.value_in(units.AU)
                 #      )
 
-                # For the small star, I want to interpolate the photoevaporative mass loss
+                # For the small star, I want to interpolate the photoevaporation mass loss
                 # xi will be the point used for the interpolation. Adding star values...
                 xi = numpy.ndarray(shape=(1, 4), dtype=float)
                 xi[0][0] = ss.stellar_mass.value_in(units.MSun)
