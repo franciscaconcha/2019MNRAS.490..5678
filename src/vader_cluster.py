@@ -321,6 +321,7 @@ def resolve_encounter(stars,
 
                 new_mass = get_disk_mass(new_disk, truncation_radius)
                 stars[i].truncation_mass_loss = old_mass - new_mass
+                stars[i].disk_mass = new_mass
 
             else:
                 new_codes.append(disk_codes[i])
@@ -341,16 +342,14 @@ def truncate_disk(disk, new_radius, density_limit=1E-11):
     return disk
 
 
-def evaporate(disk, mass, density_limit=1E-11):
+def evaporate(disk, mass):
     """ Return new size disk after photoevaporation.
         Goes through the disk outside-in removing mass until the needed amount is reached.
 
     :param disk: vader disk to truncate
     :param mass: mass lost to photoevaporation in MSun
-    :param density_limit: density limit for radius calculation
     :return: vader code with disk at new radius
     """
-    removed_mass = 0 | units.MSun
 
     radius = get_disk_radius(disk).value_in(units.au)
 
@@ -358,10 +357,6 @@ def evaporate(disk, mass, density_limit=1E-11):
         return disk
 
     init_cell = numpy.where(disk.grid.r.value_in(units.au) == radius)[0][0]
-
-    #print "r={0} au".format(radius)
-    #print "mass to remove: {0} mass in cell at r: {1}".format(mass.value_in(units.MSun),
-    #                                                          (disk.grid[init_cell].column_density*disk.grid[init_cell].area).value_in(units.MSun))
 
     for d, r, a in zip(disk.grid[init_cell::-1].column_density, disk.grid[init_cell::-1].r, disk.grid[init_cell::-1].area):
         cell_mass_msun = d.value_in(units.MSun / (units.AU ** 2)) * a.value_in(units.AU ** 2) | units.MSun
@@ -373,22 +368,6 @@ def evaporate(disk, mass, density_limit=1E-11):
 
         else:
             return disk
-
-
-
-
-        """if d <= density_limit | units.g / (units.cm ** 2):
-            continue
-        else:
-            #print "removing mass"
-            cell_mass_msun = d.value_in(units.MSun / (units.AU**2)) * a.value_in(units.AU**2) | units.MSun
-            #print cell_mass_msun
-            #print removed_mass
-            #print mass
-            removed_mass += cell_mass_msun
-            if removed_mass >= mass:
-                return truncate_disk(disk, r)
-    return disk"""
 
 
 @timer
@@ -687,7 +666,7 @@ def main(N, Rvir, Qvir, alpha, R, t_ini, t_end, save_interval, run_number, save_
             s.stellar_mass += c.inner_boundary_mass_out.value_in(units.MSun) | units.MSun
 
             # Check for dispersed disks
-            if get_disk_mass(c, get_disk_radius(c)) <= s.dispersed_disk_mass:  # Disk has been dispersed
+            if get_disk_mass(c, get_disk_radius(c)) <= s.dispersed_disk_mass or s.disk_radius.value_in(units.au) < 1.:  # Disk has been dispersed
                 #print small_stars
                 s.dispersed = True
                 s.code = False
@@ -701,12 +680,9 @@ def main(N, Rvir, Qvir, alpha, R, t_ini, t_end, save_interval, run_number, save_
                                                                                  len(disk_codes_indices))
                 continue
 
-            # Update stars disk radius
+            # Update stars disk radius and mass
             s.disk_radius = get_disk_radius(c)
-
-        init_rad = stars.disk_radius
-        print "before:"
-        print init_rad
+            s.disk_mass = get_disk_mass(c, s.disk_radius)
 
         # Photoevaporation
         for s in bright_stars:  # For each massive/bright star
@@ -773,7 +749,7 @@ def main(N, Rvir, Qvir, alpha, R, t_ini, t_end, save_interval, run_number, save_
                 photoevap_Mdot = interpolate.griddata(subgrid, Mdot_values, xi, method="nearest")
 
                 # Calculate total mass lost due to photoevaporation during dt, in MSun
-                total_photoevap_mass_loss = 1000 * float(numpy.power(10, photoevap_Mdot) * dt.value_in(units.yr)) | units.MSun
+                total_photoevap_mass_loss = float(numpy.power(10, photoevap_Mdot) * dt.value_in(units.yr)) | units.MSun
 
                 ss.photoevap_mass_loss += total_photoevap_mass_loss
 
@@ -783,17 +759,12 @@ def main(N, Rvir, Qvir, alpha, R, t_ini, t_end, save_interval, run_number, save_
                 disk_codes[disk_codes_indices[ss.key]] = evaporate(disk_codes[disk_codes_indices[ss.key]],
                                                                    total_photoevap_mass_loss)
                 ss.disk_radius = get_disk_radius(disk_codes[disk_codes_indices[ss.key]])
+                ss.disk_mass = get_disk_mass(disk_codes[disk_codes_indices[ss.key]], ss.disk_radius)
                 #print "AFTER PHOTOEVAP: {0}".format(ss.disk_radius)
                 #print "post evaporate: {0}".format(get_disk_radius(disk_codes[disk_codes_indices[ss.key]]))
 
-        print "after photoevap stars:"
-        print init_rad
         print stars.disk_radius
-        print "* small_stars:"
-        print init_rad
-        print small_stars.disk_radius
-        #print stars.photoevap_mass_loss
-        print init_rad - stars.disk_radius
+        print stars.disk_mass
 
         #print "save: {0}".format(t.value_in(units.yr) % save_interval.value_in(units.yr))
 
