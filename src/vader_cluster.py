@@ -321,11 +321,17 @@ def resolve_encounter(stars,
                 new_codes.append(new_disk)
 
                 new_mass = get_disk_mass(new_disk, truncation_radius)
+
                 stars[i].truncation_mass_loss = old_mass - new_mass
                 stars[i].disk_mass = new_mass
 
             else:
                 new_codes.append(disk_codes[i])
+
+            # Truncating the "no photoevaporation" disk, if needed
+            if truncation_radius < stars[i].disk_radius_np:
+                stars[i].disk_radius_np = truncation_radius
+                stars[i].disk_mass_np *= 1.6
 
     return truncated, new_codes
 
@@ -388,7 +394,7 @@ def main(N, Rvir, Qvir, alpha, R, t_ini, t_end, save_interval, run_number, save_
         t_end = t_end | units.Myr
     except TypeError:
         pass
-    
+
     t = 0 | t_end.unit
 
     path = "{0}/{1}/".format(save_path, run_number)
@@ -431,8 +437,7 @@ def main(N, Rvir, Qvir, alpha, R, t_ini, t_end, save_interval, run_number, save_
     small_stars.disk_mass = 0.1 * small_stars.stellar_mass
 
     # Initially all stars have the same collisional radius
-    # TODO check this value
-    stars.collisional_radius = 30 | units.parsec
+    stars.collisional_radius = 0.02 | units.parsec
 
     disk_codes = []
     disk_codes_indices = {}  # Using this to keep track of codes later on, for the encounters
@@ -457,7 +462,11 @@ def main(N, Rvir, Qvir, alpha, R, t_ini, t_end, save_interval, run_number, save_
             # Initial values of disks
             s.initial_disk_size = get_disk_radius(s_code)
             s.initial_disk_mass = get_disk_mass(s_code, s.initial_disk_size)
-            print get_disk_radius(s_code)
+
+            # Value to keep track of disk sizes and masses as not influenced by photoevaporation
+            s.disk_size_np = s.initial_disk_size
+            s.disk_mass_np = s.initial_disk_mass
+
         else:  # Attach None to bright stars' codes
             s.code = False
 
@@ -487,9 +496,7 @@ def main(N, Rvir, Qvir, alpha, R, t_ini, t_end, save_interval, run_number, save_
                                                              attributes=['collisional_radius'],
                                                              target_names=['radius'])
 
-    print gravity.particles.radius
     channel_from_framework_to_gravity.copy()
-    print gravity.particles.radius.value_in(units.au)
 
     ######## FRIED grid ########
     # Read FRIED grid
@@ -520,9 +527,13 @@ def main(N, Rvir, Qvir, alpha, R, t_ini, t_end, save_interval, run_number, save_
                                                       t.value_in(units.Myr)),
                       'hdf5')
 
+    stellar.evolve_model(5 | units.Myr)
+    channel_from_stellar_to_framework.copy()
+    channel_from_stellar_to_gravity.copy()
+
     # Evolve!
     while t < t_end:
-        print t
+        #print t
         dt = min(dt, t_end - t)
 
         stellar.evolve_model(t + dt/2)
@@ -680,7 +691,7 @@ def main(N, Rvir, Qvir, alpha, R, t_ini, t_end, save_interval, run_number, save_
             s.disk_mass = get_disk_mass(c, s.disk_radius)
 
         # Photoevaporation
-        for s in bright_stars:  # For each massive/bright star
+        """for s in bright_stars:  # For each massive/bright star
             # Calculate FUV luminosity of the bright star, in LSun
             lum = luminosity_fit(s.stellar_mass.value_in(units.MSun))
 
@@ -757,13 +768,13 @@ def main(N, Rvir, Qvir, alpha, R, t_ini, t_end, save_interval, run_number, save_
                 ss.disk_radius = get_disk_radius(disk_codes[disk_codes_indices[ss.key]])
                 ss.disk_mass = get_disk_mass(disk_codes[disk_codes_indices[ss.key]], ss.disk_radius)
                 #print "AFTER PHOTOEVAP: {0}".format(ss.disk_radius)
-                #print "post evaporate: {0}".format(get_disk_radius(disk_codes[disk_codes_indices[ss.key]]))
+                #print "post evaporate: {0}".format(get_disk_radius(disk_codes[disk_codes_indices[ss.key]]))"""
 
         #print stars.disk_radius
         #print stars.disk_mass
 
         if (numpy.around(t.value_in(units.yr)) % save_interval.value_in(units.yr)) == 0.:
-            print "saving!"
+            print "saving! at t = {0} Myr".format(t.value_in(units.Myr))
             write_set_to_file(stars,
                               '{0}/{1}/N{2}_t{3}.hdf5'.format(save_path,
                                                           run_number,
