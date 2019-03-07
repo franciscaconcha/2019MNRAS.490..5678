@@ -1,5 +1,6 @@
 from amuse.lab import *
 import numpy
+from amuse import io
 from amuse.couple.bridge import Bridge
 from amuse.community.fractalcluster.interface import new_fractal_cluster_model
 from matplotlib import pyplot
@@ -369,7 +370,6 @@ def evaporate(disk, mass):
         else:
             return disk
 
-
 @timer
 def main(N, Rvir, Qvir, alpha, R, t_ini, t_end, save_interval, run_number, save_path,
          gamma=1,
@@ -388,6 +388,7 @@ def main(N, Rvir, Qvir, alpha, R, t_ini, t_end, save_interval, run_number, save_
         t_end = t_end | units.Myr
     except TypeError:
         pass
+    
     t = 0 | t_end.unit
 
     path = "{0}/{1}/".format(save_path, run_number)
@@ -510,12 +511,6 @@ def main(N, Rvir, Qvir, alpha, R, t_ini, t_end, save_interval, run_number, save_
     Q_handle = file('{0}/{1}/virial.txt'.format(save_path, run_number), 'a')
     E_list = []
     Q_list = []
-
-    print stellar.particles.luminosity
-    print stars
-
-    #stellar.evolve_model(5 | units.Myr) # Forcing a SN explosion...
-
 
     write_set_to_file(stars,
                       '{0}/{1}/N{2}_t{3}.hdf5'.format(save_path,
@@ -666,7 +661,7 @@ def main(N, Rvir, Qvir, alpha, R, t_ini, t_end, save_interval, run_number, save_
             s.stellar_mass += c.inner_boundary_mass_out.value_in(units.MSun) | units.MSun
 
             # Check for dispersed disks
-            if get_disk_mass(c, get_disk_radius(c)) <= s.dispersed_disk_mass or s.disk_radius.value_in(units.au) < 1.:  # Disk has been dispersed
+            if get_disk_mass(c, get_disk_radius(c)) <= s.dispersed_disk_mass or s.disk_radius.value_in(units.au) < 0.5:  # Disk has been dispersed
                 #print small_stars
                 s.dispersed = True
                 s.code = False
@@ -691,6 +686,7 @@ def main(N, Rvir, Qvir, alpha, R, t_ini, t_end, save_interval, run_number, save_
 
             for ss in small_stars:
                 if ss.dispersed:  # We ignore dispersed disks
+                    print ss.key
                     continue
 
                 dist = distance(s, ss)
@@ -763,12 +759,10 @@ def main(N, Rvir, Qvir, alpha, R, t_ini, t_end, save_interval, run_number, save_
                 #print "AFTER PHOTOEVAP: {0}".format(ss.disk_radius)
                 #print "post evaporate: {0}".format(get_disk_radius(disk_codes[disk_codes_indices[ss.key]]))
 
-        print stars.disk_radius
-        print stars.disk_mass
+        #print stars.disk_radius
+        #print stars.disk_mass
 
-        #print "save: {0}".format(t.value_in(units.yr) % save_interval.value_in(units.yr))
-
-        if t.value_in(units.yr) % save_interval.value_in(units.yr) < 1:
+        if (numpy.around(t.value_in(units.yr)) % save_interval.value_in(units.yr)) == 0.:
             print "saving!"
             write_set_to_file(stars,
                               '{0}/{1}/N{2}_t{3}.hdf5'.format(save_path,
