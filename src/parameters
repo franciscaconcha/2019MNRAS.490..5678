@@ -1,0 +1,31 @@
+Below is a list of the disk parameters in the simulation and their description.
+Parameters related to the stellar evolution code are not relevant to the simulation and not in this list.
+
+
+
+Parameter name                  Description
+======================================================================================
+
+stellar_mass                    Mass of the star.
+bright                          True for bright stars (m > 1.9 MSun) , False for small stars (m <= 1.9 MSun)
+initial_disk_size               Initial radius of the circumstellar disk.
+initial_disk_mass               Initial mass of the circumstellar disk.
+code                            True for stars with a running vader code, False for stars with no code
+collisional_radius              Collisional radius for dynamical encounters. Equivalent to 'radius' in gravity code.
+encounters                      Counter for dynamical encounters.
+disk_mass                       Mass of the circumstellar disk (= 0.0 for bright stars).
+disk_radius                     Radius of the circumstellar disk (= 0.0 for bright stars).
+photoevap_mass_loss             Cumulative mass lost due to photoevaporation over time.
+truncation_mass_loss            Cumulative mass lost due to dynamical encounters over time.
+disk_size_np                    Radius of the circumstellar disk as if affected only by encounters, no photoevaporation.
+disk_mass_np                    Mass of the circumstellar disk as if affected only by encounters, no photoevaporation.
+dispersed                       True if disk has been dispersed, False if not. Initially False for all stars.
+dispersed_disk_mass             99% of the initial disk mass. Used as a threshold for disk dispersion.
+disk_density_threshold          Lower density limit used as a disk dispersion limit.
+dispersal_time                  Time when the circumstellar disk was dispersed. Initially = 0 for all stars.
+x                               x axis position of star.
+y                               y axis position of star.
+z                               z axis position of star.
+vx                              x axis velocity of star.
+vy                              y axis velocity of star.
+vz                              z axis velocity of star.
