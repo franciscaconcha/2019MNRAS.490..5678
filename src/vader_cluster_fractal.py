@@ -394,7 +394,7 @@ def main(N, Rvir, Qvir, alpha, R, t_ini, t_end, save_interval, run_number, save_
     max_stellar_mass = 100 | units.MSun
     stellar_masses = new_kroupa_mass_distribution(N, max_stellar_mass, random=False)
     converter = nbody_system.nbody_to_si(stellar_masses.sum(), Rvir)
-    stars = new_plummer_model(N, converter)
+    stars = new_fractal_cluster_model(N=N, fractal_dimension=1.6, convert_nbody=converter)
     stars.scale_to_standard(converter, virial_ratio=Qvir)
 
     stars.stellar_mass = stellar_masses

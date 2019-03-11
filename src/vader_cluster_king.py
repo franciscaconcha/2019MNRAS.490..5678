@@ -4,6 +4,7 @@ from random import randint
 from amuse import io
 from amuse.couple.bridge import Bridge
 from amuse.community.fractalcluster.interface import new_fractal_cluster_model
+from amuse.ic.kingmodel import new_king_model
 from matplotlib import pyplot
 import gzip
 import copy
@@ -394,7 +395,7 @@ def main(N, Rvir, Qvir, alpha, R, t_ini, t_end, save_interval, run_number, save_
     max_stellar_mass = 100 | units.MSun
     stellar_masses = new_kroupa_mass_distribution(N, max_stellar_mass, random=False)
     converter = nbody_system.nbody_to_si(stellar_masses.sum(), Rvir)
-    stars = new_plummer_model(N, converter)
+    stars = new_king_model(N, W0=3, convert_nbody=converter)
     stars.scale_to_standard(converter, virial_ratio=Qvir)
 
     stars.stellar_mass = stellar_masses
