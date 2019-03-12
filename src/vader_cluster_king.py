@@ -534,7 +534,7 @@ def main(N, Rvir, Qvir, alpha, R, t_ini, t_end, save_interval, run_number, save_
 
     # Evolve!
     while t < t_end:
-        #print t
+        print t
         dt = min(dt, t_end - t)
 
         stellar.evolve_model(t + dt/2)
@@ -713,7 +713,7 @@ def main(N, Rvir, Qvir, alpha, R, t_ini, t_end, save_interval, run_number, save_
             s.disk_mass = get_disk_mass(c, s.disk_radius)
 
         # Photoevaporation
-        """for s in bright_stars:  # For each massive/bright star
+        for s in bright_stars:  # For each massive/bright star
             # Calculate FUV luminosity of the bright star, in LSun
             lum = luminosity_fit(s.stellar_mass.value_in(units.MSun))
 
@@ -790,7 +790,7 @@ def main(N, Rvir, Qvir, alpha, R, t_ini, t_end, save_interval, run_number, save_
                 ss.disk_radius = get_disk_radius(disk_codes[disk_codes_indices[ss.key]])
                 ss.disk_mass = get_disk_mass(disk_codes[disk_codes_indices[ss.key]], ss.disk_radius)
                 #print "AFTER PHOTOEVAP: {0}".format(ss.disk_radius)
-                #print "post evaporate: {0}".format(get_disk_radius(disk_codes[disk_codes_indices[ss.key]]))"""
+                #print "post evaporate: {0}".format(get_disk_radius(disk_codes[disk_codes_indices[ss.key]]))
 
         #print stars.disk_radius
         #print stars.disk_mass
