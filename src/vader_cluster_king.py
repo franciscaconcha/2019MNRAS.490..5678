@@ -362,17 +362,7 @@ def evaporate(disk, mass):
             return disk
 
 @timer
-def main(N, Rvir, Qvir, alpha, R, t_ini, t_end, save_interval, run_number, save_path,
-         gamma=1,
-         mass_factor_exponent=0.2,
-         truncation_parameter=1. / 3,
-         plummer_radius=0.5 | units.parsec,
-         dt=2000 | units.yr,
-         temp_profile=0.5,
-         Rref=1.0 | units.AU,
-         Tref=280 | units.K,
-         mu=2.3 | units.g / units.mol,
-         filename=''):
+def main(N, Rvir, Qvir, alpha, ncells, t_ini, t_end, save_interval, run_number, save_path, dt=2000 | units.yr):
 
     try:
         float(t_end)
@@ -434,7 +424,7 @@ def main(N, Rvir, Qvir, alpha, R, t_ini, t_end, save_interval, run_number, save_
     for s in stars:
         if s in small_stars:
             s.code = True
-            s_code = initialize_vader_code(s.disk_radius, s.disk_mass, alpha, linear=False)
+            s_code = initialize_vader_code(s.disk_radius, s.disk_mass, alpha, n_cells=ncells, linear=False)
 
             disk_codes.append(s_code)
             disk_codes_indices[s.key] = len(disk_codes) - 1
@@ -852,8 +842,8 @@ def new_option_parser():
     # Disk parameters
     result.add_option("-a", dest="alpha", type="float", default=5E-3,
                       help="turbulence parameter [%default]")
-    result.add_option("-c", dest="R", type="float", default=30.0,
-                      help="Initial disk radius [%default]")
+    result.add_option("-c", dest="ncells", type="int", default=100,
+                      help="Number of cells to be used in vader disk [%default]")
 
     # Time parameters
     result.add_option("-I", dest="t_ini", type="int", default=0 | units.yr,
