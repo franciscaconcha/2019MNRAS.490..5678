@@ -478,7 +478,7 @@ def main(N, Rvir, Qvir, alpha, ncells, t_ini, t_end, save_interval, run_number, 
 
     ######## FRIED grid ########
     # Read FRIED grid
-    grid = numpy.loadtxt('../friedgrid.dat', skiprows=2)
+    grid = numpy.loadtxt('friedgrid.dat', skiprows=2)
 
     # Getting only the useful parameters from the grid (not including Mdot)
     FRIED_grid = grid[:, [0, 1, 2, 4]]
@@ -666,36 +666,37 @@ def main(N, Rvir, Qvir, alpha, ncells, t_ini, t_end, save_interval, run_number, 
         # Check disks
         for s, c in zip(small_stars, disk_codes):
             # Check for diverged disks
-            if c.get_parameter(0):  # Disk diverged
-                print "codes len: {0}".format(len(disk_codes))
-                s.dispersed = True
-                s.code = False
-                s.dispersal_time = t
-                c.stop()
-                del disk_codes[disk_codes_indices[s.key]]  # Delete diverged code
-                del disk_codes_indices[s.key]
-                print "deleted diverged code"
-                print "codes len: {0}".format(len(disk_codes))
-                continue
+            if s.code:
+                if c.get_parameter(0):  # Disk diverged
+                    print "codes len: {0}".format(len(disk_codes))
+                    s.dispersed = True
+                    s.code = False
+                    s.dispersal_time = t
+                    c.stop()
+                    del disk_codes[disk_codes_indices[s.key]]  # Delete diverged code
+                    del disk_codes_indices[s.key]
+                    print "deleted diverged code"
+                    print "codes len: {0}".format(len(disk_codes))
+                    continue
 
-            # Add accreted mass from disk to host star
-            s.stellar_mass += c.inner_boundary_mass_out.value_in(units.MSun) | units.MSun
+                # Add accreted mass from disk to host star
+                s.stellar_mass += c.inner_boundary_mass_out.value_in(units.MSun) | units.MSun
 
-            # Check for dispersed disks
-            disk_density = get_disk_mass(c, s.disk_radius).value_in(units.g) / (numpy.pi * s.disk_radius.value_in(units.cm)**2)
-            if get_disk_mass(c, s.disk_radius) <= s.dispersed_disk_mass or s.disk_radius.value_in(units.au) < 0.5 or disk_density <= s.dispersion_threshold:  # Disk has been dispersed
-                #print small_stars
-                s.dispersed = True
-                s.code = False
-                s.dispersal_time = t
-                print "prev: len(disk_codes)={0}, len(disk_code_indices)={1}".format(len(disk_codes), len(disk_codes_indices))
-                disk_codes[disk_codes_indices[s.key]].stop()
-                del disk_codes[disk_codes_indices[s.key]]  # Delete dispersed disk from code list
-                del disk_codes_indices[s.key]
-                print "Star's {0} disk dispersed, deleted code".format(s.key)
-                print "post: len(disk_codes)={0}, len(disk_code_indices)={1}".format(len(disk_codes),
-                                                                                 len(disk_codes_indices))
-                continue
+                # Check for dispersed disks
+                disk_density = get_disk_mass(c, s.disk_radius).value_in(units.g) / (numpy.pi * s.disk_radius.value_in(units.cm)**2)
+                if get_disk_mass(c, s.disk_radius) <= s.dispersed_disk_mass or s.disk_radius.value_in(units.au) < 0.5 or disk_density <= s.dispersion_threshold:  # Disk has been dispersed
+                    #print small_stars
+                    s.dispersed = True
+                    s.code = False
+                    s.dispersal_time = t
+                    print "prev: len(disk_codes)={0}, len(disk_code_indices)={1}".format(len(disk_codes), len(disk_codes_indices))
+                    disk_codes[disk_codes_indices[s.key]].stop()
+                    del disk_codes[disk_codes_indices[s.key]]  # Delete dispersed disk from code list
+                    del disk_codes_indices[s.key]
+                    print "Star's {0} disk dispersed, deleted code".format(s.key)
+                    print "post: len(disk_codes)={0}, len(disk_code_indices)={1}".format(len(disk_codes),
+                                                                                         len(disk_codes_indices))
+                    continue
 
             # Update stars disk radius and mass
             s.disk_radius = get_disk_radius(c)
