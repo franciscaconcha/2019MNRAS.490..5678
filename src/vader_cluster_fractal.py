@@ -319,6 +319,9 @@ def resolve_encounter(stars,
                 stars[i].truncation_mass_loss = old_mass - new_mass
                 stars[i].disk_mass = new_mass
 
+                if truncation_radius.value_in(units.au) < 0.5:
+                    stars[i].dispersed = True
+
             else:
                 new_codes.append(disk_codes[i])
 
