@@ -708,7 +708,7 @@ def main(N, Rvir, Qvir, alpha, ncells, t_ini, t_end, save_interval, run_number, 
                 try:
                     disk_density = get_disk_mass(c, s.disk_radius).value_in(units.g) / (numpy.pi * s.disk_radius.value_in(units.cm)**2)
                 except Exception:
-                    print "CRASHING with star key {0}".format(s.key)
+                    print "CRASHING AT DISK CHECK with star key {0} radius {1}".format(s.key, s.disk_radius)
                 if get_disk_mass(c, s.disk_radius) <= s.dispersed_disk_mass or s.disk_radius.value_in(units.au) < 0.5 or disk_density <= s.dispersion_threshold:  # Disk has been dispersed
                     #print small_stars
                     s.dispersed = True
@@ -759,7 +759,7 @@ def main(N, Rvir, Qvir, alpha, ncells, t_ini, t_end, save_interval, run_number, 
                 try:
                     xi[0][3] = get_disk_radius(disk_codes[disk_codes_indices[ss.key]]).value_in(units.AU)
                 except Exception:
-                    print "CRASHING with star key {0}".format(ss.key)
+                    print "CRASHING AT PHOTOEVAP with star key {0}, radius {1}".format(ss.key, ss.disk_radius)
 
                 xi[0][2] = get_disk_mass(disk_codes[disk_codes_indices[ss.key]], xi[0][3] | units.AU).value_in(units.MJupiter)
 
