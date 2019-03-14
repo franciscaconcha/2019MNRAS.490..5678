@@ -67,6 +67,8 @@ def initialize_vader_code(disk_radius, disk_mass, alpha, r_min=0.05 | units.AU, 
     disk.parameters.maximum_tolerated_change = 1E99
     disk.set_parameter(0, False)  # Disk parameter for non-convergence. True: disk diverged
 
+    
+
     return disk
 
 
@@ -418,15 +420,17 @@ def main(N, Rvir, Qvir, alpha, ncells, t_ini, t_end, save_interval, run_number, 
 
     disk_codes = []
     disk_codes_indices = {}  # Using this to keep track of codes later on, for the encounters
+    code_channels =[]
 
     # Create individual instances of vader codes for each disk
     for s in stars:
         if s in small_stars:
             s.code = True
             s_code = initialize_vader_code(s.disk_radius, s.disk_mass, alpha, n_cells=ncells, linear=False)
+            
 
             disk_codes.append(s_code)
-            disk_codes_indices[s.key] = len(disk_codes) - 1
+            disk_codes_indices[s.key] = len(disk_codes) - 1            
 
             # Saving these values to keep track of dispersed disks later on
             s.dispersed_disk_mass = 0.01 * s.disk_mass
@@ -478,7 +482,7 @@ def main(N, Rvir, Qvir, alpha, ncells, t_ini, t_end, save_interval, run_number, 
 
     ######## FRIED grid ########
     # Read FRIED grid
-    grid = numpy.loadtxt('friedgrid.dat', skiprows=2)
+    grid = numpy.loadtxt('../friedgrid.dat', skiprows=2)
 
     # Getting only the useful parameters from the grid (not including Mdot)
     FRIED_grid = grid[:, [0, 1, 2, 4]]
