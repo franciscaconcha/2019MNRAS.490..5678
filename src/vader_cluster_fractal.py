@@ -721,6 +721,7 @@ def main(N, Rvir, Qvir, alpha, ncells, t_ini, t_end, save_interval, run_number, 
                     print ss.key
                     continue
 
+                print "continuing. ss.key = {0}".format(ss.key)
                 dist = distance(s, ss)
                 radiation_ss = radiation_at_distance(lum.value_in(units.erg / units.s),
                                                      dist.value_in(units.cm))
