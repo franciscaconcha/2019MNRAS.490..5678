@@ -682,11 +682,6 @@ def main(N, Rvir, Qvir, alpha, ncells, t_ini, t_end, save_interval, run_number, 
                 s.checked = True
                 s.code = False
                 s.dispersal_time = t
-                print "removing on first check, disk dispersed in truncation"
-                print "prev: len(disk_codes)={0}, len(disk_code_indices)={1}".format(len(disk_codes),
-                                                                                     len(disk_codes_indices))
-                print "disk_codes_indices[s.key] = {0}".format(disk_codes_indices[s.key])
-                print disk_codes_indices
                 to_del = disk_codes_indices[s.key]
                 disk_codes[to_del].stop()
                 del disk_codes[to_del]  # Delete dispersed disk from code list
@@ -694,17 +689,12 @@ def main(N, Rvir, Qvir, alpha, ncells, t_ini, t_end, save_interval, run_number, 
                     if disk_codes_indices[i] > to_del:
                         disk_codes_indices[i] -= 1
                 del disk_codes_indices[s.key]
-                print "Star's {0} disk dispersed, deleted code".format(s.key)
-                print "post: len(disk_codes)={0}, len(disk_code_indices)={1}".format(len(disk_codes),
-                                                                                     len(disk_codes_indices))
-                print disk_codes_indices
-                #print disk_codes
+                print "Star's {0} disk dispersed in truncation, deleted code".format(s.key)
                 continue
 
             # Check for diverged disks
             if s.code and not s.checked:  # Star not checked yet
                 if diverged_disks[c]:  # Disk diverged
-                    print "codes len: {0}".format(len(disk_codes))
                     s.dispersed = True
                     s.code = False
                     s.checked = True
@@ -717,8 +707,7 @@ def main(N, Rvir, Qvir, alpha, ncells, t_ini, t_end, save_interval, run_number, 
                         if disk_codes_indices[i] > to_del:
                             disk_codes_indices[i] -= 1
                     del disk_codes_indices[s.key]
-                    print "deleted diverged code {0}".format(ss.key)
-                    print "codes len: {0}".format(len(disk_codes))
+                    print "Star's {0} disk diverged, deleted code".format(s.key)
                     continue
 
                 # Check for dispersed disks
@@ -733,9 +722,6 @@ def main(N, Rvir, Qvir, alpha, ncells, t_ini, t_end, save_interval, run_number, 
                     s.checked = True
                     s.code = False
                     s.dispersal_time = t
-                    print "prev: len(disk_codes)={0}, len(disk_code_indices)={1}".format(len(disk_codes), len(disk_codes_indices))
-                    print disk_codes_indices[s.key]
-                    #print disk_codes
                     to_del = disk_codes_indices[s.key]
                     disk_codes[to_del].stop()
                     del disk_codes[to_del]  # Delete dispersed disk from code list
@@ -744,10 +730,6 @@ def main(N, Rvir, Qvir, alpha, ncells, t_ini, t_end, save_interval, run_number, 
                             disk_codes_indices[i] -= 1
                     del disk_codes_indices[s.key]
                     print "Star's {0} disk dispersed, deleted code".format(s.key)
-                    print "post: len(disk_codes)={0}, len(disk_code_indices)={1}".format(len(disk_codes),
-                                                                                         len(disk_codes_indices))
-                    print disk_codes_indices
-                    #print disk_codes
                     continue
 
             # Add accreted mass from disk to host star
@@ -783,11 +765,7 @@ def main(N, Rvir, Qvir, alpha, ncells, t_ini, t_end, save_interval, run_number, 
                 xi = numpy.ndarray(shape=(1, 4), dtype=float)
                 xi[0][0] = ss.stellar_mass.value_in(units.MSun)
                 xi[0][1] = radiation_ss_G0
-                try:
-                    xi[0][3] = get_disk_radius(disk_codes[disk_codes_indices[ss.key]]).value_in(units.AU)
-                except Exception:
-                    print "CRASHING AT PHOTOEVAP with star key {0}, index {1}".format(ss.key, disk_codes_indices[ss.key])
-
+                xi[0][3] = get_disk_radius(disk_codes[disk_codes_indices[ss.key]]).value_in(units.AU)
                 xi[0][2] = get_disk_mass(disk_codes[disk_codes_indices[ss.key]], xi[0][3] | units.AU).value_in(units.MJupiter)
 
                 # Building the subgrid (of FRIED grid) over which I will perform the interpolation
