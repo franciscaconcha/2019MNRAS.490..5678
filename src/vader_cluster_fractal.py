@@ -684,10 +684,11 @@ def main(N, Rvir, Qvir, alpha, ncells, t_ini, t_end, save_interval, run_number, 
             if s.dispersed:  # Disk "dispersed" in truncation
                 s.code = False
                 s.dispersal_time = t
+                print "removing on first check, disk dispersed in truncation"
                 print "prev: len(disk_codes)={0}, len(disk_code_indices)={1}".format(len(disk_codes),
                                                                                      len(disk_codes_indices))
                 print "disk_codes_indices[s.key] = {0}".format(disk_codes_indices[s.key])
-                #print disk_codes
+                print disk_codes_indices
                 to_del = disk_codes_indices[s.key]
                 disk_codes[to_del].stop()
                 del disk_codes[to_del]  # Delete dispersed disk from code list
