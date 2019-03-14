@@ -682,10 +682,14 @@ def main(N, Rvir, Qvir, alpha, ncells, t_ini, t_end, save_interval, run_number, 
                 s.dispersal_time = t
                 print "prev: len(disk_codes)={0}, len(disk_code_indices)={1}".format(len(disk_codes),
                                                                                      len(disk_codes_indices))
-                print disk_codes_indices[s.key]
+                print "disk_codes_indices[s.key] = {0}".format(disk_codes_indices[s.key])
                 #print disk_codes
-                disk_codes[disk_codes_indices[s.key]].stop()
-                del disk_codes[disk_codes_indices[s.key]]  # Delete dispersed disk from code list
+                to_del = disk_codes_indices[s.key]
+                disk_codes[to_del].stop()
+                del disk_codes[to_del]  # Delete dispersed disk from code list
+                for i in disk_codes_indices:
+                    if disk_codes_indices[i] > to_del:
+                        disk_codes_indices[i] -= 1
                 del disk_codes_indices[s.key]
                 print "Star's {0} disk dispersed, deleted code".format(s.key)
                 print "post: len(disk_codes)={0}, len(disk_code_indices)={1}".format(len(disk_codes),
@@ -702,7 +706,12 @@ def main(N, Rvir, Qvir, alpha, ncells, t_ini, t_end, save_interval, run_number, 
                     s.code = False
                     s.dispersal_time = t
                     c.stop()
-                    del disk_codes[disk_codes_indices[s.key]]  # Delete diverged code
+                    to_del = disk_codes_indices[s.key]
+                    disk_codes[to_del].stop()
+                    del disk_codes[to_del]  # Delete dispersed disk from code list
+                    for i in disk_codes_indices:
+                        if disk_codes_indices[i] > to_del:
+                            disk_codes_indices[i] -= 1
                     del disk_codes_indices[s.key]
                     print "deleted diverged code {0}".format(ss.key)
                     print "codes len: {0}".format(len(disk_codes))
@@ -722,8 +731,12 @@ def main(N, Rvir, Qvir, alpha, ncells, t_ini, t_end, save_interval, run_number, 
                     print "prev: len(disk_codes)={0}, len(disk_code_indices)={1}".format(len(disk_codes), len(disk_codes_indices))
                     print disk_codes_indices[s.key]
                     #print disk_codes
-                    disk_codes[disk_codes_indices[s.key]].stop()
-                    del disk_codes[disk_codes_indices[s.key]]  # Delete dispersed disk from code list
+                    to_del = disk_codes_indices[s.key]
+                    disk_codes[to_del].stop()
+                    del disk_codes[to_del]  # Delete dispersed disk from code list
+                    for i in disk_codes_indices:
+                        if disk_codes_indices[i] > to_del:
+                            disk_codes_indices[i] -= 1
                     del disk_codes_indices[s.key]
                     print "Star's {0} disk dispersed, deleted code".format(s.key)
                     print "post: len(disk_codes)={0}, len(disk_code_indices)={1}".format(len(disk_codes),
