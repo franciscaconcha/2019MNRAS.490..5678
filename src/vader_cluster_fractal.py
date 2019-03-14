@@ -16,6 +16,11 @@ from decorators import timer
 import time
 import os
 
+# Workaround for now
+global diverged_disks, disk_codes_indices
+diverged_disks = {}
+disk_codes_indices = {}
+
 
 def column_density(grid, r0, mass, lower_density=1E-12 | units.g / units.cm**2):
     r = grid.value_in(units.AU) | units.AU
@@ -65,7 +70,9 @@ def initialize_vader_code(disk_radius, disk_mass, alpha, r_min=0.05 | units.AU, 
     disk.parameters.inner_pressure_boundary_torque = 0.0 | units.g * units.cm ** 2 / units.s ** 2
     disk.parameters.alpha = alpha
     disk.parameters.maximum_tolerated_change = 1E99
-    disk.set_parameter(0, False)  # Disk parameter for non-convergence. True: disk diverged
+    global diverged_disks
+    diverged_disks[disk] = False
+    #disk.set_parameter(0, False)  # Disk parameter for non-convergence. True: disk diverged
 
     return disk
 
@@ -102,7 +109,8 @@ def evolve_single_disk(code, dt):
         disk.evolve_model(dt)
     except:
         print "Disk did not converge"
-        disk.set_parameter(0, True)
+        global diverged_disks
+        diverged_disks[disk] = True
         #disk.parameters.inner_pressure_boundary_type = 3
         #disk.parameters.inner_boundary_function = False
 
@@ -417,6 +425,7 @@ def main(N, Rvir, Qvir, alpha, ncells, t_ini, t_end, save_interval, run_number, 
     stars.collisional_radius = 0.02 | units.parsec
 
     disk_codes = []
+    global disk_codes_indices
     disk_codes_indices = {}  # Using this to keep track of codes later on, for the encounters
 
     # Create individual instances of vader codes for each disk
@@ -667,7 +676,7 @@ def main(N, Rvir, Qvir, alpha, ncells, t_ini, t_end, save_interval, run_number, 
         for s, c in zip(small_stars, disk_codes):
             # Check for diverged disks
             if s.code:
-                if c.get_parameter(0):  # Disk diverged
+                if diverged_disks[c]:  # Disk diverged
                     print "codes len: {0}".format(len(disk_codes))
                     s.dispersed = True
                     s.code = False
