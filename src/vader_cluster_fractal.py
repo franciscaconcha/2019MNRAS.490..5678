@@ -444,6 +444,7 @@ def main(N, Rvir, Qvir, alpha, ncells, t_ini, t_end, save_interval, run_number, 
             s.dispersed_disk_mass = 0.01 * s.disk_mass
             s.dispersion_threshold = 1E-11  # Density threshold for dispersed disks
             s.dispersed = False
+            s.checked = False  # I need this to keep track of dispersed diks checks
             s.dispersal_time = t
             s.photoevap_mass_loss = 0 | units.MSun
             s.truncation_mass_loss = 0 | units.MSun
@@ -677,7 +678,8 @@ def main(N, Rvir, Qvir, alpha, ncells, t_ini, t_end, save_interval, run_number, 
 
         # Check disks
         for s, c in zip(small_stars, disk_codes):
-            if s.dispersed:  # Disk "dispersed" in truncation
+            if s.dispersed and not s.checked:  # Disk "dispersed" in truncation
+                s.checked = True
                 s.code = False
                 s.dispersal_time = t
                 print "removing on first check, disk dispersed in truncation"
@@ -705,6 +707,7 @@ def main(N, Rvir, Qvir, alpha, ncells, t_ini, t_end, save_interval, run_number, 
                     print "codes len: {0}".format(len(disk_codes))
                     s.dispersed = True
                     s.code = False
+                    s.checked = True
                     s.dispersal_time = t
                     c.stop()
                     to_del = disk_codes_indices[s.key]
@@ -727,6 +730,7 @@ def main(N, Rvir, Qvir, alpha, ncells, t_ini, t_end, save_interval, run_number, 
                 if get_disk_mass(c, s.disk_radius) <= s.dispersed_disk_mass or s.disk_radius.value_in(units.au) < 0.5 or disk_density <= s.dispersion_threshold:  # Disk has been dispersed
                     #print small_stars
                     s.dispersed = True
+                    s.checked = True
                     s.code = False
                     s.dispersal_time = t
                     print "prev: len(disk_codes)={0}, len(disk_code_indices)={1}".format(len(disk_codes), len(disk_codes_indices))
