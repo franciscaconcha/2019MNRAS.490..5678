@@ -682,12 +682,16 @@ def main(N, Rvir, Qvir, alpha, ncells, t_ini, t_end, save_interval, run_number, 
                 s.dispersal_time = t
                 print "prev: len(disk_codes)={0}, len(disk_code_indices)={1}".format(len(disk_codes),
                                                                                      len(disk_codes_indices))
+                print disk_codes_indices
+                print disk_codes
                 disk_codes[disk_codes_indices[s.key]].stop()
                 del disk_codes[disk_codes_indices[s.key]]  # Delete dispersed disk from code list
                 del disk_codes_indices[s.key]
                 print "Star's {0} disk dispersed, deleted code".format(s.key)
                 print "post: len(disk_codes)={0}, len(disk_code_indices)={1}".format(len(disk_codes),
                                                                                      len(disk_codes_indices))
+                print disk_codes_indices
+                print disk_codes
                 continue
 
             # Check for diverged disks
@@ -717,6 +721,7 @@ def main(N, Rvir, Qvir, alpha, ncells, t_ini, t_end, save_interval, run_number, 
                     s.dispersal_time = t
                     print "prev: len(disk_codes)={0}, len(disk_code_indices)={1}".format(len(disk_codes), len(disk_codes_indices))
                     print disk_codes_indices
+                    print disk_codes
                     disk_codes[disk_codes_indices[s.key]].stop()
                     del disk_codes[disk_codes_indices[s.key]]  # Delete dispersed disk from code list
                     del disk_codes_indices[s.key]
@@ -724,6 +729,7 @@ def main(N, Rvir, Qvir, alpha, ncells, t_ini, t_end, save_interval, run_number, 
                     print "post: len(disk_codes)={0}, len(disk_code_indices)={1}".format(len(disk_codes),
                                                                                          len(disk_codes_indices))
                     print disk_codes_indices
+                    print disk_codes
                     continue
 
             # Add accreted mass from disk to host star
