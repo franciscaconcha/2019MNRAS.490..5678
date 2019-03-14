@@ -688,7 +688,7 @@ def main(N, Rvir, Qvir, alpha, ncells, t_ini, t_end, save_interval, run_number, 
                     c.stop()
                     del disk_codes[disk_codes_indices[s.key]]  # Delete diverged code
                     del disk_codes_indices[s.key]
-                    print "deleted diverged code"
+                    print "deleted diverged code {0}".format(ss.key)
                     print "codes len: {0}".format(len(disk_codes))
                     continue
 
@@ -722,10 +722,9 @@ def main(N, Rvir, Qvir, alpha, ncells, t_ini, t_end, save_interval, run_number, 
 
             for ss in small_stars:
                 if ss.dispersed:  # We ignore dispersed disks
-                    print ss.key
                     continue
 
-                print "continuing. ss.key = {0}".format(ss.key)
+                #print "continuing. ss.key = {0}".format(ss.key)
                 dist = distance(s, ss)
                 radiation_ss = radiation_at_distance(lum.value_in(units.erg / units.s),
                                                      dist.value_in(units.cm))
@@ -742,6 +741,7 @@ def main(N, Rvir, Qvir, alpha, ncells, t_ini, t_end, save_interval, run_number, 
                 xi = numpy.ndarray(shape=(1, 4), dtype=float)
                 xi[0][0] = ss.stellar_mass.value_in(units.MSun)
                 xi[0][1] = radiation_ss_G0
+                print "trying {0}".format(ss.key)
                 xi[0][3] = get_disk_radius(disk_codes[disk_codes_indices[ss.key]]).value_in(units.AU)
                 xi[0][2] = get_disk_mass(disk_codes[disk_codes_indices[ss.key]], xi[0][3] | units.AU).value_in(units.MJupiter)
 
