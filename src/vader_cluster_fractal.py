@@ -682,16 +682,16 @@ def main(N, Rvir, Qvir, alpha, ncells, t_ini, t_end, save_interval, run_number, 
                 s.dispersal_time = t
                 print "prev: len(disk_codes)={0}, len(disk_code_indices)={1}".format(len(disk_codes),
                                                                                      len(disk_codes_indices))
-                print disk_codes_indices
-                print disk_codes
+                print disk_codes_indices[s.key]
+                #print disk_codes
                 disk_codes[disk_codes_indices[s.key]].stop()
                 del disk_codes[disk_codes_indices[s.key]]  # Delete dispersed disk from code list
                 del disk_codes_indices[s.key]
                 print "Star's {0} disk dispersed, deleted code".format(s.key)
                 print "post: len(disk_codes)={0}, len(disk_code_indices)={1}".format(len(disk_codes),
                                                                                      len(disk_codes_indices))
-                print disk_codes_indices
-                print disk_codes
+                print disk_codes_indices[s.key]
+                #print disk_codes
                 continue
 
             # Check for diverged disks
@@ -720,16 +720,16 @@ def main(N, Rvir, Qvir, alpha, ncells, t_ini, t_end, save_interval, run_number, 
                     s.code = False
                     s.dispersal_time = t
                     print "prev: len(disk_codes)={0}, len(disk_code_indices)={1}".format(len(disk_codes), len(disk_codes_indices))
-                    print disk_codes_indices
-                    print disk_codes
+                    print disk_codes_indices[s.key]
+                    #print disk_codes
                     disk_codes[disk_codes_indices[s.key]].stop()
                     del disk_codes[disk_codes_indices[s.key]]  # Delete dispersed disk from code list
                     del disk_codes_indices[s.key]
                     print "Star's {0} disk dispersed, deleted code".format(s.key)
                     print "post: len(disk_codes)={0}, len(disk_code_indices)={1}".format(len(disk_codes),
                                                                                          len(disk_codes_indices))
-                    print disk_codes_indices
-                    print disk_codes
+                    print disk_codes_indices[s.key]
+                    #print disk_codes
                     continue
 
             # Add accreted mass from disk to host star
@@ -768,7 +768,7 @@ def main(N, Rvir, Qvir, alpha, ncells, t_ini, t_end, save_interval, run_number, 
                 try:
                     xi[0][3] = get_disk_radius(disk_codes[disk_codes_indices[ss.key]]).value_in(units.AU)
                 except Exception:
-                    print "CRASHING AT PHOTOEVAP with star key {0}, radius {1}".format(ss.key, ss.disk_radius)
+                    print "CRASHING AT PHOTOEVAP with star key {0}, index {1}".format(ss.key, disk_codes_indices[ss.key])
 
                 xi[0][2] = get_disk_mass(disk_codes[disk_codes_indices[ss.key]], xi[0][3] | units.AU).value_in(units.MJupiter)
 
