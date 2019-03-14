@@ -677,6 +677,19 @@ def main(N, Rvir, Qvir, alpha, ncells, t_ini, t_end, save_interval, run_number, 
 
         # Check disks
         for s, c in zip(small_stars, disk_codes):
+            if s.dispersed:  # Disk "dispersed" in truncation
+                s.code = False
+                s.dispersal_time = t
+                print "prev: len(disk_codes)={0}, len(disk_code_indices)={1}".format(len(disk_codes),
+                                                                                     len(disk_codes_indices))
+                disk_codes[disk_codes_indices[s.key]].stop()
+                del disk_codes[disk_codes_indices[s.key]]  # Delete dispersed disk from code list
+                del disk_codes_indices[s.key]
+                print "Star's {0} disk dispersed, deleted code".format(s.key)
+                print "post: len(disk_codes)={0}, len(disk_code_indices)={1}".format(len(disk_codes),
+                                                                                     len(disk_codes_indices))
+                continue
+
             # Check for diverged disks
             if s.code:
                 if diverged_disks[c]:  # Disk diverged
