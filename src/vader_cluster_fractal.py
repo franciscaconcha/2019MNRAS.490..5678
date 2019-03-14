@@ -678,7 +678,7 @@ def main(N, Rvir, Qvir, alpha, ncells, t_ini, t_end, save_interval, run_number, 
 
         # Check disks
         for s, c in zip(small_stars, disk_codes):
-            if s.dispersed and not s.checked:  # Disk "dispersed" in truncation
+            if s.dispersed and not s.checked:  # Disk "dispersed" in truncation and star hasn't been checked yet
                 s.checked = True
                 s.code = False
                 s.dispersal_time = t
@@ -702,7 +702,7 @@ def main(N, Rvir, Qvir, alpha, ncells, t_ini, t_end, save_interval, run_number, 
                 continue
 
             # Check for diverged disks
-            if s.code:
+            if s.code and not s.checked:  # Star not checked yet
                 if diverged_disks[c]:  # Disk diverged
                     print "codes len: {0}".format(len(disk_codes))
                     s.dispersed = True
@@ -727,7 +727,7 @@ def main(N, Rvir, Qvir, alpha, ncells, t_ini, t_end, save_interval, run_number, 
                 except Exception:
                     print "CRASHING AT DISK CHECK with star key {0} radius {1} dispersed {2}".format(s.key, s.disk_radius, s.dispersed)
                     print disk_codes_indices[s.key]
-                if get_disk_mass(c, s.disk_radius) <= s.dispersed_disk_mass or s.disk_radius.value_in(units.au) < 0.5 or disk_density <= s.dispersion_threshold:  # Disk has been dispersed
+                if not s.checked and (get_disk_mass(c, s.disk_radius) <= s.dispersed_disk_mass or s.disk_radius.value_in(units.au) < 0.5 or disk_density <= s.dispersion_threshold):  # Disk has been dispersed
                     #print small_stars
                     s.dispersed = True
                     s.checked = True
