@@ -712,7 +712,8 @@ def main(N, Rvir, Qvir, alpha, ncells, t_ini, t_end, save_interval, run_number, 
                 try:
                     disk_density = get_disk_mass(c, s.disk_radius).value_in(units.g) / (numpy.pi * s.disk_radius.value_in(units.cm)**2)
                 except Exception:
-                    print "CRASHING AT DISK CHECK with star key {0} radius {1}".format(s.key, s.disk_radius)
+                    print "CRASHING AT DISK CHECK with star key {0} radius {1} dispersed {2}".format(s.key, s.disk_radius, s.dispersed)
+                    print disk_codes_indices[s.key]
                 if get_disk_mass(c, s.disk_radius) <= s.dispersed_disk_mass or s.disk_radius.value_in(units.au) < 0.5 or disk_density <= s.dispersion_threshold:  # Disk has been dispersed
                     #print small_stars
                     s.dispersed = True
