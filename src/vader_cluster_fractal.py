@@ -694,7 +694,7 @@ def main(N, Rvir, Qvir, alpha, ncells, t_ini, t_end, save_interval, run_number, 
                 print "Star's {0} disk dispersed, deleted code".format(s.key)
                 print "post: len(disk_codes)={0}, len(disk_code_indices)={1}".format(len(disk_codes),
                                                                                      len(disk_codes_indices))
-                print disk_codes_indices[s.key]
+                print disk_codes_indices
                 #print disk_codes
                 continue
 
@@ -732,7 +732,7 @@ def main(N, Rvir, Qvir, alpha, ncells, t_ini, t_end, save_interval, run_number, 
                     print "Star's {0} disk dispersed, deleted code".format(s.key)
                     print "post: len(disk_codes)={0}, len(disk_code_indices)={1}".format(len(disk_codes),
                                                                                          len(disk_codes_indices))
-                    print disk_codes_indices[s.key]
+                    print disk_codes_indices
                     #print disk_codes
                     continue
 
