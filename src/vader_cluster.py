@@ -521,6 +521,8 @@ def main(N, Rvir, Qvir, alpha, ncells, t_ini, t_end, save_interval, run_number, 
     channel_from_stellar_to_gravity.copy()
     channel_from_framework_to_stellar.copy()
 
+    active_disks = len(small_stars)  # Counter for active disks
+
     # Evolve!
     while t < t_end:
         #print t
@@ -651,9 +653,16 @@ def main(N, Rvir, Qvir, alpha, ncells, t_ini, t_end, save_interval, run_number, 
                     n.disk_mass = 0. | units.MSun
                     n.dispersed = True
                     n.nearby_supernovae = True
-                    disk_codes[disk_codes_indices[n.key]].stop()
-                    del disk_codes[disk_codes_indices[n.key]]
+                    n.checked = True
+                    n.dispersal_time = t
+                    to_del = disk_codes_indices[n.key]
+                    disk_codes[to_del].stop()
+                    del disk_codes[to_del]  # Delete dispersed disk from code list
+                    for i in disk_codes_indices:
+                        if disk_codes_indices[i] > to_del:
+                            disk_codes_indices[i] -= 1
                     del disk_codes_indices[n.key]
+                    active_disks -= 1
 
 
             channel_from_framework_to_gravity.copy()
@@ -665,38 +674,61 @@ def main(N, Rvir, Qvir, alpha, ncells, t_ini, t_end, save_interval, run_number, 
 
         # Check disks
         for s, c in zip(small_stars, disk_codes):
+            if s.dispersed and not s.checked:  # Disk "dispersed" in truncation and star hasn't been checked yet
+                s.checked = True
+                s.code = False
+                s.dispersal_time = t
+                to_del = disk_codes_indices[s.key]
+                disk_codes[to_del].stop()
+                del disk_codes[to_del]  # Delete dispersed disk from code list
+                for i in disk_codes_indices:
+                    if disk_codes_indices[i] > to_del:
+                        disk_codes_indices[i] -= 1
+                del disk_codes_indices[s.key]
+                active_disks -= 1
+                print "Star's {0} disk dispersed in truncation, deleted code".format(s.key)
+                continue
+
             # Check for diverged disks
-            if s.code:
-                if c.get_parameter(0):  # Disk diverged
-                    print "codes len: {0}".format(len(disk_codes))
+            if s.code and not s.checked:  # Star not checked yet
+                if diverged_disks[c]:  # Disk diverged
                     s.dispersed = True
                     s.code = False
+                    s.checked = True
                     s.dispersal_time = t
                     c.stop()
-                    del disk_codes[disk_codes_indices[s.key]]  # Delete diverged code
+                    to_del = disk_codes_indices[s.key]
+                    disk_codes[to_del].stop()
+                    del disk_codes[to_del]  # Delete dispersed disk from code list
+                    for i in disk_codes_indices:
+                        if disk_codes_indices[i] > to_del:
+                            disk_codes_indices[i] -= 1
                     del disk_codes_indices[s.key]
-                    print "deleted diverged code"
-                    print "codes len: {0}".format(len(disk_codes))
+                    active_disks -= 1
+                    print "Star's {0} disk diverged, deleted code".format(s.key)
                     continue
-
-                # Add accreted mass from disk to host star
-                s.stellar_mass += c.inner_boundary_mass_out.value_in(units.MSun) | units.MSun
 
                 # Check for dispersed disks
                 disk_density = get_disk_mass(c, s.disk_radius).value_in(units.g) / (numpy.pi * s.disk_radius.value_in(units.cm)**2)
-                if get_disk_mass(c, s.disk_radius) <= s.dispersed_disk_mass or s.disk_radius.value_in(units.au) < 0.5 or disk_density <= s.dispersion_threshold:  # Disk has been dispersed
+                if not s.checked and (get_disk_mass(c, s.disk_radius) <= s.dispersed_disk_mass or s.disk_radius.value_in(units.au) < 0.5 or disk_density <= s.dispersion_threshold):  # Disk has been dispersed
                     #print small_stars
                     s.dispersed = True
+                    s.checked = True
                     s.code = False
                     s.dispersal_time = t
-                    print "prev: len(disk_codes)={0}, len(disk_code_indices)={1}".format(len(disk_codes), len(disk_codes_indices))
-                    disk_codes[disk_codes_indices[s.key]].stop()
-                    del disk_codes[disk_codes_indices[s.key]]  # Delete dispersed disk from code list
+                    to_del = disk_codes_indices[s.key]
+                    disk_codes[to_del].stop()
+                    del disk_codes[to_del]  # Delete dispersed disk from code list
+                    for i in disk_codes_indices:
+                        if disk_codes_indices[i] > to_del:
+                            disk_codes_indices[i] -= 1
                     del disk_codes_indices[s.key]
+                    active_disks -= 1
                     print "Star's {0} disk dispersed, deleted code".format(s.key)
-                    print "post: len(disk_codes)={0}, len(disk_code_indices)={1}".format(len(disk_codes),
-                                                                                         len(disk_codes_indices))
                     continue
+
+            # Add accreted mass from disk to host star
+            s.stellar_mass += c.inner_boundary_mass_out.value_in(units.MSun) | units.MSun
 
             # Update stars disk radius and mass
             s.disk_radius = get_disk_radius(c)
@@ -709,9 +741,9 @@ def main(N, Rvir, Qvir, alpha, ncells, t_ini, t_end, save_interval, run_number, 
 
             for ss in small_stars:
                 if ss.dispersed:  # We ignore dispersed disks
-                    print ss.key
                     continue
 
+                #print "continuing. ss.key = {0}".format(ss.key)
                 dist = distance(s, ss)
                 radiation_ss = radiation_at_distance(lum.value_in(units.erg / units.s),
                                                      dist.value_in(units.cm))
@@ -782,9 +814,6 @@ def main(N, Rvir, Qvir, alpha, ncells, t_ini, t_end, save_interval, run_number, 
                 #print "AFTER PHOTOEVAP: {0}".format(ss.disk_radius)
                 #print "post evaporate: {0}".format(get_disk_radius(disk_codes[disk_codes_indices[ss.key]]))
 
-        #print stars.disk_radius
-        #print stars.disk_mass
-
         if (numpy.around(t.value_in(units.yr)) % save_interval.value_in(units.yr)) == 0.:
             print "saving! at t = {0} Myr".format(t.value_in(units.Myr))
             write_set_to_file(stars,
@@ -801,8 +830,11 @@ def main(N, Rvir, Qvir, alpha, ncells, t_ini, t_end, save_interval, run_number, 
         E_list = []
         Q_list = []
 
+        if active_disks <= 0:
+            break
 
         t += dt
+
 
 
     print "end radii:"
