@@ -370,7 +370,7 @@ def main(N, Rvir, Qvir, alpha, ncells, t_ini, t_end, save_interval, run_number, 
     except TypeError:
         pass
 
-    t = 0 | t_end.unit
+    t = 0.0 | t_end.unit
 
     path = "{0}/{1}/".format(save_path, run_number)
     try:
