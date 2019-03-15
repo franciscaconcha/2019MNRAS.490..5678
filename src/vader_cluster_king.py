@@ -835,9 +835,20 @@ def main(N, Rvir, Qvir, alpha, ncells, t_ini, t_end, save_interval, run_number, 
         Q_list = []
 
         if active_disks <= 0:
+            print "saving! at t = {0} Myr".format(t.value_in(units.Myr))
+            write_set_to_file(stars,
+                              '{0}/{1}/N{2}_t{3}.hdf5'.format(save_path,
+                                                              run_number,
+                                                              N,
+                                                              # Rvir.value_in(units.parsec),
+                                                              t.value_in(units.Myr)),
+                              'hdf5')
+            print "SIMULATION ENDED AT t = {0} Myr".format(t.value_in(units.Myr))
             break
 
         t += dt
+
+    print "SIMULATION ENDED AT t = {0} Myr".format(t_end.value_in(units.Myr))
 
 
     print "end radii:"
