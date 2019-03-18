@@ -644,7 +644,7 @@ def main(N, Rvir, Qvir, alpha, ncells, t_ini, t_end, save_interval, run_number, 
 
         # TODO check why supernova stopping condition is not working
         #if detect_supernova.is_set():
-        if stellar.particles[0].stellar_type == 10 | units.stellar_type:
+        if detect_supernova.is_set() or stellar.particles[0].stellar_type == 10 | units.stellar_type:
             print "SUPERNOVA EXPLOSION!!!"
             channel_from_stellar_to_framework.copy()
             channel_from_gravity_to_framework.copy()
