@@ -12,4 +12,9 @@
 *.blg
 /vader
 /MJCWilhelm-amuse_vader_interface
-
+/paper
+/photoevap-paper
+/SN
+/src_cart
+/test_results
+/src/vader_cluster_*
