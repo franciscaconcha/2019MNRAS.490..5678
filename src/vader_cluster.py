@@ -119,6 +119,7 @@ def distance(star1, star2):
 
 
 def radiation_at_distance(rad, R):
+#def radiation_at_distance(rad, R, dust_density, FUV_absorb_coeff):
     """ Return radiation rad at distance R
 
     :param rad: total radiation of star in erg/s
@@ -126,6 +127,7 @@ def radiation_at_distance(rad, R):
     :return: radiation of star at distance R, in erg * s^-1 * cm^-2
     """
     return rad / (4 * numpy.pi * R**2) | (units.erg / (units.s * units.cm**2))
+    #return rad / (4 * numpy.pi * R**2) * numpy.exp(R*dust_density*FUV_absorb_coeff) | (units.erg / (units.s * units.cm**2)) # MW
 
 
 def find_indices(column, val):
@@ -364,6 +366,7 @@ def evaporate(disk, mass):
 
 @timer
 def main(N, Rvir, Qvir, dist, alpha, ncells, t_ini, t_end, save_interval, run_number, save_path, dt=2000 | units.yr):
+#def main(N, Rvir, Qvir, dist, alpha, ncells, t_ini, t_end, save_interval, run_number, save_path, dust_density, dt=2000 | units.yr): # MW
 
     try:
         float(t_end)
@@ -436,6 +439,8 @@ def main(N, Rvir, Qvir, dist, alpha, ncells, t_ini, t_end, save_interval, run_nu
             s.code = True
             s_code = initialize_vader_code(s.disk_radius, s.disk_mass, alpha, n_cells=ncells, linear=False)
 
+            #s_code.parameters.inner_pressure_boundary_mass_flux = accretion_rate(s.stellar_mass) # MW
+
             disk_codes.append(s_code)
             disk_codes_indices[s.key] = len(disk_codes) - 1
 
@@ -478,12 +483,15 @@ def main(N, Rvir, Qvir, dist, alpha, ncells, t_ini, t_end, save_interval, run_nu
 
     # Communication channels
     channel_from_stellar_to_framework = stellar.particles.new_channel_to(stars)
+    #channel_from_stellar_to_framework = stellar.particles.new_channel_to(stars, attributes=['mass'], target_names=['stellar_mass'])# MW
     channel_from_stellar_to_gravity = stellar.particles.new_channel_to(gravity.particles)
+    #channel_from_stellar_to_gravity = stellar.particles.new_channel_to(gravity.particles, attributes=['stellar_mass'], target_names=['mass']) # MW
     channel_from_gravity_to_framework = gravity.particles.new_channel_to(stars)
     channel_from_framework_to_gravity = stars.new_channel_to(gravity.particles,
                                                              attributes=['collisional_radius'],
                                                              target_names=['radius'])
     channel_from_framework_to_stellar = stars.new_channel_to(stellar.particles)
+    #channel_from_framework_to_stellar = stars.new_channel_to(stellar.particles, attributes=['mass'], target_names=['stellar_mass'])
 
     channel_from_framework_to_gravity.copy()
 
@@ -754,6 +762,13 @@ def main(N, Rvir, Qvir, dist, alpha, ncells, t_ini, t_end, save_interval, run_nu
             s.disk_radius = get_disk_radius(c)
             s.disk_mass = get_disk_mass(c, s.disk_radius)
 
+            #s.mass = s.stellar_mass + s.disk_mass # MW
+            #c.update_keplerian_grid(s.stellar_mass) # MW
+
+        # (MW) If I understand correctly, every bright star evaporates other disks separately according to its own contribution?
+        # In my model I added all contributions together before evaporating. Something to think about.
+        # Also, photoevap here is done in python, whereas I'd done it in VADER. Not sure which is better. 
+
         # Photoevaporation
         for s in bright_stars:  # For each massive/bright star
             # Calculate FUV luminosity of the bright star, in LSun
@@ -766,7 +781,9 @@ def main(N, Rvir, Qvir, dist, alpha, ncells, t_ini, t_end, save_interval, run_nu
                 #print "continuing. ss.key = {0}".format(ss.key)
                 dist = distance(s, ss)
                 radiation_ss = radiation_at_distance(lum.value_in(units.erg / units.s),
-                                                     dist.value_in(units.cm))
+                                                     dist.value_in(units.cm) 
+                                               #, dust_density.value_in(units.g/units.cm**3.), 56186.4102564,# units.cm**2./units.g MW
+                                                     )
 
                 radiation_ss_G0 = radiation_ss.value_in(units.erg/(units.s * units.cm**2)) / 1.6E-3
                 #print(ss.mass.value_in(units.MSun),
