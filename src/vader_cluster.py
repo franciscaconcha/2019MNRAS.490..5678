@@ -308,6 +308,7 @@ def resolve_encounter(stars,
 
                 stars[i].truncation_mass_loss = old_mass - new_mass
                 stars[i].disk_mass = new_mass
+                stars[i].mass = stars[i].stellar_mass + stars[i].disk_mass
 
             else:
                 new_codes.append(disk_codes[i])
@@ -401,7 +402,6 @@ def main(N, Rvir, Qvir, alpha, ncells, t_ini, t_end, save_interval, run_number, 
               "\nOne star of {0} MSun added to the simulation.".format(big_star))
     bright_stars.bright = True
 
-    print stars.stellar_mass.value_in(units.MSun)
 
     # Small stars: with disks; radiation from them not considered
     small_stars = stars[stars.stellar_mass.value_in(units.MSun) < 1.9]
@@ -412,6 +412,8 @@ def main(N, Rvir, Qvir, alpha, ncells, t_ini, t_end, save_interval, run_number, 
 
     bright_stars.disk_mass = 0 | units.MSun
     small_stars.disk_mass = 0.1 * small_stars.stellar_mass
+
+    stars.mass = stars.stellar_mass + stars.disk_mass
 
     # Initially all stars have the same collisional radius
     stars.collisional_radius = 0.02 | units.parsec
@@ -590,8 +592,14 @@ def main(N, Rvir, Qvir, alpha, ncells, t_ini, t_end, save_interval, run_number, 
                     #                                   get_disk_radius(disk_codes[code_index[1]]))
                     disk_codes[code_index[0]] = new_codes[0]
                     disk_codes[code_index[1]] = new_codes[1]
-                    encountering_stars.get_intersecting_subset_in(stars)[0].disk_radius = get_disk_radius(disk_codes[code_index[0]])
-                    encountering_stars.get_intersecting_subset_in(stars)[1].disk_radius = get_disk_radius(disk_codes[code_index[1]])
+
+                    s0 = encountering_stars.get_intersecting_subset_in(stars)[0]
+                    s1 = encountering_stars.get_intersecting_subset_in(stars)[1]
+
+                    # Updating radii
+                    s0.disk_radius = get_disk_radius(disk_codes[code_index[0]])
+                    s1.disk_radius = get_disk_radius(disk_codes[code_index[1]])
+
                     #print disk_codes[code_index[0]], new_codes[0]
                     #print "after after trunc: {0}, {1}".format(get_disk_radius(disk_codes[code_index[0]]),
                     #                                   get_disk_radius(disk_codes[code_index[1]]))
@@ -599,13 +607,16 @@ def main(N, Rvir, Qvir, alpha, ncells, t_ini, t_end, save_interval, run_number, 
                     #print "big-small"
                     #print "pre trunc: {0}".format(get_disk_radius(disk_codes[code_index[1]]))
                     disk_codes[code_index[1]] = new_codes[1]
-                    encountering_stars.get_intersecting_subset_in(stars)[1].disk_radius = get_disk_radius(disk_codes[code_index[1]])
+                    s1 = encountering_stars.get_intersecting_subset_in(stars)[1]
+                    s1.disk_radius = get_disk_radius(disk_codes[code_index[1]])
+
                     #print "post trunc: {0}".format(get_disk_radius(disk_codes[code_index[1]]))
                 elif new_codes[0] is not None and new_codes[1] is None:
                     #print "small-big"
                     #print "pre trunc: {0}".format(get_disk_radius(disk_codes[code_index[0]]))
                     disk_codes[code_index[0]] = new_codes[0]
-                    encountering_stars.get_intersecting_subset_in(stars)[0].disk_radius = get_disk_radius(disk_codes[code_index[0]])
+                    s0 = encountering_stars.get_intersecting_subset_in(stars)[0]
+                    s0.disk_radius = get_disk_radius(disk_codes[code_index[0]])
                     #print "post trunc: {0}".format(get_disk_radius(disk_codes[code_index[0]]))
 
             #print "after enc stars.disk_radius:"
