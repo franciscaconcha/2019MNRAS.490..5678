@@ -4,6 +4,7 @@ from random import randint
 from amuse import io
 from amuse.couple.bridge import Bridge
 from amuse.community.fractalcluster.interface import new_fractal_cluster_model
+from amuse.ic.kingmodel import new_king_model
 from matplotlib import pyplot
 import gzip
 import copy
@@ -362,7 +363,7 @@ def evaporate(disk, mass):
             return disk
 
 @timer
-def main(N, Rvir, Qvir, alpha, ncells, t_ini, t_end, save_interval, run_number, save_path, dt=2000 | units.yr):
+def main(N, Rvir, Qvir, dist, alpha, ncells, t_ini, t_end, save_interval, run_number, save_path, dt=2000 | units.yr):
 
     try:
         float(t_end)
@@ -385,7 +386,15 @@ def main(N, Rvir, Qvir, alpha, ncells, t_ini, t_end, save_interval, run_number, 
     max_stellar_mass = 100 | units.MSun
     stellar_masses = new_kroupa_mass_distribution(N, max_stellar_mass, random=False)
     converter = nbody_system.nbody_to_si(stellar_masses.sum(), Rvir)
-    stars = new_plummer_model(N, converter)
+
+    # Spatial distribution, default is Plummer sphere
+    if dist == "king":
+        stars = new_king_model(N, W0=3, convert_nbody=converter)
+    elif dist == "fractal":
+        stars = new_fractal_cluster_model(N=N, fractal_dimension=1.6, convert_nbody=converter)
+    else:
+        stars = new_plummer_model(N, converter)
+
     stars.scale_to_standard(converter, virial_ratio=Qvir)
 
     stars.stellar_mass = stellar_masses
@@ -892,6 +901,8 @@ def new_option_parser():
                       help="cluster virial radius [%default]")
     result.add_option("-Q", dest="Qvir", type="float", default=0.5,
                       help="virial ratio [%default]")
+    result.add_option("-p", dest="dist", type="string", default="plummer",
+                      help="spatial distribution [%default]")
 
     # Disk parameters
     result.add_option("-a", dest="alpha", type="float", default=5E-3,
