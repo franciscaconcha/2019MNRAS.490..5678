@@ -17,6 +17,11 @@ from decorators import timer
 import time
 import os
 
+# Workaround for now
+global diverged_disks, disk_codes_indices
+diverged_disks = {}
+disk_codes_indices = {}
+
 
 def column_density(grid, r0, mass, lower_density=1E-12 | units.g / units.cm**2):
     r = grid.value_in(units.AU) | units.AU
@@ -66,7 +71,9 @@ def initialize_vader_code(disk_radius, disk_mass, alpha, r_min=0.05 | units.AU, 
     disk.parameters.inner_pressure_boundary_torque = 0.0 | units.g * units.cm ** 2 / units.s ** 2
     disk.parameters.alpha = alpha
     disk.parameters.maximum_tolerated_change = 1E99
-    disk.set_parameter(0, False)  # Disk parameter for non-convergence. True: disk diverged
+    global diverged_disks
+    diverged_disks[disk] = False
+    #disk.set_parameter(0, False)  # Disk parameter for non-convergence. True: disk diverged
 
     return disk
 
@@ -75,13 +82,24 @@ def evolve_parallel_disks(codes, dt):
     n_cpu = multiprocessing.cpu_count()
     processes = []
     threads = []
-
+    #import time
     #print "Starting processes... n_cpu = {0}".format(n_cpu)
-
+    #startt = time.time()
+    #print("Start loop")
+    #end = time.time()
     for i in range(len(codes)):
-        p = multiprocessing.Process(name=str(i), target=evolve_single_disk, args=(codes[i], dt, ))
-        processes.append(p)
-        p.start()
+        #p = multiprocessing.Process(name=str(i), target=evolve_single_disk, args=(codes[i], dt, ))
+        #processes.append(p)
+        #p.start()
+
+	#start = time.time()
+	#print("code", i)
+	#end = time.time()
+	evolve_single_disk(codes[i],dt)
+        #print(end - start)
+    #endt = time.time()
+    #print("End loop",len(codes))
+    #print(endt - startt)
         #th = threading.Thread(target=evolve_single_disk, args=[codes[i], dt])
         #th.daemon = True
         #threads.append(th)
@@ -90,8 +108,8 @@ def evolve_parallel_disks(codes, dt):
     #for t in threads:
     #    t.join()
 
-    for p in processes:
-        p.join()
+    #for p in processes:
+    #    p.join()
 
     #print "All processes finished"
 
@@ -103,7 +121,8 @@ def evolve_single_disk(code, dt):
         disk.evolve_model(dt)
     except:
         print "Disk did not converge"
-        disk.set_parameter(0, True)
+        global diverged_disks
+        diverged_disks[disk] = True
         #disk.parameters.inner_pressure_boundary_type = 3
         #disk.parameters.inner_boundary_function = False
 
@@ -302,16 +321,25 @@ def resolve_encounter(stars,
                 print "truncating encounter"
                 stars[i].encounters += 1
 
-                old_mass = get_disk_mass(disk_codes[i], R_disk)
+                if truncation_radius <= 0.5 | units.au:
+                    # Disk is dispersed. Have to handle this here or vader crashes for such small radii
+                    stars[i].dispersed = True
+                    stars[i].disk_radius = truncation_radius
+                    stars[i].disk_mass = 0.0 | units.MJupiter
+                    stars[i].dispersal_time = time
+                    stars[i].truncation_mass_loss += stars[i].disk_mass
 
-                new_disk = truncate_disk(disk_codes[i], truncation_radius)
-                new_codes.append(new_disk)
+                else:
+                    old_mass = get_disk_mass(disk_codes[i], R_disk)
 
-                new_mass = get_disk_mass(new_disk, truncation_radius)
+                    new_disk = truncate_disk(disk_codes[i], truncation_radius)
+                    new_codes.append(new_disk)
 
-                stars[i].truncation_mass_loss = old_mass - new_mass
-                stars[i].disk_mass = new_mass
-                stars[i].mass = stars[i].stellar_mass + stars[i].disk_mass
+                    new_mass = get_disk_mass(new_disk, truncation_radius)
+
+                    stars[i].truncation_mass_loss = old_mass - new_mass
+                    stars[i].disk_mass = new_mass
+                    stars[i].mass = stars[i].stellar_mass + stars[i].disk_mass
 
             else:
                 new_codes.append(disk_codes[i])
