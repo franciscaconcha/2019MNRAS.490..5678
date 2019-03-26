@@ -12,7 +12,7 @@ mpl.rcParams['xtick.major.pad'] = 8  # to avoid overlapping x/y labels
 mpl.rcParams['ytick.major.pad'] = 8  # to avoid overlapping x/y labels
 
 
-def size_vs_mass(files, labels, colors):
+def size_vs_mass(files, labels, colors, density, N, ncells, t):
     """ Plot disk diameter (au) vs mass (MJup)
 
     :param files: list with filenames to open
@@ -27,14 +27,15 @@ def size_vs_mass(files, labels, colors):
 
         # Take only the small stars
         small_stars = stars[stars.stellar_mass.value_in(units.MSun) <= 1.9]
+        small_stars = small_stars[small_stars.disk_mass.value_in(units.MSun) / (numpy.pi * small_stars.disk_radius.value_in(units.au)**2) > density]
 
         sizes, masses = 2 * small_stars.disk_radius.value_in(units.au), small_stars.disk_mass.value_in(units.MJupiter)
 
         ax.scatter(sizes, masses, s=100 * small_stars.stellar_mass.value_in(units.MSun),
                    c=c, alpha=0.5, label=l)
 
-    ax.legend(loc='upper right', fontsize=20)
-    ax.set_title('N=100, c=50, different times')
+    ax.legend(loc='upper left', fontsize=20)
+    ax.set_title(r'N_*={0}, '.format(N) + r'n_{cells}=' + '{0}, t={1} Myr'.format(ncells, t))
     ax.set_xlabel('Disk size [au]')
     ax.set_ylabel(r'Disk mass [$M_{Jup}$]')
     pyplot.show()
@@ -143,22 +144,22 @@ def cdfs(files, labels, colors):
 
 
 
-def main():
-    files = ['results/king_N100_c50/0/N100_t3.25.hdf5',
-             'results/plummer_N100_c50/0/N100_t0.7.hdf5',
-             'results/fractal_N100_c50/0/N100_t0.hdf5']
+def main(run_number, save_path, N, ncells, density):
+    files = ['results/king_N100_c100_3/0/N100_t10.0.hdf5',
+             'results/plummer_N100_c100_3/0/N100_t10.0.hdf5']#,
+             #'results/fractal_N100_c50/0/N100_t0.hdf5']
 
-    labels = ["King, Plummer, Fractal"]
+    labels = ["King", "Plummer", "Fractal"]
     plot_colors = ["#638ccc", "#ca5670", "#c57c3c", "#72a555", "#ab62c0"]
 
-    #size_vs_mass(files, labels, plot_colors)
+    size_vs_mass(files, labels, plot_colors, density, N, ncells, 10.0)
     #distance_from_star()
 
-    paths = ['results/king_',
-             'results/king_',
-             'results/king_']
+    #paths = ['results/king_',
+    #         'results/king_',
+    #         'results/king_']
 
-    surviving_disks(paths, 100, 50, labels, plot_colors)
+    #surviving_disks(paths, 100, 50, labels, plot_colors)
 
 
 def new_option_parser():
@@ -170,36 +171,21 @@ def new_option_parser():
                       help="run number [%default]")
     result.add_option("-s", dest="save_path", type="string", default='.',
                       help="path to save the results [%default]")
-    result.add_option("-i", dest="save_interval", type="int", default=50000 | units.yr,
-                      help="time interval of saving a snapshot of the cluster [%default]")
 
     # Cluster parameters
-    result.add_option("-N", dest="N", type="int", default=2000,
+    result.add_option("-N", dest="N", type="int", default=100,
                       help="number of stars [%default]")
-    result.add_option("-R", dest="Rvir", type="float",
-                      unit=units.parsec, default=0.5,
-                      help="cluster virial radius [%default]")
-    result.add_option("-Q", dest="Qvir", type="float", default=0.5,
-                      help="virial ratio [%default]")
 
     # Disk parameters
-    result.add_option("-a", dest="alpha", type="float", default=5E-3,
-                      help="turbulence parameter [%default]")
     result.add_option("-c", dest="ncells", type="int", default=100,
                       help="Number of cells to be used in vader disk [%default]")
-
-    # Time parameters
-    result.add_option("-I", dest="t_ini", type="int", default=0 | units.yr,
-                      help="initial time [%default]")
-    result.add_option("-t", dest="dt", type="int", default=1000 | units.yr,
-                      help="dt for simulation [%default]")
-    result.add_option("-e", dest="t_end", type="float", default=2 | units.Myr,
-                      help="end time of the simulation [%default]")
+    result.add_option("-d", dest="density", type="float", default=5E-7,
+                      help="Density limit for disk surface [%default]")
 
     return result
 
 
 if __name__ == '__main__':
     o, arguments = new_option_parser().parse_args()
-    main()
+    main(**o.__dict__)
 
