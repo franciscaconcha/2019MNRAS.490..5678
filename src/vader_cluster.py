@@ -887,7 +887,6 @@ def main(N, Rvir, Qvir, dist, alpha, ncells, t_ini, t_end, save_interval, run_nu
                 print "EVAPORATING!!!"
                 print ss.disk_radius
             ss.disk_radius = get_disk_radius(disk_codes[disk_codes_indices[ss.key]])
-            print ss.disk_radius
             ss.disk_mass = get_disk_mass(disk_codes[disk_codes_indices[ss.key]], ss.disk_radius)
             #print "AFTER PHOTOEVAP: {0}".format(ss.disk_radius)
             #print "post evaporate: {0}".format(get_disk_radius(disk_codes[disk_codes_indices[ss.key]]))
