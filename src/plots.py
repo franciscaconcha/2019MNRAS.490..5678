@@ -125,12 +125,20 @@ def size_vs_distance_from_star(paths, t_end, N, labels, colors, density):
     #fig.savefig('plot2.png')
 
 
-def mass_loss_distribution(path, t, N, colors, density):
-    fig = pyplot.figure(figsize=(12, 12))
+def mass_loss_distribution(open_path, save_path, t, N, colors, density):
+    fig = pyplot.figure(figsize=(13, 12))
     ax = pyplot.gca()
+    #fig, ax = pyplot.subplots(1, 2, figsize=(13, 12))#, gridspec_kw={"width_ratios": [12, 1]})
+    ax.set_title('N={0}, c=100, t={1} Myr'.format(N, t))
+    ax.set_xlabel('x [parsec]')
+    ax.set_ylabel('y [parsec]')
+    ax.set_xlim(-1.5, 1.5)
+    ax.set_ylim(-1.5, 1.5)
+    ax.axis('square')
+    #pyplot.axes(ax).set_aspect('equal', adjustable='box')
 
     # Open t=10.0 Myr file to create colormap
-    f = '{0}/N{1}_t{2}.hdf5'.format(path, N, 10.0)
+    f = '{0}/N{1}_t{2}.hdf5'.format(open_path, N, 10.0)
     stars = io.read_set_from_file(f, 'hdf5', close_file=True)
 
     # Take only the small stars
@@ -138,8 +146,6 @@ def mass_loss_distribution(path, t, N, colors, density):
     small_stars = small_stars[small_stars.disk_mass.value_in(units.MSun) /
                               (numpy.pi * small_stars.disk_radius.value_in(units.au) ** 2) > density]
     disked_stars = small_stars[small_stars.dispersed == False]
-
-    bright_stars = stars[stars.stellar_mass.value_in(units.MSun) > 1.9]
 
     mass_loss_trunc = disked_stars.truncation_mass_loss.value_in(units.MSun)
     mass_loss_photoevap = disked_stars.photoevap_mass_loss.value_in(units.MSun)
@@ -149,49 +155,111 @@ def mass_loss_distribution(path, t, N, colors, density):
     # Positive values for colormap: mass loss due to photoevaporation.
     mass_loss_map = zero - mass_loss_trunc + mass_loss_photoevap
 
-    print mass_loss_map
+    minima = -max(mass_loss_trunc)
+    maxima = max(mass_loss_photoevap)
+    print minima, maxima
 
-    minima = min(mass_loss_map)
-    maxima = max(mass_loss_map)
+    colormap = matplotlib.cm.YlGnBu
 
     norm = matplotlib.colors.Normalize(vmin=minima, vmax=maxima, clip=True)
-    mapper = matplotlib.cm.ScalarMappable(norm=norm, cmap=matplotlib.cm.coolwarm)
+    mapper = matplotlib.cm.ScalarMappable(norm=norm, cmap=colormap)
 
-    #times = numpy.arange(0.0, 10.05, 0.05)
+    #ax2 = fig.add_axes([0.95, 0.1, 0.03, 0.8])
+    #cb = matplotlib.colorbar.ColorbarBase(ax2, cmap=matplotlib.cm.coolwarm,
+    #                            norm=norm,
+    #                            orientation='vertical')
 
-    #for t in times:
-    f = '{0}/N{1}_t{2}.hdf5'.format(path, N, t)
-    stars = io.read_set_from_file(f, 'hdf5', close_file=True)
+    times = numpy.arange(0.0, 10.05, 0.05)
 
-    # Take only the small stars
-    small_stars = stars[stars.stellar_mass.value_in(units.MSun) <= 1.9]
-    small_stars = small_stars[small_stars.disk_mass.value_in(units.MSun) /
-                              (numpy.pi * small_stars.disk_radius.value_in(units.au) ** 2) > density]
-    disked_stars = small_stars[small_stars.dispersed == False]
+    for t in times:
+        f = '{0}/N{1}_t{2}.hdf5'.format(open_path, N, t)
+        stars = io.read_set_from_file(f, 'hdf5', close_file=True)
 
-    mass_loss_trunc = disked_stars.truncation_mass_loss.value_in(units.MSun)
-    mass_loss_photoevap = disked_stars.photoevap_mass_loss.value_in(units.MSun)
+        # Take only the small stars
+        small_stars = stars[stars.stellar_mass.value_in(units.MSun) <= 1.9]
+        small_stars = small_stars[small_stars.disk_mass.value_in(units.MSun) /
+                                  (numpy.pi * small_stars.disk_radius.value_in(units.au) ** 2) > density]
+        disked_stars = small_stars[small_stars.dispersed == False]
 
-    zero = numpy.zeros((len(mass_loss_trunc)))
-    plot_mass_loss_map = zero - mass_loss_trunc + mass_loss_photoevap
+        bright_stars = stars[stars.stellar_mass.value_in(units.MSun) > 1.9]
 
-    color_map = []
+        if t == 0.0:  # Have to do this here because of a mess up when saving... will not be needed for future results
+            mass_loss_trunc = numpy.zeros((len(disked_stars)))
+            mass_loss_photoevap = numpy.zeros((len(disked_stars)))
+        else:
+            mass_loss_trunc = disked_stars.truncation_mass_loss.value_in(units.MSun)
+            mass_loss_photoevap = disked_stars.photoevap_mass_loss.value_in(units.MSun)
 
-    for v in plot_mass_loss_map:
-        print mapper.to_rgba(v)
+        zero = numpy.zeros((len(mass_loss_trunc)))
+        plot_mass_loss_map = zero - mass_loss_trunc + mass_loss_photoevap
 
-    ml = ax.scatter(disked_stars.x.value_in(units.parsec), disked_stars.y.value_in(units.parsec),
-               s=disked_stars.disk_radius.value_in(units.au),
-               c=plot_mass_loss_map, cmap=matplotlib.cm.coolwarm, alpha=0.5)
+        pyplot.clf()
+        ax = pyplot.gca()
+        ax.set_title('N={0}, c=100, t={1} Myr'.format(N, t))
+        ax.set_xlabel('x [parsec]')
+        ax.set_ylabel('y [parsec]')
+        ax.set_xlim(-1.5, 1.5)
+        ax.set_ylim(-1.5, 1.5)
 
-    #ax.legend(loc='upper right', fontsize=20)
-    ax.set_title('N={0}, c=100, t={1} Myr'.format(N, t))
-    ax.set_xlabel('x [parsec]')
-    ax.set_ylabel('y [parsec]')
-    pyplot.colorbar(mappable=ml)
+        # Disks
+        ml = ax.scatter(disked_stars.x.value_in(units.parsec), disked_stars.y.value_in(units.parsec),
+                        s=disked_stars.disk_radius.value_in(units.au), norm=norm,
+                        c=plot_mass_loss_map, cmap=colormap, alpha=0.5)
+
+        # Bright stars
+        ax.scatter(bright_stars.x.value_in(units.parsec), bright_stars.y.value_in(units.parsec),
+                   marker='*', color='k', s=8*bright_stars.stellar_mass.value_in(units.MSun))
+
+        #ax.legend(loc='upper right', fontsize=20)
+        pyplot.colorbar(mappable=ml)
+        #pyplot.show()
+        fig.savefig('{0}/plot{1:.2f}.png'.format(save_path, t))
+
+
+def mass_loss_in_time(open_path, save_path, N):  # For one star
+    #fig = pyplot.figure(figsize=(12, 8))
+    #ax = pyplot.gca()
+    fig, (ax, ax2) = pyplot.subplots(2, 1, figsize=(12, 10))#, gridspec_kw={"width_ratios": [12, 1]})
+    ax.set_title('Mass loss in time')
+    ax.set_xlabel('Time [Myr]')
+    ax.set_ylabel('Mass loss [MSun]')
+
+    ax2.set_title('Disk size')
+    ax2.set_xlabel('Time [Myr]')
+    ax2.set_ylabel('Disk size [au]')
+    #ax.set_xlim(-1.5, 1.5)
+    #ax.set_ylim(-1.5, 1.5)
+    #ax.axis('square')
+    #pyplot.axes(ax).set_aspect('equal', adjustable='box')
+
+    #ax2 = ax.twinx()
+
+    i = 55
+
+    times = numpy.arange(0.0, 10.05, 0.05)
+
+    pe, dt, ds = [], [], []
+
+    for t in times:
+        f = '{0}/N{1}_t{2}.hdf5'.format(open_path, N, t)
+        stars = io.read_set_from_file(f, 'hdf5', close_file=True)
+        s = stars[i]
+
+        pe.append(s.photoevap_mass_loss.value_in(units.MSun))
+        dt.append(s.truncation_mass_loss.value_in(units.MSun))
+        ds.append(2 * s.disk_radius.value_in(units.au))
+
+    ds[1] = ds[0]  # this has to do with the saving issue, will fix soon
+    ds[2] = ds[0]
+
+    ax.plot(times, pe, c='r', label="photoevap")
+    ax.plot(times, dt, c='b', label="dyn trunc")
+    ax2.plot(times, ds, c='k')
+
+    ax.legend(loc='upper left', fontsize=20)
+
+    pyplot.tight_layout()
     pyplot.show()
-    # fig.savefig('plot2.png')
-
 
 
 def distance_from_center(paths, t, N, labels, colors, density):
@@ -374,7 +442,8 @@ def main(run_number, save_path, time, N, distribution, ncells, density):
 
     path = 'results/{0}_N{1}_c{2}_3/0/'.format(distribution, N, ncells)
     #plot_cluster(path, time, N, plot_colors, density)
-    mass_loss_distribution(path, time, N, plot_colors, density)
+    #mass_loss_distribution(path, save_path, time, N, plot_colors, density)
+    mass_loss_in_time(path, save_path, N)
 
 
 def new_option_parser():
