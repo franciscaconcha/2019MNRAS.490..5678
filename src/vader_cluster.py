@@ -527,7 +527,7 @@ def main(N, Rvir, Qvir, dist, alpha, ncells, t_ini, t_end, save_interval, run_nu
 
     ######## FRIED grid ########
     # Read FRIED grid
-    grid = numpy.loadtxt('friedgrid.dat', skiprows=2)
+    grid = numpy.loadtxt('photoevap/friedgrid.dat', skiprows=2)
 
     # Getting only the useful parameters from the grid (not including Mdot)
     FRIED_grid = grid[:, [0, 1, 2, 4]]
@@ -588,12 +588,12 @@ def main(N, Rvir, Qvir, dist, alpha, ncells, t_ini, t_end, save_interval, run_nu
         Q_list.append([-1.0 * E_kin / E_pot])
 
         gravity.evolve_model(t + dt)
+        channel_from_gravity_to_framework.copy()
 
         if dynamical_encounter.is_set():
             #print("encounter")
             #print "before enc stars.disk_radius:"
             #print stars.disk_radius
-            channel_from_gravity_to_framework.copy()
             encountering_stars = Particles(particles=[dynamical_encounter.particles(0)[0],
                                                       dynamical_encounter.particles(1)[0]])
 
