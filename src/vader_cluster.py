@@ -885,14 +885,16 @@ def main(N, Rvir, Qvir, dist, alpha, ncells, t_ini, t_end, save_interval, run_nu
                                                                total_photoevap_mass_loss)
             if get_disk_radius(disk_codes[disk_codes_indices[ss.key]]) < ss.disk_radius:
                 print "EVAPORATING!!!"
-                print ss.disk_radius
-            ss.disk_radius = get_disk_radius(disk_codes[disk_codes_indices[ss.key]])
-            ss.disk_mass = get_disk_mass(disk_codes[disk_codes_indices[ss.key]], ss.disk_radius)
+                #print ss.disk_radius
+                ss.disk_radius = get_disk_radius(disk_codes[disk_codes_indices[ss.key]])
+                ss.disk_mass = get_disk_mass(disk_codes[disk_codes_indices[ss.key]], ss.disk_radius)
             #print "AFTER PHOTOEVAP: {0}".format(ss.disk_radius)
             #print "post evaporate: {0}".format(get_disk_radius(disk_codes[disk_codes_indices[ss.key]]))
         # End photoevap
 
-        """if (numpy.around(t.value_in(units.yr)) % save_interval.value_in(units.yr)) == 0.:
+        t += dt
+
+        if (numpy.around(t.value_in(units.yr)) % save_interval.value_in(units.yr)) == 0.:
             print "saving! at t = {0} Myr".format(t.value_in(units.Myr))
             write_set_to_file(stars,
                               '{0}/{1}/N{2}_t{3}.hdf5'.format(save_path,
@@ -906,7 +908,7 @@ def main(N, Rvir, Qvir, dist, alpha, ncells, t_ini, t_end, save_interval, run_nu
         numpy.savetxt(Q_handle, Q_list)
 
         E_list = []
-        Q_list = []"""
+        Q_list = []
 
         if active_disks <= 0:
             print "saving! at t = {0} Myr".format(t.value_in(units.Myr))
@@ -919,8 +921,6 @@ def main(N, Rvir, Qvir, dist, alpha, ncells, t_ini, t_end, save_interval, run_nu
                               'hdf5')
             print "SIMULATION ENDED AT t = {0} Myr".format(t.value_in(units.Myr))
             break
-
-        t += dt
 
     print "SIMULATION ENDED AT t = {0} Myr".format(t_end.value_in(units.Myr))
 
