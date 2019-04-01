@@ -28,6 +28,102 @@ def distance(star1, star2, center=False):
     return numpy.sqrt((star2.x - star1.x)**2 + (star2.y - star1.y)**2 + (star2.z - star1.z)**2)
 
 
+def luminosity_fit(mass):  # For G0 calculation
+    """
+    Return stellar luminosity (in LSun) for corresponding mass, as calculated with Martijn's fit
+
+    :param mass: stellar mass in MSun
+    :return: stellar luminosity in LSun
+    """
+    if 0.12 < mass < 0.24:
+        return (1.70294E16 * numpy.power(mass, 42.557)) | units.LSun
+    elif 0.24 < mass < 0.56:
+        return (9.11137E-9 * numpy.power(mass, 3.8845)) | units.LSun
+    elif 0.56 < mass < 0.70:
+        return (1.10021E-6 * numpy.power(mass, 12.237)) | units.LSun
+    elif 0.70 < mass < 0.91:
+        return (2.38690E-4 * numpy.power(mass, 27.199)) | units.LSun
+    elif 0.91 < mass < 1.37:
+        return (1.02477E-4 * numpy.power(mass, 18.465)) | units.LSun
+    elif 1.37 < mass < 2.07:
+        return (9.66362E-4 * numpy.power(mass, 11.410)) | units.LSun
+    elif 2.07 < mass < 3.72:
+        return (6.49335E-2 * numpy.power(mass, 5.6147)) | units.LSun
+    elif 3.72 < mass < 10.0:
+        return (6.99075E-1 * numpy.power(mass, 3.8058)) | units.LSun
+    elif 10.0 < mass < 20.2:
+        return (9.73664E0 * numpy.power(mass, 2.6620)) | units.LSun
+    elif 20.2 < mass:
+        return (1.31175E2 * numpy.power(mass, 1.7974)) | units.LSun
+    else:
+        return 0 | units.LSun
+
+
+def radiation_at_distance(rad, R):
+#def radiation_at_distance(rad, R, dust_density, FUV_absorb_coeff):
+    """ Return radiation rad at distance R
+
+    :param rad: total radiation of star in erg/s
+    :param R: distance in cm
+    :return: radiation of star at distance R, in erg * s^-1 * cm^-2
+    """
+    return rad / (4 * numpy.pi * R**2) | (units.erg / (units.s * units.cm**2))
+    #return rad / (4 * numpy.pi * R**2) * numpy.exp(R*dust_density*FUV_absorb_coeff) | (units.erg / (units.s * units.cm**2)) # MW
+
+
+def calculate_g0(stars):  # Only necessary for now because I was not saving it in the results, but now I am!
+    small_stars = stars[stars.stellar_mass.value_in(units.MSun) <= 1.9]
+    bright_stars = stars[stars.stellar_mass.value_in(units.MSun) > 1.9]
+
+    rad = {}
+
+    for s in small_stars:
+        rad[s.key] = 0.0
+
+    for s in bright_stars:  # For each massive/bright star
+        # Calculate FUV luminosity of the bright star, in LSun
+        lum = luminosity_fit(s.stellar_mass.value_in(units.MSun))
+
+        for ss in small_stars:
+            # TODO this check might not be necessary here
+            if ss.dispersed:  # We ignore dispersed disks
+                continue
+
+            # print "continuing. ss.key = {0}".format(ss.key)
+            dist = distance(s, ss)
+            radiation_ss = radiation_at_distance(lum.value_in(units.erg / units.s),
+                                                 dist.value_in(units.cm)
+                                                 # , dust_density.value_in(units.g/units.cm**3.), 56186.4102564,# units.cm**2./units.g MW
+                                                 )
+
+            rad[ss.key] += radiation_ss.value_in(units.erg / (units.s * units.cm ** 2)) / 1.6E-3
+
+    return rad
+
+
+def g0_in_time(open_path, save_path, N, i):
+    fig = pyplot.figure(figsize=(12, 6))#, gridspec_kw={"width_ratios": [12, 1]})
+    ax = pyplot.gca()
+    ax.set_title(r'$G_0$ in time')
+    ax.set_xlabel('Time [Myr]')
+    ax.set_ylabel(r'$G_0$ [erg/cm^2]')
+
+    times = numpy.arange(0.0, 10.05, 0.05)
+
+    g0s = []
+
+    for t in times:
+        f = '{0}/N{1}_t{2}.hdf5'.format(open_path, N, t)
+        stars = io.read_set_from_file(f, 'hdf5', close_file=True)
+        g0 = calculate_g0(stars)
+        bright_stars = stars[stars.stellar_mass.value_in(units.MSun) > 1.9]
+        s = stars[i]
+
+        g0s.append(g0[s.key])
+
+    ax.plot(times, g0s)
+
+
 def size_vs_mass(files, labels, colors, density, N, ncells, t):
     """ Plot disk diameter (au) vs mass (MJup)
 
@@ -347,18 +443,32 @@ def mass_loss_in_time(open_path, save_path, N, i):  # For one star
 def single_star(open_path, save_path, N, i):
     #fig = pyplot.figure(figsize=(12, 8))
     #ax = pyplot.gca()
-    fig, (ax, ax2, ax3) = pyplot.subplots(3, 1, figsize=(13, 14))#, gridspec_kw={"width_ratios": [12, 1]})
+    fig, axs = pyplot.subplots(2, 2, figsize=(18, 14))
+
+    ax = axs[0, 0]
+    ax2 = axs[0, 1]
+    ax3 = axs[1, 0]
+    ax4 = axs[1, 1]
+
+    # Mass loss
     ax.set_title('Mass loss in time')
     #ax.set_xlabel('Time [Myr]')
     ax.set_ylabel('Mass loss [MSun]')
 
+    # Distance
     ax2.set_title('Distance to nearest bright star')
     #ax2.set_xlabel('Time [Myr]')
     ax2.set_ylabel('Distance [parsec]')
 
+    # Disk size
     ax3.set_title('Disk size')
     ax3.set_xlabel('Time [Myr]')
     ax3.set_ylabel('Disk size [au]')
+
+    # G0
+    ax4.set_title(r'$G_0$')
+    ax4.set_xlabel('Time [Myr]')
+    ax4.set_ylabel(r'$G_0$ [erg/cm$^2$/s]')
 
     #ax.set_xlim(-1.5, 1.5)
     #ax.set_ylim(-1.5, 1.5)
@@ -369,13 +479,16 @@ def single_star(open_path, save_path, N, i):
 
     times = numpy.arange(0.0, 10.05, 0.05)
 
-    photoevap_mass_loss, dyn_trunc_mass_loss, disk_size, distance_to_bright, bs_masses = [], [], [], [], []
+    photoevap_mass_loss, dyn_trunc_mass_loss, disk_size, distance_to_bright, bs_masses, g0s = [], [], [], [], [], []
 
     for t in times:
         f = '{0}/N{1}_t{2}.hdf5'.format(open_path, N, t)
         stars = io.read_set_from_file(f, 'hdf5', close_file=True)
         bright_stars = stars[stars.stellar_mass.value_in(units.MSun) > 1.9]
         s = stars[i]
+
+        g0 = calculate_g0(stars)
+        g0s.append(g0[s.key])
 
         distances = []
 
@@ -397,6 +510,10 @@ def single_star(open_path, save_path, N, i):
 
     ax.plot(times, photoevap_mass_loss, c='r', label="photoevap")
     ax.plot(times, dyn_trunc_mass_loss, c='b', label="dyn trunc")
+
+    ax3.plot(times, disk_size, c='k')
+    ax4.plot(times, g0s, c='k')
+    
     ax2.plot(times, distance_to_bright, c='k', alpha=0.5)
 
     scattered_times = [times[i] for i in xrange(0, len(times), 10)]
@@ -404,8 +521,6 @@ def single_star(open_path, save_path, N, i):
     scattered_masses = [bs_masses[i] for i in xrange(0, len(bs_masses), 10)]
 
     ax2.scatter(scattered_times, scattered_distances, s=scattered_masses, marker ="*", c='r')
-
-    ax3.plot(times, disk_size, c='k')
 
     import matplotlib.lines as mlines
     sorted_masses = bright_stars.stellar_mass.value_in(units.MSun)  # Only keeping the last 3 but it's fine for what I need
@@ -418,12 +533,12 @@ def single_star(open_path, save_path, N, i):
                               markersize=sorted_masses[1], label=r'{0:.2} $M_\odot$'.format(sorted_masses[1]))
     bs3 = mlines.Line2D([], [], color='red', marker='*', linestyle='None',
                               markersize=0.1 * sorted_masses[2], label=r'{0} $M_\odot$'.format(sorted_masses[2]))
-    ax2.legend(handles=[bs1, bs2, bs3], loc="lower left", fontsize=12)
+    ax2.legend(handles=[bs1, bs2, bs3], loc='best', fontsize=12)
 
     ax.legend(loc='upper left', fontsize=20)
 
     pyplot.tight_layout()
-    pyplot.show()
+    #pyplot.show()
 
 
 
@@ -611,6 +726,9 @@ def main(run_number, save_path, time, N, distribution, ncells, density, i):
     #mass_loss_in_time(path, save_path, N, i)
     #size_in_time(path, save_path, N, i)
     single_star(path, save_path, N, i)
+    #g0_in_time(path, save_path, N, i)
+    pyplot.show()
+
 
 def new_option_parser():
     from amuse.units.optparse import OptionParser
