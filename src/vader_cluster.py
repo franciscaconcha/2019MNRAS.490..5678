@@ -451,6 +451,9 @@ def main(N, Rvir, Qvir, dist, alpha, ncells, t_ini, t_end, save_interval, run_nu
     # Initially all stars have the same collisional radius
     stars.collisional_radius = 0.02 | units.parsec
 
+    # Saving G0 on small stars
+    stars.g0 = 0.0
+
     disk_codes = []
     global disk_codes_indices
     disk_codes_indices = {}  # Using this to keep track of codes later on, for the encounters
@@ -815,6 +818,8 @@ def main(N, Rvir, Qvir, dist, alpha, ncells, t_ini, t_end, save_interval, run_nu
 
                 radiation_ss_G0 = radiation_ss.value_in(units.erg/(units.s * units.cm**2)) / 1.6E-3
                 total_radiation[ss.key] += radiation_ss_G0
+
+                ss.g0 = radiation_ss_G0
 
         for ss in small_stars[small_stars.dispersed == False]:
             #print(ss.mass.value_in(units.MSun),
