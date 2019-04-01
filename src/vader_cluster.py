@@ -328,6 +328,7 @@ def resolve_encounter(stars,
                     stars[i].disk_mass = 0.0 | units.MJupiter
                     stars[i].dispersal_time = time
                     stars[i].truncation_mass_loss += stars[i].disk_mass
+                    new_codes.append(disk_codes[i])
 
                 else:
                     old_mass = get_disk_mass(disk_codes[i], R_disk)
