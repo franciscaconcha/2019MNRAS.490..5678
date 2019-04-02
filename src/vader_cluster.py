@@ -819,14 +819,14 @@ def main(N, Rvir, Qvir, dist, alpha, ncells, t_ini, t_end, save_interval, run_nu
                 radiation_ss_G0 = radiation_ss.value_in(units.erg/(units.s * units.cm**2)) / 1.6E-3
                 total_radiation[ss.key] += radiation_ss_G0
 
-            ss.g0 = total_radiation[ss.key]
-
         for ss in small_stars[small_stars.dispersed == False]:
             #print(ss.mass.value_in(units.MSun),
             #      radiation_ss_G0,
             #      ss.disk_mass.value_in(units.MJupiter),
             #      ss.disk_radius.value_in(units.AU)
             #      )
+
+            ss.g0 = total_radiation[ss.key]
 
             # For the small star, I want to interpolate the photoevaporation mass loss
             # xi will be the point used for the interpolation. Adding star values...
@@ -882,7 +882,7 @@ def main(N, Rvir, Qvir, dist, alpha, ncells, t_ini, t_end, save_interval, run_nu
             disk_codes[disk_codes_indices[ss.key]] = evaporate(disk_codes[disk_codes_indices[ss.key]],
                                                                total_photoevap_mass_loss)
             if get_disk_radius(disk_codes[disk_codes_indices[ss.key]]) < ss.disk_radius:
-                print "EVAPORATING!!!"
+                #print "EVAPORATING!!!"
                 #print ss.disk_radius
                 ss.disk_radius = get_disk_radius(disk_codes[disk_codes_indices[ss.key]])
                 ss.disk_mass = get_disk_mass(disk_codes[disk_codes_indices[ss.key]], ss.disk_radius)
