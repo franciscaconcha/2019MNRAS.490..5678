@@ -440,7 +440,7 @@ def mass_loss_in_time(open_path, save_path, N, i):  # For one star
     #pyplot.show()
 
 
-def single_star(open_path, save_path, N, i):
+def single_star(open_path, save_path, N, i, all_distances=0):
     #fig = pyplot.figure(figsize=(12, 8))
     #ax = pyplot.gca()
     fig, axs = pyplot.subplots(2, 2, figsize=(18, 14))
@@ -480,6 +480,7 @@ def single_star(open_path, save_path, N, i):
     times = numpy.arange(0.0, 10.05, 0.05)
 
     photoevap_mass_loss, dyn_trunc_mass_loss, disk_size, distance_to_bright, bs_masses, g0s = [], [], [], [], [], []
+    dbs1, dbs2, dbs3 = [], [], []
 
     for t in times:
         f = '{0}/N{1}_t{2}.hdf5'.format(open_path, N, t)
@@ -495,6 +496,9 @@ def single_star(open_path, save_path, N, i):
         for bs in bright_stars:
             distances.append(distance(bs, s).value_in(units.parsec))
 
+        dbs1.append(distances[0])
+        dbs2.append(distances[1])
+        dbs3.append(distances[2])
         nearest_bs = min(distances)
         distance_to_bright.append(nearest_bs)
 
@@ -508,12 +512,24 @@ def single_star(open_path, save_path, N, i):
     disk_size[1] = disk_size[0]  # this has to do with the saving issue, will fix soon
     disk_size[2] = disk_size[0]
 
+    # Mass loss
     ax.plot(times, photoevap_mass_loss, c='r', label="photoevap")
     ax.plot(times, dyn_trunc_mass_loss, c='b', label="dyn trunc")
+    ax.legend(loc='upper left', fontsize=20)
 
+    # Disk size
     ax3.plot(times, disk_size, c='k')
+
+    # G0
     ax4.plot(times, g0s, c='k')
-    
+
+    # Distance to nearest bright star
+    if all_distances:
+        ax2.plot(times, dbs1, label=r'{0:.2} $M_\odot$'.format(bright_stars[0].stellar_mass.value_in(units.MSun)))
+        ax2.plot(times, dbs2, label=r'{0:.2} $M_\odot$'.format(bright_stars[1].stellar_mass.value_in(units.MSun)))
+        ax2.plot(times, dbs3, label=r'{0:.2} $M_\odot$'.format(bright_stars[2].stellar_mass.value_in(units.MSun)))
+        ax2.legend(loc='best')
+
     ax2.plot(times, distance_to_bright, c='k', alpha=0.5)
 
     scattered_times = [times[i] for i in xrange(0, len(times), 10)]
@@ -528,14 +544,12 @@ def single_star(open_path, save_path, N, i):
     print sorted_masses
 
     bs1 = mlines.Line2D([], [], color='red', marker='*', linestyle='None',
-                              markersize=sorted_masses[0], label=r'{0:.2} $M_\odot$'.format(sorted_masses[0]))
+                        markersize=sorted_masses[0], label=r'{0:.2} $M_\odot$'.format(sorted_masses[0]))
     bs2 = mlines.Line2D([], [], color='red', marker='*', linestyle='None',
-                              markersize=sorted_masses[1], label=r'{0:.2} $M_\odot$'.format(sorted_masses[1]))
+                        markersize=sorted_masses[1], label=r'{0:.2} $M_\odot$'.format(sorted_masses[1]))
     bs3 = mlines.Line2D([], [], color='red', marker='*', linestyle='None',
-                              markersize=0.1 * sorted_masses[2], label=r'{0} $M_\odot$'.format(sorted_masses[2]))
-    ax2.legend(handles=[bs1, bs2, bs3], loc='best', fontsize=12)
-
-    ax.legend(loc='upper left', fontsize=20)
+                        markersize=0.1 * sorted_masses[2], label=r'{0} $M_\odot$'.format(sorted_masses[2]))
+    ax2.legend(handles=[bs1, bs2, bs3], loc='best', fontsize=14)
 
     pyplot.tight_layout()
     #pyplot.show()
@@ -629,34 +643,53 @@ def surviving_disks(paths, N, cells, labels, colors):
     #fig.savefig('plot2.png')
 
 
-
-
-def cdfs(files, labels, colors):
+def cdfs(open_path, labels, colors, density, N, t):
     """ Plot cumulative distributions of disk sizes (au).
 
     :param files: list with filenames to open
     :param labels: list with labels for each file
     :param colors: list with colors for each file
     """
-    fig = pyplot.figure(figsize=(12, 8))
-    ax = pyplot.gca()
+    fig, (ax1, ax2) = pyplot.subplots(2, 1, figsize=(12, 14))
 
-    for f, l, c in zip(files, labels, colors):
+    for p, l in zip(open_path, labels):
+        f = '{0}/N{1}_t{2}.hdf5'.format(p, N, t)
         stars = io.read_set_from_file(f, 'hdf5', close_file=True)
-
 
         # Take only the small stars
         small_stars = stars[stars.stellar_mass.value_in(units.MSun) <= 1.9]
+        small_stars = small_stars[small_stars.disk_mass.value_in(units.MSun) /
+                                  (numpy.pi * small_stars.disk_radius.value_in(units.au) ** 2) > density]
+        disked_stars = small_stars[small_stars.dispersed == False]
 
-        sizes, masses = 2 * small_stars.disk_radius.value_in(units.au), small_stars.disk_mass.value_in(units.MJupiter)
+        sizes, masses = 2 * disked_stars.disk_radius.value_in(units.au), disked_stars.disk_mass.value_in(units.MJupiter)
 
-        ax.scatter(sizes, masses, s=100 * small_stars.stellar_mass.value_in(units.MSun),
-                   c=c, alpha=0.5, label=l)
+        sorted_disk_sizes = numpy.sort(sizes)
+        sorted_disk_masses = numpy.sort(masses)
 
-    ax.legend(loc='upper right', fontsize=20)
-    ax.set_title('N=100, c=50, different times')
-    ax.set_xlabel('Disk size [au]')
-    ax.set_ylabel(r'Disk mass [$M_{Jup}$]')
+        cumulative_sizes = numpy.array([float(x) for x in numpy.arange(sorted_disk_sizes.size + 1)])
+        cumulative_masses = numpy.array([float(x) for x in numpy.arange(sorted_disk_masses.size + 1)])
+
+        ax1.plot(numpy.concatenate([sorted_disk_sizes, sorted_disk_sizes[[-1]]]),
+                 cumulative_sizes / len(cumulative_sizes),
+                 lw=2, label=l)
+
+        ax2.plot(numpy.concatenate([sorted_disk_masses, sorted_disk_masses[[-1]]]),
+                 cumulative_masses / len(cumulative_masses),
+                 lw=2, label=l)
+
+    ax1.legend(loc='lower right', fontsize=20)
+    ax2.legend(loc='lower right', fontsize=20)
+
+    ax1.set_title('CDF of disk sizes, t = {0} Myr'.format(t))
+    ax1.set_xlabel(r'$d_{disk}$ [au]')
+    ax1.set_ylabel(r'$f < d_{disk}$')
+
+    ax2.set_title('CDF of disk masses, t = {0} Myr'.format(t))
+    ax2.set_xlabel(r'$M_{disk}$ [$M_{Jupiter}$]')
+    ax2.set_ylabel(r'$f < M_{disk}$')
+
+    pyplot.tight_layout()
     pyplot.show()
     #fig.savefig('plot2.png')
 
@@ -703,7 +736,7 @@ def plot_cluster(path, t, N, colors, density):
     # fig.savefig('plot2.png')
 
 
-def main(run_number, save_path, time, N, distribution, ncells, density, i):
+def main(run_number, save_path, time, N, distribution, ncells, density, i, all_distances):
 
     files = ['results/king_N100_c100_3/0/N100_t10.0.hdf5',
              'results/plummer_N100_c100_3/0/N100_t10.0.hdf5']#,
@@ -713,7 +746,7 @@ def main(run_number, save_path, time, N, distribution, ncells, density, i):
              'results/plummer_N{0}_c{1}_3/0/'.format(N, ncells)]#,
              #'results/fractal_N{0}_c{1}_3/0/']
 
-    labels = ["King", "Plummer", "Fractal"]
+    labels = ["King", "Plummer"]#, "Fractal"]
     plot_colors = ["#ca5670", "#638ccc", "#c57c3c", "#72a555", "#ab62c0"]
 
     #size_vs_mass(files, labels, plot_colors, density, N, ncells, 10.0)
@@ -725,9 +758,12 @@ def main(run_number, save_path, time, N, distribution, ncells, density, i):
     #mass_loss_distribution(path, save_path, time, N, plot_colors, density)
     #mass_loss_in_time(path, save_path, N, i)
     #size_in_time(path, save_path, N, i)
-    single_star(path, save_path, N, i)
     #g0_in_time(path, save_path, N, i)
-    pyplot.show()
+
+    #single_star(path, save_path, N, i, all_distances)
+    #pyplot.show()
+
+    cdfs(paths, labels, plot_colors, density, N, time)
 
 
 def new_option_parser():
@@ -747,6 +783,8 @@ def new_option_parser():
                       help="number of stars [%default]")
     result.add_option("-p", dest="distribution", type="string", default='plummer',
                       help="spatial distribution to plot [%default]")
+    result.add_option("-a", dest="all_distances", type="int", default=0,
+                      help="distances to bright stars [%default]")
 
     # Disk parameters
     result.add_option("-c", dest="ncells", type="int", default=100,
