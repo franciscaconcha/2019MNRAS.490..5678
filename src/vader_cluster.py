@@ -395,7 +395,6 @@ def main(N, Rvir, Qvir, dist, alpha, ncells, t_ini, t_end, save_interval, run_nu
 
     # Evolve!
     while t < t_end:
-        #print get_disk_radius(disk_codes[1]).value_in(units.au)
         print "t=", t
         dt = min(dt, t_end - t)
 
@@ -413,13 +412,8 @@ def main(N, Rvir, Qvir, dist, alpha, ncells, t_ini, t_end, save_interval, run_nu
         channel_from_gravity_to_framework.copy()
 
         if dynamical_encounter.is_set():
-            #print("encounter")
-            #print "before enc stars.disk_radius:"
-            #print stars.disk_radius
             encountering_stars = Particles(particles=[dynamical_encounter.particles(0)[0],
                                                       dynamical_encounter.particles(1)[0]])
-
-            #print stars.key
 
             # This is to manage encounters involving bright stars (which have no associated vader code)
             try:
@@ -444,21 +438,13 @@ def main(N, Rvir, Qvir, dist, alpha, ncells, t_ini, t_end, save_interval, run_nu
                     star_codes = [None, None]
                     print "key1: {0}, key2: {1}".format(encountering_stars[0].key, encountering_stars[1].key)
 
-            #if encountering_stars.get_intersecting_subset_in(stars)[0] in small_stars and encountering_stars.get_intersecting_subset_in(stars)[1] in small_stars:
-                #print "before resolve_encounter:"
-                #print get_disk_radius(disk_codes[disk_codes_indices[encountering_stars.get_intersecting_subset_in(stars)[0].key]]), \
-                #    get_disk_radius(disk_codes[disk_codes_indices[encountering_stars.get_intersecting_subset_in(stars)[1].key]])
-                #print get_disk_radius(star_codes[0]), get_disk_radius(star_codes[1])
-
             truncated, new_codes = resolve_encounter(encountering_stars.get_intersecting_subset_in(stars),
                                                      star_codes,
                                                      gravity.model_time + t_ini)
 
             if truncated:
                 if new_codes[0] is not None and new_codes[1] is not None:
-                    #print "small-small"
-                    #print "after trunc: {0}, {1}".format(get_disk_radius(disk_codes[code_index[0]]),
-                    #                                   get_disk_radius(disk_codes[code_index[1]]))
+                    # small-small
                     disk_codes[code_index[0]] = new_codes[0]
                     disk_codes[code_index[1]] = new_codes[1]
 
@@ -469,27 +455,17 @@ def main(N, Rvir, Qvir, dist, alpha, ncells, t_ini, t_end, save_interval, run_nu
                     s0.disk_radius = get_disk_radius(disk_codes[code_index[0]])
                     s1.disk_radius = get_disk_radius(disk_codes[code_index[1]])
 
-                    #print disk_codes[code_index[0]], new_codes[0]
-                    #print "after after trunc: {0}, {1}".format(get_disk_radius(disk_codes[code_index[0]]),
-                    #                                   get_disk_radius(disk_codes[code_index[1]]))
                 elif new_codes[0] is None and new_codes[1] is not None:
-                    #print "big-small"
-                    #print "pre trunc: {0}".format(get_disk_radius(disk_codes[code_index[1]]))
+                    # bright-small
                     disk_codes[code_index[1]] = new_codes[1]
                     s1 = encountering_stars.get_intersecting_subset_in(stars)[1]
                     s1.disk_radius = get_disk_radius(disk_codes[code_index[1]])
 
-                    #print "post trunc: {0}".format(get_disk_radius(disk_codes[code_index[1]]))
                 elif new_codes[0] is not None and new_codes[1] is None:
-                    #print "small-big"
-                    #print "pre trunc: {0}".format(get_disk_radius(disk_codes[code_index[0]]))
+                    # small-bright
                     disk_codes[code_index[0]] = new_codes[0]
                     s0 = encountering_stars.get_intersecting_subset_in(stars)[0]
                     s0.disk_radius = get_disk_radius(disk_codes[code_index[0]])
-                    #print "post trunc: {0}".format(get_disk_radius(disk_codes[code_index[0]]))
-
-            #print "after enc stars.disk_radius:"
-            #print stars.disk_radius
 
         # Copy stars' new collisional radii (updated in resolve_encounter) to gravity
         channel_from_framework_to_gravity.copy()
@@ -595,7 +571,7 @@ def main(N, Rvir, Qvir, dist, alpha, ncells, t_ini, t_end, save_interval, run_nu
                 print "{4}: s.checked: {0}, get_disk_mass(c, s.disk_radius) <= s.dispersed_disk_mass: {1}, s.disk_radius.value_in(units.au) < 0.5: {2}, disk_density <= s.dispersion_threshold: {3}".format(
                     s.checked, get_disk_mass(c, s.disk_radius) <= s.dispersed_disk_mass, s.disk_radius.value_in(units.au) < 0.5, disk_density <= s.dispersion_threshold, s.key)
             if not s.checked:
-                if get_disk_mass(c, s.disk_radius).value_in(units.MJupiter) <= s.dispersed_disk_mass.value_in(units.MJupiter) or s.disk_radius.value_in(units.au) < 0.5 or disk_density <= s.dispersion_threshold):  # Disk has been dispersed
+                if get_disk_mass(c, s.disk_radius).value_in(units.MJupiter) <= s.dispersed_disk_mass.value_in(units.MJupiter) or s.disk_radius.value_in(units.au) < 0.5 or disk_density <= s.dispersion_threshold:  # Disk has been dispersed
                     print "checking for dispersed disks"
                     #print small_stars
                     s.dispersed = True
@@ -622,10 +598,6 @@ def main(N, Rvir, Qvir, dist, alpha, ncells, t_ini, t_end, save_interval, run_nu
 
             #s.mass = s.stellar_mass + s.disk_mass # MW
             #c.update_keplerian_grid(s.stellar_mass) # MW
-
-        # (MW) If I understand correctly, every bright star evaporates other disks separately according to its own contribution?
-        # In my model I added all contributions together before evaporating. Something to think about.
-        # Also, photoevap here is done in python, whereas I'd done it in VADER. Not sure which is better. 
 
         # Photoevaporation
         total_radiation = {}
@@ -713,17 +685,24 @@ def main(N, Rvir, Qvir, dist, alpha, ncells, t_ini, t_end, save_interval, run_nu
             ss.cumulative_photoevap_mass_loss += total_photoevap_mass_loss
             print "cumulative: ", ss.cumulative_photoevap_mass_loss.value_in(units.MJupiter)
 
+            if ss.cumulative_photoevap_mass_loss >= ss.initial_disk_mass:
+                ss.dispersed = True
+                continue
+
             #print "mass loss: {0}".format(total_photoevap_mass_loss)
             #print "pre evaporate: {0}".format(get_disk_radius(disk_codes[disk_codes_indices[ss.key]]))
             disk_codes[disk_codes_indices[ss.key]] = evaporate(disk_codes[disk_codes_indices[ss.key]],
                                                                total_photoevap_mass_loss)
-            if get_disk_radius(disk_codes[disk_codes_indices[ss.key]]) < ss.disk_radius:
-                print "EVAPORATING!!!"
-                #print ss.disk_radius
-                ss.disk_radius = get_disk_radius(disk_codes[disk_codes_indices[ss.key]])
-                ss.disk_mass = get_disk_mass(disk_codes[disk_codes_indices[ss.key]], ss.disk_radius)
-            #print "AFTER PHOTOEVAP: {0}".format(ss.disk_radius)
-            #print "post evaporate: {0}".format(get_disk_radius(disk_codes[disk_codes_indices[ss.key]]))
+            if disk_codes[disk_codes_indices[ss.key]] is None:
+                ss.dispersed = True
+            else:
+                if get_disk_radius(disk_codes[disk_codes_indices[ss.key]]) < ss.disk_radius:
+                    print "EVAPORATING!!!"
+                    #print ss.disk_radius
+                    ss.disk_radius = get_disk_radius(disk_codes[disk_codes_indices[ss.key]])
+                    ss.disk_mass = get_disk_mass(disk_codes[disk_codes_indices[ss.key]], ss.disk_radius)
+                #print "AFTER PHOTOEVAP: {0}".format(ss.disk_radius)
+                #print "post evaporate: {0}".format(get_disk_radius(disk_codes[disk_codes_indices[ss.key]]))
         # End photoevap
 
         channel_from_framework_to_gravity.copy()
