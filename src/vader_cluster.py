@@ -545,9 +545,8 @@ def main(N, Rvir, Qvir, dist, alpha, ncells, t_ini, t_end, save_interval, run_nu
                 print "Star's {0} disk dispersed in truncation, deleted code".format(s.key)
                 continue
 
-            # Check for diverged disks
-            if s.code and not s.checked:  # Star not checked yet
-                print "checking for diverged disks"
+            if not s.checked:  # Star not checked yet
+                # Check for diverged disks
                 if diverged_disks[c]:  # Disk diverged
                     s.dispersed = True
                     s.code = False
@@ -570,10 +569,10 @@ def main(N, Rvir, Qvir, dist, alpha, ncells, t_ini, t_end, save_interval, run_nu
                 print get_disk_mass(c, s.disk_radius), s.dispersed_disk_mass.value_in(units.MJupiter)
                 print "{4}: s.checked: {0}, get_disk_mass(c, s.disk_radius) <= s.dispersed_disk_mass: {1}, s.disk_radius.value_in(units.au) < 0.5: {2}, disk_density <= s.dispersion_threshold: {3}".format(
                     s.checked, get_disk_mass(c, s.disk_radius) <= s.dispersed_disk_mass, s.disk_radius.value_in(units.au) < 0.5, disk_density <= s.dispersion_threshold, s.key)
-            if not s.checked:
-                if get_disk_mass(c, s.disk_radius).value_in(units.MJupiter) <= s.dispersed_disk_mass.value_in(units.MJupiter) or s.disk_radius.value_in(units.au) < 0.5 or disk_density <= s.dispersion_threshold:  # Disk has been dispersed
-                    print "checking for dispersed disks"
-                    #print small_stars
+
+                # Check for dispersed disks
+                if s.disk_radius.value_in(units.au) < 0.5 or disk_density <= s.dispersion_threshold:
+                    # Not checking for mass thresholds here, I do that after the photoevaporation step
                     s.dispersed = True
                     s.checked = True
                     s.code = False
@@ -586,7 +585,7 @@ def main(N, Rvir, Qvir, dist, alpha, ncells, t_ini, t_end, save_interval, run_nu
                             disk_codes_indices[i] -= 1
                     del disk_codes_indices[s.key]
                     active_disks -= 1
-                    print "Star's {0} disk dispersed, deleted code".format(s.key)
+                    print "Star's {0} disk dispersed because of density threshold, deleted code".format(s.key)
                     continue
 
             # Add accreted mass from disk to host star
@@ -596,10 +595,13 @@ def main(N, Rvir, Qvir, dist, alpha, ncells, t_ini, t_end, save_interval, run_nu
             s.disk_radius = get_disk_radius(c)
             s.disk_mass = get_disk_mass(c, s.disk_radius)
 
-            #s.mass = s.stellar_mass + s.disk_mass # MW
+            s.mass = s.stellar_mass + s.disk_mass
             #c.update_keplerian_grid(s.stellar_mass) # MW
+        # End disk check/update
 
-        # Photoevaporation
+        ########### Photoevaporation  ############
+
+        # Calculate the total FUV contribution of the bright stars over each small star
         total_radiation = {}
         for ss in small_stars:
             total_radiation[ss.key] = 0.
@@ -608,12 +610,7 @@ def main(N, Rvir, Qvir, dist, alpha, ncells, t_ini, t_end, save_interval, run_nu
             # Calculate FUV luminosity of the bright star, in LSun
             lum = luminosity_fit(s.stellar_mass.value_in(units.MSun))
 
-            for ss in small_stars:
-                # TODO this check might not be necessary here
-                if ss.dispersed:  # We ignore dispersed disks
-                    continue
-
-                #print "continuing. ss.key = {0}".format(ss.key)
+            for ss in small_stars[small_stars.dispersed == False]:
                 dist = distance(s, ss)
                 radiation_ss = radiation_at_distance(lum.value_in(units.erg / units.s),
                                                      dist.value_in(units.cm) 
@@ -623,6 +620,7 @@ def main(N, Rvir, Qvir, dist, alpha, ncells, t_ini, t_end, save_interval, run_nu
                 radiation_ss_G0 = radiation_ss.value_in(units.erg/(units.s * units.cm**2)) / 1.6E-3
                 total_radiation[ss.key] += radiation_ss_G0
 
+        # Apply photoevaporation on small stars
         for ss in small_stars[small_stars.dispersed == False]:
             print "disk mass: ", ss.disk_mass.value_in(units.MJupiter)
             #print(ss.mass.value_in(units.MSun),
@@ -685,28 +683,67 @@ def main(N, Rvir, Qvir, dist, alpha, ncells, t_ini, t_end, save_interval, run_nu
             ss.cumulative_photoevap_mass_loss += total_photoevap_mass_loss
             print "cumulative: ", ss.cumulative_photoevap_mass_loss.value_in(units.MJupiter)
 
-            if ss.cumulative_photoevap_mass_loss >= ss.initial_disk_mass:
-                ss.dispersed = True
+            if ss.cumulative_photoevap_mass_loss >= ss.initial_disk_mass:  # Disk is gone by photoevaporation
+                s.dispersed = True
+                s.checked = True
+                s.code = False
+                s.dispersal_time = t
+                to_del = disk_codes_indices[s.key]
+                disk_codes[to_del].stop()
+                del disk_codes[to_del]  # Delete dispersed disk from code list
+                for i in disk_codes_indices:
+                    if disk_codes_indices[i] > to_del:
+                        disk_codes_indices[i] -= 1
+                del disk_codes_indices[s.key]
+                active_disks -= 1
+                print "Star's {0} disk dispersed by photoevaporation, deleted code".format(s.key)
                 continue
 
             #print "mass loss: {0}".format(total_photoevap_mass_loss)
             #print "pre evaporate: {0}".format(get_disk_radius(disk_codes[disk_codes_indices[ss.key]]))
             disk_codes[disk_codes_indices[ss.key]] = evaporate(disk_codes[disk_codes_indices[ss.key]],
                                                                total_photoevap_mass_loss)
+
             if disk_codes[disk_codes_indices[ss.key]] is None:
                 ss.dispersed = True
-            else:
-                if get_disk_radius(disk_codes[disk_codes_indices[ss.key]]) < ss.disk_radius:
-                    print "EVAPORATING!!!"
-                    #print ss.disk_radius
-                    ss.disk_radius = get_disk_radius(disk_codes[disk_codes_indices[ss.key]])
-                    ss.disk_mass = get_disk_mass(disk_codes[disk_codes_indices[ss.key]], ss.disk_radius)
-                #print "AFTER PHOTOEVAP: {0}".format(ss.disk_radius)
-                #print "post evaporate: {0}".format(get_disk_radius(disk_codes[disk_codes_indices[ss.key]]))
-        # End photoevap
+                ss.checked = True
+                ss.code = False
+                ss.dispersal_time = t
+                to_del = disk_codes_indices[ss.key]
+                disk_codes[to_del].stop()
+                del disk_codes[to_del]  # Delete dispersed disk from code list
+                for i in disk_codes_indices:
+                    if disk_codes_indices[i] > to_del:
+                        disk_codes_indices[i] -= 1
+                del disk_codes_indices[s.key]
+                active_disks -= 1
+                print "Star's {0} disk dispersed by photoevaporation, deleted code".format(s.key)
+                continue
+
+            if get_disk_radius(disk_codes[disk_codes_indices[ss.key]]) < ss.disk_radius:
+                print "EVAPORATING!!!"
+                #print ss.disk_radius
+                ss.disk_radius = get_disk_radius(disk_codes[disk_codes_indices[ss.key]])
+                ss.disk_mass = get_disk_mass(disk_codes[disk_codes_indices[ss.key]], ss.disk_radius)
+            #print "AFTER PHOTOEVAP: {0}".format(ss.disk_radius)
+            #print "post evaporate: {0}".format(get_disk_radius(disk_codes[disk_codes_indices[ss.key]]))
+
+        ########### End Photoevaporation  ############
 
         channel_from_framework_to_gravity.copy()
         t += dt
+
+        if active_disks <= 0:
+            write_set_to_file(stars,
+                              '{0}/{1}/N{2}_t{3}.hdf5'.format(save_path,
+                                                              run_number,
+                                                              N,
+                                                              # Rvir.value_in(units.parsec),
+                                                              t.value_in(units.Myr)),
+                              'hdf5')
+            print "NO DISKS LEFT AT t = {0} Myr".format(t.value_in(units.Myr))
+            print "saving! at t = {0} Myr".format(t.value_in(units.Myr))
+            break
 
         if (numpy.around(t.value_in(units.yr)) % save_interval.value_in(units.yr)) == 0.:
             print "saving! at t = {0} Myr".format(t.value_in(units.Myr))
@@ -723,18 +760,6 @@ def main(N, Rvir, Qvir, dist, alpha, ncells, t_ini, t_end, save_interval, run_nu
 
         E_list = []
         Q_list = []
-
-        if active_disks <= 0:
-            print "saving! at t = {0} Myr".format(t.value_in(units.Myr))
-            write_set_to_file(stars,
-                              '{0}/{1}/N{2}_t{3}.hdf5'.format(save_path,
-                                                              run_number,
-                                                              N,
-                                                              # Rvir.value_in(units.parsec),
-                                                              t.value_in(units.Myr)),
-                              'hdf5')
-            print "SIMULATION ENDED AT t = {0} Myr".format(t.value_in(units.Myr))
-            break
 
     print "SIMULATION ENDED AT t = {0} Myr".format(t_end.value_in(units.Myr))
 
