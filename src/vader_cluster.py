@@ -294,7 +294,7 @@ def main(N, Rvir, Qvir, dist, alpha, ncells, t_ini, t_end, save_interval, run_nu
 
             # Saving these values to keep track of dispersed disks later on
             s.dispersed_disk_mass = 0.01 * s.disk_mass
-            s.dispersion_threshold = 1E-11  # Density threshold for dispersed disks
+            s.dispersion_threshold = 1E-2 | units.g / units.cm**2  # Density threshold for dispersed disks
             s.dispersed = False
             s.checked = False  # I need this to keep track of dispersed diks checks
             s.dispersal_time = t
@@ -565,7 +565,7 @@ def main(N, Rvir, Qvir, dist, alpha, ncells, t_ini, t_end, save_interval, run_nu
                     continue
 
                 # Check for dispersed disks
-                disk_density = get_disk_mass(c, s.disk_radius).value_in(units.g) / (numpy.pi * s.disk_radius.value_in(units.cm)**2)
+                disk_density = get_disk_mass(c, s.disk_radius).value_in(units.g) / (numpy.pi * s.disk_radius.value_in(units.cm)**2) | units.g / units.cm**2
                 print get_disk_mass(c, s.disk_radius), s.dispersed_disk_mass.value_in(units.MJupiter)
                 print "{4}: s.checked: {0}, get_disk_mass(c, s.disk_radius) <= s.dispersed_disk_mass: {1}, s.disk_radius.value_in(units.au) < 0.5: {2}, disk_density <= s.dispersion_threshold: {3}".format(
                     s.checked, get_disk_mass(c, s.disk_radius) <= s.dispersed_disk_mass, s.disk_radius.value_in(units.au) < 0.5, disk_density <= s.dispersion_threshold, s.key)
@@ -727,7 +727,6 @@ def main(N, Rvir, Qvir, dist, alpha, ncells, t_ini, t_end, save_interval, run_nu
                 ss.disk_mass = get_disk_mass(disk_codes[disk_codes_indices[ss.key]], ss.disk_radius)
             #print "AFTER PHOTOEVAP: {0}".format(ss.disk_radius)
             #print "post evaporate: {0}".format(get_disk_radius(disk_codes[disk_codes_indices[ss.key]]))
-
         ########### End Photoevaporation  ############
 
         channel_from_framework_to_gravity.copy()
