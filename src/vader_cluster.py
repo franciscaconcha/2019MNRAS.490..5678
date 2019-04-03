@@ -10,114 +10,13 @@ import multiprocessing
 from decorators import timer
 import os
 
+# All disk functions are here
+from disks import *
+
 # Workaround for now
 global diverged_disks, disk_codes_indices
 diverged_disks = {}
 disk_codes_indices = {}
-
-
-def column_density(grid, r0, mass, lower_density=1E-12 | units.g / units.cm**2):
-    r = grid.value_in(units.AU) | units.AU
-    rd = r0
-    Md = mass
-
-    Sigma_0 = Md / (2 * numpy.pi * r0 ** 2 * (1 - numpy.exp(-rd / r0)))
-    Sigma = Sigma_0 * (r0 / r) * numpy.exp(-r / r0) * (r <= r0) + lower_density
-    return Sigma
-
-
-def initialize_vader_code(disk_radius, disk_mass, alpha, r_min=0.05 | units.AU, r_max=2000 | units.AU, n_cells=100, linear=True):
-    """ Initialize vader code for given parameters.
-
-    :param disk_radius: disk radius. Must have units.Au
-    :param disk_mass: disk mass. Must have units.MSun
-    :param alpha: turbulence parameter for viscosity
-    :param r_min: minimum radius of vader grid. Must have units.AU
-    :param r_max: maximum radius of vader grid. Must have units.AU
-    :param n_cells: number of cells for vader grid
-    :param linear: linear interpolation
-    :return: instance of vader code
-    """
-    disk = vader(redirection='none')
-    disk.initialize_code()
-    disk.initialize_keplerian_grid(
-        n_cells,  # Number of cells
-        linear,  # Linear?
-        r_min,  # Grid Rmin
-        r_max,  # Grid Rmax
-        disk_mass  # Disk mass
-    )
-
-    #disk.parameters.verbosity = 1
-
-    sigma = column_density(disk.grid.r, disk_radius, disk_mass)
-    disk.grid.column_density = sigma
-
-    # The pressure follows the ideal gas law with a mean molecular weight of 2.33 hydrogen masses.
-    # Since gamma ~ 1, this should not influence the simulation
-    mH = 1.008 * constants.u
-    T = 100. | units.K
-    disk.grid.pressure = sigma * constants.kB * T / (2.33 * mH)
-
-    disk.parameters.inner_pressure_boundary_type = 1
-    #disk.parameters.inner_boundary_function = True
-    disk.parameters.inner_pressure_boundary_torque = 0.0 | units.g * units.cm ** 2 / units.s ** 2
-    disk.parameters.alpha = alpha
-    disk.parameters.maximum_tolerated_change = 1E99
-    global diverged_disks
-    diverged_disks[disk] = False
-    #disk.set_parameter(0, False)  # Disk parameter for non-convergence. True: disk diverged
-
-    return disk
-
-
-def evolve_parallel_disks(codes, dt):
-    n_cpu = multiprocessing.cpu_count()
-    processes = []
-    threads = []
-    #import time
-    #print "Starting processes... n_cpu = {0}".format(n_cpu)
-    #startt = time.time()
-    #print("Start loop")
-    #end = time.time()
-    for i in range(len(codes)):
-        #p = multiprocessing.Process(name=str(i), target=evolve_single_disk, args=(codes[i], dt, ))
-        #processes.append(p)
-        #p.start()
-
-	#start = time.time()
-	#print("code", i)
-	#end = time.time()
-	evolve_single_disk(codes[i],dt)
-        #print(end - start)
-    #endt = time.time()
-    #print("End loop",len(codes))
-    #print(endt - startt)
-        #th = threading.Thread(target=evolve_single_disk, args=[codes[i], dt])
-        #th.daemon = True
-        #threads.append(th)
-        #th.start()
-
-    #for t in threads:
-    #    t.join()
-
-    #for p in processes:
-    #    p.join()
-
-    #print "All processes finished"
-
-
-def evolve_single_disk(code, dt):
-    #print "current process: {0}".format(multiprocessing.current_process().name)
-    disk = code
-    try:
-        disk.evolve_model(dt)
-    except:
-        print "Disk did not converge"
-        global diverged_disks
-        diverged_disks[disk] = True
-        #disk.parameters.inner_pressure_boundary_type = 3
-        #disk.parameters.inner_boundary_function = False
 
 
 def distance(star1, star2):
@@ -235,44 +134,6 @@ def periastron_distance(stars):
     return p / (1 + e)
 
 
-def get_disk_radius(disk, f=0.95):
-
-    Mtot = (disk.grid.area * disk.grid.column_density).sum()
-    Mcum = 0. | units.MSun
-
-    edge = -1
-
-    for i in range(len(disk.grid.r)):
-        Mcum += disk.grid.area[i] * disk.grid.column_density[i]
-
-        if Mcum >= Mtot * f:
-            edge = i
-            break
-
-    return disk.grid.r[edge].value_in(units.au) | units.au
-
-
-def get_disk_mass(disk, radius):
-    """ Calculate the mass of a vader disk inside a certain radius.
-
-    :param disk: vader code of disk
-    :param radius: disk radius to consider for mass calculation
-    :return: disk mass in units.MJupiter
-    """
-    mass_cells = disk.grid.r[disk.grid.r <= radius]
-    total_mass = 0
-
-    for m, d, a in zip(mass_cells, disk.grid.column_density, disk.grid.area):
-        total_mass += d.value_in(units.MJupiter / units.cm**2) * a.value_in(units.cm**2)
-
-    return total_mass | units.MJupiter
-
-
-def accretion_rate(mass):
-
-    return numpy.power(10, (1.89 * numpy.log10(mass.value_in(units.MSun)) - 8.35)) | units.MSun / units.yr
-
-
 def resolve_encounter(stars,
                       disk_codes,
                       time,
@@ -320,7 +181,8 @@ def resolve_encounter(stars,
                     stars[i].disk_radius = truncation_radius
                     stars[i].disk_mass = 0.0 | units.MJupiter
                     stars[i].dispersal_time = time
-                    stars[i].truncation_mass_loss += stars[i].disk_mass
+                    stars[i].truncation_mass_loss = stars[i].disk_mass
+                    stars[i].cumulative_truncation_mass_loss += stars[i].disk_mass
                     new_codes.append(disk_codes[i])
 
                 else:
@@ -332,6 +194,7 @@ def resolve_encounter(stars,
                     new_mass = get_disk_mass(new_disk, truncation_radius)
 
                     stars[i].truncation_mass_loss = old_mass - new_mass
+                    stars[i].cumulative_truncation_mass_loss += old_mass - new_mass
                     stars[i].disk_mass = new_mass
                     stars[i].mass = stars[i].stellar_mass + stars[i].disk_mass
 
@@ -345,46 +208,6 @@ def resolve_encounter(stars,
 
     return truncated, new_codes
 
-
-def truncate_disk(disk, new_radius, density_limit=1E-11):
-    """ Truncate a vader disk to new_radius
-
-    :param disk: disk code to truncate
-    :param new_radius: new radius of disk
-    :param density_limit: density limit for disk boundary
-    :return: vader code with disk at new radius
-    """
-
-    disk.grid[disk.grid.r >= new_radius].column_density = density_limit | units.g / units.cm**2
-    return disk
-
-
-def evaporate(disk, mass):
-    """ Return new size disk after photoevaporation.
-        Goes through the disk outside-in removing mass until the needed amount is reached.
-
-    :param disk: vader disk to truncate
-    :param mass: mass lost to photoevaporation in MSun
-    :return: vader code with disk at new radius
-    """
-
-    radius = get_disk_radius(disk).value_in(units.au)
-
-    if radius < 1.:
-        return disk
-
-    init_cell = numpy.where(disk.grid.r.value_in(units.au) == radius)[0][0]
-
-    for d, r, a in zip(disk.grid[init_cell::-1].column_density, disk.grid[init_cell::-1].r, disk.grid[init_cell::-1].area):
-        cell_mass_msun = d.value_in(units.MSun / (units.AU ** 2)) * a.value_in(units.AU ** 2) | units.MSun
-
-        if mass >= cell_mass_msun:
-            #print "go again"
-            mass_left = mass - cell_mass_msun
-            return evaporate(truncate_disk(disk, r), mass_left)
-
-        else:
-            return disk
 
 @timer
 def main(N, Rvir, Qvir, dist, alpha, ncells, t_ini, t_end, save_interval, run_number, save_path, dt=2000 | units.yr):
@@ -476,7 +299,9 @@ def main(N, Rvir, Qvir, dist, alpha, ncells, t_ini, t_end, save_interval, run_nu
             s.checked = False  # I need this to keep track of dispersed diks checks
             s.dispersal_time = t
             s.photoevap_mass_loss = 0 | units.MSun
+            s.cumulative_photoevap_mass_loss = 0 | units.MSun
             s.truncation_mass_loss = 0 | units.MSun
+            s.cumulative_truncation_mass_loss = 0 | units.MSun
 
             # Initial values of disks
             s.initial_disk_size = get_disk_radius(s_code)
@@ -570,7 +395,8 @@ def main(N, Rvir, Qvir, dist, alpha, ncells, t_ini, t_end, save_interval, run_nu
 
     # Evolve!
     while t < t_end:
-        #print t
+        #print get_disk_radius(disk_codes[1]).value_in(units.au)
+        print "t=", t
         dt = min(dt, t_end - t)
 
         stellar.evolve_model(t + dt/2)
@@ -745,6 +571,7 @@ def main(N, Rvir, Qvir, dist, alpha, ncells, t_ini, t_end, save_interval, run_nu
 
             # Check for diverged disks
             if s.code and not s.checked:  # Star not checked yet
+                print "checking for diverged disks"
                 if diverged_disks[c]:  # Disk diverged
                     s.dispersed = True
                     s.code = False
@@ -764,7 +591,12 @@ def main(N, Rvir, Qvir, dist, alpha, ncells, t_ini, t_end, save_interval, run_nu
 
                 # Check for dispersed disks
                 disk_density = get_disk_mass(c, s.disk_radius).value_in(units.g) / (numpy.pi * s.disk_radius.value_in(units.cm)**2)
-                if not s.checked and (get_disk_mass(c, s.disk_radius) <= s.dispersed_disk_mass or s.disk_radius.value_in(units.au) < 0.5 or disk_density <= s.dispersion_threshold):  # Disk has been dispersed
+                print get_disk_mass(c, s.disk_radius), s.dispersed_disk_mass.value_in(units.MJupiter)
+                print "{4}: s.checked: {0}, get_disk_mass(c, s.disk_radius) <= s.dispersed_disk_mass: {1}, s.disk_radius.value_in(units.au) < 0.5: {2}, disk_density <= s.dispersion_threshold: {3}".format(
+                    s.checked, get_disk_mass(c, s.disk_radius) <= s.dispersed_disk_mass, s.disk_radius.value_in(units.au) < 0.5, disk_density <= s.dispersion_threshold, s.key)
+            if not s.checked:
+                if get_disk_mass(c, s.disk_radius).value_in(units.MJupiter) <= s.dispersed_disk_mass.value_in(units.MJupiter) or s.disk_radius.value_in(units.au) < 0.5 or disk_density <= s.dispersion_threshold):  # Disk has been dispersed
+                    print "checking for dispersed disks"
                     #print small_stars
                     s.dispersed = True
                     s.checked = True
@@ -820,6 +652,7 @@ def main(N, Rvir, Qvir, dist, alpha, ncells, t_ini, t_end, save_interval, run_nu
                 total_radiation[ss.key] += radiation_ss_G0
 
         for ss in small_stars[small_stars.dispersed == False]:
+            print "disk mass: ", ss.disk_mass.value_in(units.MJupiter)
             #print(ss.mass.value_in(units.MSun),
             #      radiation_ss_G0,
             #      ss.disk_mass.value_in(units.MJupiter),
@@ -874,15 +707,18 @@ def main(N, Rvir, Qvir, dist, alpha, ncells, t_ini, t_end, save_interval, run_nu
 
             # Calculate total mass lost due to photoevaporation during dt, in MSun
             total_photoevap_mass_loss = float(numpy.power(10, photoevap_Mdot) * dt.value_in(units.yr)) | units.MSun
+            print "mass loss: ", total_photoevap_mass_loss.value_in(units.MJupiter)
 
-            ss.photoevap_mass_loss += total_photoevap_mass_loss
+            ss.photoevap_mass_loss = total_photoevap_mass_loss
+            ss.cumulative_photoevap_mass_loss += total_photoevap_mass_loss
+            print "cumulative: ", ss.cumulative_photoevap_mass_loss.value_in(units.MJupiter)
 
             #print "mass loss: {0}".format(total_photoevap_mass_loss)
             #print "pre evaporate: {0}".format(get_disk_radius(disk_codes[disk_codes_indices[ss.key]]))
             disk_codes[disk_codes_indices[ss.key]] = evaporate(disk_codes[disk_codes_indices[ss.key]],
                                                                total_photoevap_mass_loss)
             if get_disk_radius(disk_codes[disk_codes_indices[ss.key]]) < ss.disk_radius:
-                #print "EVAPORATING!!!"
+                print "EVAPORATING!!!"
                 #print ss.disk_radius
                 ss.disk_radius = get_disk_radius(disk_codes[disk_codes_indices[ss.key]])
                 ss.disk_mass = get_disk_mass(disk_codes[disk_codes_indices[ss.key]], ss.disk_radius)
@@ -890,6 +726,7 @@ def main(N, Rvir, Qvir, dist, alpha, ncells, t_ini, t_end, save_interval, run_nu
             #print "post evaporate: {0}".format(get_disk_radius(disk_codes[disk_codes_indices[ss.key]]))
         # End photoevap
 
+        channel_from_framework_to_gravity.copy()
         t += dt
 
         if (numpy.around(t.value_in(units.yr)) % save_interval.value_in(units.yr)) == 0.:
