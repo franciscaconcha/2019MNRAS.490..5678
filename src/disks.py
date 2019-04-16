@@ -2,12 +2,18 @@ from amuse.lab import *
 import numpy
 import multiprocessing
 
+# Workaround for now
+global diverged_disks, disk_codes_indices
+diverged_disks = {}
+disk_codes_indices = {}
 
 
 def column_density(grid, r0, mass, lower_density=1E-12 | units.g / units.cm**2):
     r = grid.value_in(units.AU) | units.AU
     rd = r0
     Md = mass
+
+    print r, r0
 
     Sigma_0 = Md / (2 * numpy.pi * r0 ** 2 * (1 - numpy.exp(-rd / r0)))
     Sigma = Sigma_0 * (r0 / r) * numpy.exp(-r / r0) * (r <= r0) + lower_density
@@ -58,7 +64,6 @@ def initialize_vader_code(disk_radius, disk_mass, alpha, r_min=0.05 | units.AU, 
 
     return disk
 
-
 def evolve_parallel_disks(codes, dt):
     n_cpu = multiprocessing.cpu_count()
     processes = []
@@ -107,7 +112,8 @@ def evolve_single_disk(code, dt):
         #disk.parameters.inner_pressure_boundary_type = 3
         #disk.parameters.inner_boundary_function = False
 
-def get_disk_radius(disk, f=0.95):
+
+def get_disk_radius_mass(disk, f=0.95):
 
     Mtot = (disk.grid.area * disk.grid.column_density).sum()
     Mcum = 0. | units.MSun
@@ -124,20 +130,44 @@ def get_disk_radius(disk, f=0.95):
     return disk.grid.r[edge].value_in(units.au) | units.au
 
 
-def get_disk_radius2(disk, density_limit=1E-11):
+def get_disk_radius_density(disk, density_limit=1E-10):
     """ Calculate the radius of a disk in a vader grid.
     :param disk: Disk to calculate radius on.
     :param density_limit: Density limit to designate disk border.
     :return: Disk radius in units.AU
     """
-    prev_r = disk.grid.r[0]
+    prev_r = disk.grid[0].r
 
-    for cell, r in zip(disk.grid.column_density, disk.grid.r):
-        if cell.value_in(units.g / units.cm**2) <= density_limit:
-            return prev_r.value_in(units.AU) | units.AU
-        prev_r = r
+    for i in range(len(disk.grid.r)):
+        cell_density = disk.grid[i].column_density.value_in(units.g / units.cm ** 2)
+        if cell_density < density_limit:
+            return prev_r.value_in(units.au) | units.au
+        prev_r = disk.grid[i].r
 
-    return prev_r.value_in(units.AU) | units.AU
+    return prev_r.value_in(units.au) | units.au
+
+
+def get_disk_radius_av(disk, density_limit=1E-12):
+    """ Calculate disk radius using average of cells around density jump. 
+    """
+    prev_r = 0
+    center = 0
+    diff_threshold = 1E4
+
+    for i in range(1, len(disk.grid.r)):
+        diff = disk.grid[prev_r].column_density.value_in(units.g / units.cm**2) - disk.grid[i].column_density.value_in(units.g / units.cm**2)
+        if diff >= diff_threshold:
+            center = i
+            break
+        prev_r = i
+
+    sum = 0.
+    cells = 10
+
+    for i in range(center - cells, center + cells):
+        sum += disk.grid.r[i].value_in(units.au)
+
+    return sum / len(range(center - 5, center + 5)) | units.au
 
 
 def get_disk_mass(disk, radius):
@@ -174,7 +204,7 @@ def truncate_disk(disk, new_radius, density_limit=1E-11):
     return disk
 
 
-def evaporate(disk, mass_to_remove):
+def evaporate(disk, mass_to_remove, mode="mass"):
     """ Return new size disk after photoevaporation.
         Goes through the disk outside-in removing mass until the needed amount is reached.
 
@@ -183,29 +213,34 @@ def evaporate(disk, mass_to_remove):
     :return: vader code with disk at new radius
     """
 
-    radius = get_disk_radius(disk).value_in(units.au)
-    print radius
+    if mode=="mass":
+        radius = get_disk_radius_mass(disk).value_in(units.au)
+    elif mode=="density":
+        radius = get_disk_radius_density(disk).value_in(units.au)
+    else:
+        radius = get_disk_radius_av(disk).value_in(units.au)
+    #print radius
 
     init_cell = numpy.where(disk.grid.r.value_in(units.au) == radius)[0][0]
 
     swiped_mass = 0.0 | mass_to_remove.unit
 
     for i in range(init_cell)[::-1]:
-        r = disk.grid[i - 1].r
+        r = disk.grid[i].r
         d = disk.grid[i].column_density
         a = disk.grid[i].area
 
         cell_mass_msun = d.value_in(mass_to_remove.unit / (units.AU ** 2)) * a.value_in(units.AU ** 2) | mass_to_remove.unit
         swiped_mass += cell_mass_msun
-        print "swiped mass: {0}, cell_mass: {1}, to_remove: {2} [Mjup]".format(swiped_mass, cell_mass_msun, mass_to_remove)
+        #print "swiped mass: {0}, cell_mass: {1}, to_remove: {2} [Mjup]".format(swiped_mass, cell_mass_msun, mass_to_remove)
 
         if swiped_mass < mass_to_remove:
-            print "continuing"
+        #    print "continuing"
             continue
         else:
             if i == 0:
                 return None
             else:
-                print disk.grid.r.value_in(units.au)
-                print "truncating disk at ", r.value_in(units.au)
+                #print disk.grid.r.value_in(units.au)
+                #print "truncating disk at ", r.value_in(units.au)
                 return truncate_disk(disk, r)
