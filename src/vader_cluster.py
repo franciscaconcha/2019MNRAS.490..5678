@@ -613,17 +613,19 @@ def main(N, Rvir, Qvir, dist, alpha, ncells, t_ini, t_end, save_interval, run_nu
                 print "small - small"
                 print "key1: {0}, key2: {1}".format(encountering_stars[0].key, encountering_stars[1].key)
             except KeyError:
-                if encountering_stars[0] in bright_stars:
+                if encountering_stars[0] in bright_stars and encountering_stars[1] in small_stars:
+                    print "bright - small w/ disk"
+                    print encountering_stars[1].dispersed
                     if not encountering_stars[1].dispersed:  # Making sure that the small star still has a disk
-                        print "bright - small w/ disk"
                         code_index = [None, disk_codes_indices[encountering_stars[1].key]]
                         star_codes = [None, disk_codes[code_index[1]]]
                         print "key1: {0}, key2: {1}".format(encountering_stars[0].key, encountering_stars[1].key)
                     else:  # Small star's disk has been dispersed already
                         star_codes = [None, None]
-                elif encountering_stars[1] in bright_stars:
+                elif encountering_stars[1] in bright_stars and encountering_stars[0] in small_stars:
+                    print "small w/ disk - bright"
+                    print encountering_stars[0].dispersed
                     if not encountering_stars[0].dispersed:
-                        print "small w/ disk - bright"
                         code_index = [disk_codes_indices[encountering_stars[0].key], None]
                         star_codes = [disk_codes[code_index[0]], None]
                         print "key1: {0}, key2: {1}".format(encountering_stars[0].key, encountering_stars[1].key)
