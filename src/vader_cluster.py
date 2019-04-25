@@ -605,6 +605,9 @@ def main(N, Rvir, Qvir, dist, alpha, ncells, t_ini, t_end, save_interval, run_nu
             encountering_stars = Particles(particles=[dynamical_encounter.particles(0)[0],
                                                       dynamical_encounter.particles(1)[0]])
 
+            s0 = encountering_stars.get_intersecting_subset_in(stars)[0]
+            s1 = encountering_stars.get_intersecting_subset_in(stars)[1]
+
             # This is to manage encounters involving bright stars (which have no associated vader code)
             try:
                 code_index = [disk_codes_indices[encountering_stars[0].key],
@@ -613,28 +616,29 @@ def main(N, Rvir, Qvir, dist, alpha, ncells, t_ini, t_end, save_interval, run_nu
                 print "small - small"
                 print "key1: {0}, key2: {1}".format(encountering_stars[0].key, encountering_stars[1].key)
             except KeyError:
-                if encountering_stars[0] in bright_stars and encountering_stars[1] in small_stars:
+                if s0 in bright_stars and s1 in small_stars:
                     print "bright - small w/ disk"
-                    print encountering_stars[1].dispersed
-                    if not encountering_stars[1].dispersed:  # Making sure that the small star still has a disk
-                        code_index = [None, disk_codes_indices[encountering_stars[1].key]]
+                    print s1.dispersed
+                    if not s1.dispersed:  # Making sure that the small star still has a disk
+                        code_index = [None, disk_codes_indices[s1.key]]
                         star_codes = [None, disk_codes[code_index[1]]]
-                        print "key1: {0}, key2: {1}".format(encountering_stars[0].key, encountering_stars[1].key)
+                        print "key1: {0}, key2: {1}".format(s0.key, s1.key)
                     else:  # Small star's disk has been dispersed already
                         star_codes = [None, None]
-                elif encountering_stars[1] in bright_stars and encountering_stars[0] in small_stars:
+                elif s1 in bright_stars and s0 in small_stars:
                     print "small w/ disk - bright"
-                    print encountering_stars[0].dispersed
-                    if not encountering_stars[0].dispersed:
-                        code_index = [disk_codes_indices[encountering_stars[0].key], None]
+                    print s0
+                    print s0.dispersed
+                    if not s0.dispersed:
+                        code_index = [disk_codes_indices[s0.key], None]
                         star_codes = [disk_codes[code_index[0]], None]
-                        print "key1: {0}, key2: {1}".format(encountering_stars[0].key, encountering_stars[1].key)
+                        print "key1: {0}, key2: {1}".format(s0.key, s1.key)
                     else:
                         star_codes = [None, None]
                 else:
                     print "bright - bright"
                     star_codes = [None, None]
-                    print "key1: {0}, key2: {1}".format(encountering_stars[0].key, encountering_stars[1].key)
+                    print "key1: {0}, key2: {1}".format(s0.key, s1.key)
 
             truncated, new_codes = resolve_encounter(encountering_stars.get_intersecting_subset_in(stars),
                                                      star_codes,
@@ -646,8 +650,8 @@ def main(N, Rvir, Qvir, dist, alpha, ncells, t_ini, t_end, save_interval, run_nu
                     disk_codes[code_index[0]] = new_codes[0]
                     disk_codes[code_index[1]] = new_codes[1]
 
-                    s0 = encountering_stars.get_intersecting_subset_in(stars)[0]
-                    s1 = encountering_stars.get_intersecting_subset_in(stars)[1]
+                    #s0 = encountering_stars.get_intersecting_subset_in(stars)[0]
+                    #s1 = encountering_stars.get_intersecting_subset_in(stars)[1]
 
                     # Updating radii
                     s0.disk_radius = get_disk_radius(disk_codes[code_index[0]])
@@ -724,6 +728,8 @@ def main(N, Rvir, Qvir, dist, alpha, ncells, t_ini, t_end, save_interval, run_nu
         # Check disks
         for s, c in zip(small_stars, disk_codes):
             if s.dispersed and not s.checked:  # Disk "dispersed" in truncation and star hasn't been checked yet
+                s.disk_radius = 0. | units.au
+                s.disk_mass = 0. | units.MSun
                 s.checked = True
                 s.code = False
                 s.dispersal_time = t
@@ -764,6 +770,8 @@ def main(N, Rvir, Qvir, dist, alpha, ncells, t_ini, t_end, save_interval, run_nu
                 # Check for dispersed disks
                 if s.disk_radius.value_in(units.au) < 0.5 or disk_density <= s.dispersion_threshold:
                     # Not checking for mass thresholds here, I do that after the photoevaporation step
+                    s.disk_radius = 0. | units.au
+                    s.disk_mass = 0. | units.MSun
                     s.dispersed = True
                     s.checked = True
                     s.code = False
@@ -878,6 +886,8 @@ def main(N, Rvir, Qvir, dist, alpha, ncells, t_ini, t_end, save_interval, run_nu
             ss.cumulative_photoevap_mass_loss += total_photoevap_mass_loss
 
             if ss.cumulative_photoevap_mass_loss >= ss.initial_disk_mass:  # Disk is gone by photoevaporation
+                ss.disk_radius = 0. | units.au
+                ss.disk_mass = 0. | units.MSun
                 ss.dispersed = True
                 ss.checked = True
                 ss.code = False
@@ -903,6 +913,8 @@ def main(N, Rvir, Qvir, dist, alpha, ncells, t_ini, t_end, save_interval, run_nu
             if evaporated_disk is not None:
                 disk_codes[disk_codes_indices[ss.key]] = evaporated_disk
             else:
+                ss.disk_radius = 0. | units.au
+                ss.disk_mass = 0. | units.MSun
                 ss.dispersed = True
                 ss.checked = True
                 ss.code = False
