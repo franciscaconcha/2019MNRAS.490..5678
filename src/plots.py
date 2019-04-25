@@ -879,6 +879,221 @@ def cdfs(open_path, save_path, N, t):
     pyplot.show()
 
 
+def cdfs_with_observations(open_path, save_path, N, t, log=False):
+    """ Plot cumulative distributions of disk sizes (au) and masses (MJup).
+
+    :param open_path: list of folders to use
+    :param save_path: location where the figures are saved
+    :param N: number of stars
+    :param t: time to show in plot
+    :param log: if True, plot in logscale
+    """
+    pyplot.figure(1)
+    pyplot.figure(2)
+
+    all_sorted_disk_masses, all_sorted_disk_sizes = [], []
+
+    for p in open_path:
+        f = '{0}/N{1}_t{2}.hdf5'.format(p, N, t)
+        stars = io.read_set_from_file(f, 'hdf5', close_file=True)
+
+        # Take only the small stars
+        small_stars = stars[stars.stellar_mass.value_in(units.MSun) <= 1.9]
+
+        if log:
+            sizes, masses = 2. * numpy.log10(small_stars.disk_radius.value_in(units.au)), \
+                            numpy.log10(small_stars.disk_mass.value_in(units.MJupiter))
+        else:
+             sizes, masses = 2. * small_stars.disk_radius.value_in(units.au), \
+                             small_stars.disk_mass.value_in(units.MJupiter)
+
+        sorted_disk_sizes = numpy.sort(sizes)
+        sorted_disk_masses = numpy.sort(masses)
+
+        all_sorted_disk_sizes.append(sorted_disk_sizes)
+        all_sorted_disk_masses.append(sorted_disk_masses)
+
+    disk_sizes = numpy.mean(all_sorted_disk_sizes, axis=0)
+    disk_masses = numpy.mean(all_sorted_disk_masses, axis=0)
+
+    disk_sizes_stdev = numpy.std(all_sorted_disk_sizes, axis=0)
+    disk_masses_stdev = numpy.std(all_sorted_disk_masses, axis=0)
+
+    cumulative_sizes = numpy.array([float(x) for x in numpy.arange(disk_sizes.size + 1)])
+    cumulative_masses = numpy.array([float(x) for x in numpy.arange(disk_masses.size + 1)])
+
+    sizes_low = numpy.concatenate([disk_sizes, disk_sizes[[-1]]]) \
+          - numpy.concatenate([disk_sizes_stdev, disk_sizes_stdev[[-1]]])
+    sizes_high = numpy.concatenate([disk_sizes, disk_sizes[[-1]]]) \
+           + numpy.concatenate([disk_sizes_stdev, disk_sizes_stdev[[-1]]])
+
+    masses_low = numpy.concatenate([disk_masses, disk_masses[[-1]]]) \
+          - numpy.concatenate([disk_masses_stdev, disk_masses_stdev[[-1]]])
+    masses_high = numpy.concatenate([disk_masses, disk_masses[[-1]]]) \
+           + numpy.concatenate([disk_masses_stdev, disk_masses_stdev[[-1]]])
+
+    pyplot.figure(1)
+    pyplot.plot(numpy.concatenate([disk_sizes, disk_sizes[[-1]]]),
+                cumulative_sizes / len(cumulative_sizes),
+                lw=2)
+    pyplot.fill_betweenx(cumulative_sizes / len(cumulative_sizes),
+                         sizes_low, sizes_high,
+                         alpha='0.2')
+
+    pyplot.figure(2)
+    pyplot.plot(numpy.concatenate([disk_masses, disk_masses[[-1]]]),
+                cumulative_masses / len(cumulative_masses),
+                lw=2)
+    pyplot.fill_betweenx(cumulative_masses / len(cumulative_masses),
+                         masses_low, masses_high,
+                         alpha='0.2')
+
+    # Plotting observational data now
+    pyplot.figure(1)
+
+    # Trapezium data (Vicente & Alves 2005)
+    lines = open('data/Trapezium_sizes.txt', 'r').readlines()
+    trapezium_sizes = []
+
+    for line in (line for line in lines if not line.startswith('#')):
+        data = line.split()[8]
+        trapezium_sizes.append(float(data))
+
+    trapezium_sizes = numpy.array(trapezium_sizes)
+    if log:
+        sorted_trapezium_sizes = numpy.sort(numpy.log10(trapezium_sizes[trapezium_sizes > 100.]))
+    else:
+        sorted_trapezium_sizes = numpy.sort(trapezium_sizes[trapezium_sizes > 100.])
+    p = 1. * numpy.arange(len(sorted_trapezium_sizes)) / (len(sorted_trapezium_sizes) - 1)
+    pyplot.plot(sorted_trapezium_sizes, p, ls='-', lw=2, label="Trapezium")
+    # 2.0 Myr
+    # ax.text(1.95, 0.3, 'Trapezium', fontsize=18, color=plot_colors[0], rotation=85)
+    # 1.0 Myr
+    #ax.text(1.91, 0.15, 'Trapezium', fontsize=18, color=plot_colors[0], rotation=85)
+
+    # Lupus data (Ansdell et al 2016)
+    lupus_names, lupus_distances_pc, disk_sizes_arcsec = [], [], []
+
+    i = 0
+    with open("data/Lupus_sizes.txt", 'r') as filepointer:
+        for row in filepointer:
+            if i < 31:
+                i += 1
+            else:
+                n = row.split()[0]
+                lupus_names.append(n)
+                if len(row.split()) == 18:
+                    a = row.split()[10]
+                    disk_sizes_arcsec.append(float(a))
+                else:
+                    disk_sizes_arcsec.append(0)
+    filepointer.close()
+
+    i = 0
+    with open("data/Lupus_stellar.txt", 'r') as filepointer:
+        for row in filepointer:
+            if i < 28:
+                i += 1
+            else:
+                name = row.split()[0]
+                if name in lupus_names:
+                    distance = row.split()[1]
+                    lupus_distances_pc.append(float(distance))
+    filepointer.close()
+
+    lupus_distances_au = 2.0626 * pow(10, 5) * numpy.array(lupus_distances_pc[lupus_distances_pc > 0])
+    disk_sizes_au = (numpy.pi / 180) * (numpy.array(disk_sizes_arcsec) / 3600) * lupus_distances_au
+    if log:
+        sorted_lupus_disk_sizes_au = numpy.sort(numpy.log10(disk_sizes_au[disk_sizes_au > 0]))
+    else:
+        sorted_lupus_disk_sizes_au = numpy.sort(disk_sizes_au[disk_sizes_au > 0])
+    p = 1. * numpy.arange(len(sorted_lupus_disk_sizes_au)) / (len(sorted_lupus_disk_sizes_au) - 1)
+    pyplot.plot(sorted_lupus_disk_sizes_au, p, ls='-', lw=2, label='Lupus clouds')
+
+    # Chamaeleon I data (Pascucci et al 2016)
+    lines = open('data/ChamI_sizes.txt', 'r').readlines()
+    cham_sizes_arsec = []
+
+    for line in (line for line in lines if not line.startswith('#')):
+        a = line.split()[7]
+        b = line.split()[8]
+        if a > b:
+            cham_sizes_arsec.append(float(a))
+        else:
+            cham_sizes_arsec.append(float(b))
+
+    cham_sizes_arsec = numpy.array(cham_sizes_arsec)
+    cham_sizes_arsec = cham_sizes_arsec[cham_sizes_arsec > 0.0]
+
+    cham_distance_pc = 160
+    cham_distance_au = 2.0626 * pow(10, 5) * cham_distance_pc
+    cham_sizes_au = (numpy.pi / 180) * (cham_sizes_arsec / 3600.) * cham_distance_au
+    if log:
+        cham_sorted_disk_sizes = numpy.sort(numpy.log10(cham_sizes_au))
+    else:
+        cham_sorted_disk_sizes = numpy.sort(cham_sizes_au)
+    p = 1. * numpy.arange(len(cham_sorted_disk_sizes)) / (len(cham_sorted_disk_sizes) - 1)
+    pyplot.plot(cham_sorted_disk_sizes, p, ls='-', lw=2, label='Chamaeleon I')
+
+    # UpperSco data (Barenfeld et al 2016)
+    lines = open('data/UpperSco_sizes.txt', 'r').readlines()
+    uppersco_sizes_arsec, errors_arsec = [], []
+
+    for line in (line for line in lines if not line.startswith('#')):
+        a = line.split()[7]
+        b = line.split()[8]
+        uppersco_sizes_arsec.append(float(a))
+        errors_arsec.append(float(b))
+
+    uppersco_sizes_arsec = numpy.array(uppersco_sizes_arsec)
+    uppersco_sizes_arsec = uppersco_sizes_arsec[uppersco_sizes_arsec > 0.0]
+
+    uppersco_distance_pc = 145
+    uppersco_distance_au = 2.0626 * pow(10, 5) * uppersco_distance_pc
+    uppersco_sizes_au = (numpy.pi / 180) * (uppersco_sizes_arsec / 3600.) * uppersco_distance_au
+    if log:
+        uppersco_sorted_disk_sizes = numpy.sort(numpy.log10(uppersco_sizes_au))
+    else:
+        uppersco_sorted_disk_sizes = numpy.sort(uppersco_sizes_au)
+    p = 1. * numpy.arange(len(uppersco_sorted_disk_sizes)) / (len(uppersco_sorted_disk_sizes) - 1)
+    pyplot.plot(uppersco_sorted_disk_sizes, p, ls='-', lw=2, label='Upper Scorpio')
+
+    # sigma Orionis data (Mauco et al 2016)
+    lines = open('data/sigmaOrionis.txt', 'r').readlines()
+    sOrionis_sizes_au = []
+
+    for line in (line for line in lines if not line.startswith('#')):
+        a = line.split()[1]
+        sOrionis_sizes_au.append(float(a))
+
+    if log:
+        sOrionis_sorted_disk_sizes = numpy.sort(numpy.array(numpy.log10(sOrionis_sizes_au)))
+    else:
+        sOrionis_sorted_disk_sizes = numpy.sort(numpy.array(sOrionis_sizes_au))
+    p = 1. * numpy.arange(len(sOrionis_sorted_disk_sizes)) / (len(sOrionis_sorted_disk_sizes) - 1)
+    pyplot.plot(sOrionis_sorted_disk_sizes, p, ls='-', lw=2, label="$\sigma$ Orionis")
+
+    pyplot.figure(1)
+    ax1 = pyplot.gca()
+    ax1.legend()
+    #ax1.set_title('CDF of disk sizes, t = {0} Myr'.format(t))
+    ax1.set_xlabel(r'$d_{disk}$ [au]')
+    ax1.set_ylabel(r'$f < d_{disk}$')
+    pyplot.tight_layout()
+    pyplot.savefig('{0}/CDF_size_t{1}.png'.format(save_path, t))
+
+    pyplot.figure(2)
+    ax2 = pyplot.gca()
+    #ax2.legend(loc='lower right', fontsize=20)
+    #ax2.set_title('CDF of disk masses, t = {0} Myr'.format(t))
+    ax2.set_xlabel(r'$M_{disk}$ [$M_{Jupiter}$]')
+    ax2.set_ylabel(r'$f < M_{disk}$')
+    pyplot.tight_layout()
+    pyplot.savefig('{0}/CDF_mass_t{1}.png'.format(save_path, t))
+
+    pyplot.show()
+
+
 def plot_cluster(path, t, N, colors, density):
     """ Plot star positions and disk sizes
 
@@ -922,7 +1137,7 @@ def plot_cluster(path, t, N, colors, density):
 
 
 def disk_fractions(N, open_paths, save_path):
-    filename = 'diskfractions.dat'
+    filename = 'data/diskfractions.dat'
     f = open(filename, "r")
     lines = f.readlines()
     ages, ages_errors, disk_fraction, df_lower, df_higher = [], [], [], [], []
@@ -1020,6 +1235,7 @@ def disk_fractions(N, open_paths, save_path):
     pyplot.legend()
     pyplot.xlabel("Age [Myr]")
     pyplot.ylabel("Disk fraction [\%]")
+    pyplot.savefig('{0}/disk_fraction.png'.format(save_path))
 
     pyplot.show()
 
@@ -1049,7 +1265,8 @@ def main(run_number, save_path, time, N, distribution, ncells, density, i, all_d
         single_star(path, save_path, N, i, time, all_distances)
     #pyplot.show()
     else:
-        disk_fractions(N, paths, save_path)
+        #disk_fractions(N, paths, save_path)
+        cdfs_with_observations(paths, save_path, N, time)
 
         # For presentation
         #cdfs_w_old(paths, labels, plot_colors, density, N, time)
