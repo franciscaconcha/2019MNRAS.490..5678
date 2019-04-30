@@ -966,7 +966,8 @@ def main(N, Rvir, Qvir, dist, alpha, ncells, t_ini, t_end, save_interval, run_nu
         E_list = []
         Q_list = []
 
-    print "SIMULATION ENDED AT t = {0} Myr".format(t_end.value_in(units.Myr))
+    if active_disks > 0:
+        print "SIMULATION ENDED AT t = {0} Myr".format(t_end.value_in(units.Myr))
 
     print "end radii:"
     for d in disk_codes:
