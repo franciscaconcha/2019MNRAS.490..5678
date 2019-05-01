@@ -119,23 +119,6 @@ def evolve_single_disk(code, dt):
         #disk.parameters.inner_boundary_function = False
 
 
-def get_disk_radius_mass(disk, f=0.95):
-
-    Mtot = (disk.grid.area * disk.grid.column_density).sum()
-    Mcum = 0. | units.MSun
-
-    edge = -1
-
-    for i in range(len(disk.grid.r)):
-        Mcum += disk.grid.area[i] * disk.grid.column_density[i]
-
-        if Mcum > Mtot * f:
-            edge = i
-            break
-
-    return disk.grid.r[edge].value_in(units.au) | units.au
-
-
 def get_disk_radius(disk, density_limit=1E-10):
     """ Calculate the radius of a disk in a vader grid.
     :param disk: Disk to calculate radius on.
@@ -167,6 +150,13 @@ def get_disk_mass(disk, radius):
         total_mass += d.value_in(units.MJupiter / units.cm**2) * a.value_in(units.cm**2)
 
     return total_mass | units.MJupiter
+
+
+def get_disk_density(disk):
+    radius = get_disk_radius(disk)
+    radius_index = numpy.where(disk.grid.r.value_in(units.au) == radius.value_in(units.au))
+    density = disk.grid[:radius_index[0][0]].column_density
+    return numpy.median(density)
 
 
 def accretion_rate(mass):
@@ -489,7 +479,7 @@ def main(N, Rvir, Qvir, dist, alpha, ncells, t_ini, t_end, save_interval, run_nu
             s.code = True
             s_code = initialize_vader_code(s.disk_radius, s.disk_mass, alpha, n_cells=ncells, linear=False)
 
-            #s_code.parameters.inner_pressure_boundary_mass_flux = accretion_rate(s.stellar_mass) # MW
+            s_code.parameters.inner_pressure_boundary_mass_flux = accretion_rate(s.stellar_mass)
 
             disk_codes.append(s_code)
             disk_codes_indices[s.key] = len(disk_codes) - 1
@@ -497,7 +487,7 @@ def main(N, Rvir, Qvir, dist, alpha, ncells, t_ini, t_end, save_interval, run_nu
 
             # Saving these values to keep track of dispersed disks later on
             s.dispersed_disk_mass = 0.01 * s.disk_mass  # Disk is dispersed if it has lost 99% of its initial mass
-            s.dispersion_threshold = 1 | units.g / units.cm**2  # Density threshold for dispersed disks
+            s.dispersion_threshold = 1 | units.g / units.cm**2  # Density threshold for dispersed disks, Pascucci+ 2006
             s.dispersed = False
             s.checked = False  # I need this to keep track of dispersed disk checks
             s.dispersal_time = t
@@ -618,7 +608,6 @@ def main(N, Rvir, Qvir, dist, alpha, ncells, t_ini, t_end, save_interval, run_nu
             except KeyError:
                 if s0 in bright_stars and s1 in small_stars:
                     print "bright - small w/ disk"
-                    print s1.dispersed
                     if not s1.dispersed:  # Making sure that the small star still has a disk
                         code_index = [None, disk_codes_indices[s1.key]]
                         star_codes = [None, disk_codes[code_index[1]]]
@@ -627,8 +616,6 @@ def main(N, Rvir, Qvir, dist, alpha, ncells, t_ini, t_end, save_interval, run_nu
                         star_codes = [None, None]
                 elif s1 in bright_stars and s0 in small_stars:
                     print "small w/ disk - bright"
-                    print s0
-                    print s0.dispersed
                     if not s0.dispersed:
                         code_index = [disk_codes_indices[s0.key], None]
                         star_codes = [disk_codes[code_index[0]], None]
@@ -764,7 +751,8 @@ def main(N, Rvir, Qvir, dist, alpha, ncells, t_ini, t_end, save_interval, run_nu
                     continue
 
                 # Check for dispersed disks
-                disk_density = numpy.median(c.grid.column_density.value_in(units.g / units.cm**2)) | units.g / units.cm**2
+                disk_density = get_disk_density(c)
+                print disk_density.value_in(units.g / units.cm**2)
                 #disk_density = get_disk_mass(c, s.disk_radius).value_in(units.g) / (numpy.pi * s.disk_radius.value_in(units.cm)**2) | units.g / units.cm**2
 
                 # Check for dispersed disks
@@ -885,7 +873,7 @@ def main(N, Rvir, Qvir, dist, alpha, ncells, t_ini, t_end, save_interval, run_nu
             ss.photoevap_mass_loss = total_photoevap_mass_loss
             ss.cumulative_photoevap_mass_loss += total_photoevap_mass_loss
 
-            if ss.cumulative_photoevap_mass_loss >= ss.initial_disk_mass or ss.disk_mass < 1E-5 | units.MSun:
+            if ss.cumulative_photoevap_mass_loss >= ss.initial_disk_mass or ss.disk_mass < 0.03 | units.MEarth:  # Ansdell+2016
                 # Disk is gone by photoevaporation
                 ss.disk_radius = 0. | units.au
                 ss.disk_mass = 0. | units.MSun
