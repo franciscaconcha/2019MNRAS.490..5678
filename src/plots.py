@@ -1046,20 +1046,32 @@ def cdfs_with_observations_size(open_path, save_path, N, times, log=False):
 
             # sigma Orionis data (Mauco et al 2016)
             lines = open('data/sigmaOrionis.txt', 'r').readlines()
-            sOrionis_sizes_au = []
+            sOrionis_sizes_au, sOrionis_sizes_low, sOrionis_sizes_high = [], [], []
 
             for line in (line for line in lines if not line.startswith('#')):
                 a = line.split()[1]
+                b = line.split()[2][1:-1]
+                c, d = b.split('-')
                 sOrionis_sizes_au.append(float(a))
+                sOrionis_sizes_low.append(float(c))
+                sOrionis_sizes_high.append(float(d))
 
             if log:
                 sOrionis_sorted_disk_sizes = numpy.sort(numpy.array(numpy.log10(sOrionis_sizes_au)))
+                sOrionis_sorted_low = numpy.array([numpy.log10(x) for _, x in sorted(zip(sOrionis_sizes_au, sOrionis_sizes_low))])
+                sOrionis_sorted_high = numpy.array([numpy.log10(x) for _, x in sorted(zip(sOrionis_sizes_au, sOrionis_sizes_high))])
+
             else:
                 sOrionis_sorted_disk_sizes = numpy.sort(numpy.array(sOrionis_sizes_au))
+                sOrionis_sorted_low = numpy.array([x for _, x in sorted(zip(sOrionis_sizes_au, sOrionis_sizes_low))])
+                sOrionis_sorted_high = numpy.array([x for _, x in sorted(zip(sOrionis_sizes_au, sOrionis_sizes_high))])
 
             p = 1. * numpy.arange(len(sOrionis_sorted_disk_sizes)) / (len(sOrionis_sorted_disk_sizes) - 1)
 
             axs[1, 0].plot(sOrionis_sorted_disk_sizes, p, ls='-', lw=2, label="$\sigma$ Orionis")
+            axs[1, 0].fill_betweenx(p,
+                                    sOrionis_sorted_low, sOrionis_sorted_high,
+                                    alpha='0.2')
             axs[1, 0].set_title('sOrionis')
 
         elif t == 5.:
@@ -1070,31 +1082,38 @@ def cdfs_with_observations_size(open_path, save_path, N, times, log=False):
                                  sizes_low, sizes_high,
                                  alpha='0.2')
 
-            # UpperSco data (Barenfeld et al 2016)
+            # UpperSco data (Barenfeld et al 2017)
             lines = open('data/UpperSco_sizes.txt', 'r').readlines()
-            uppersco_sizes_arsec, errors_arsec = [], []
+            uppersco_sizes, uppersco_errors_low, uppersco_errors_high = [], [], []
 
             for line in (line for line in lines if not line.startswith('#')):
                 a = line.split()[7]
                 b = line.split()[8]
-                uppersco_sizes_arsec.append(float(a))
-                errors_arsec.append(float(b))
-
-            uppersco_sizes_arsec = numpy.array(uppersco_sizes_arsec)
-            uppersco_sizes_arsec = uppersco_sizes_arsec[uppersco_sizes_arsec > 0.0]
-
-            uppersco_distance_pc = 145
-            uppersco_distance_au = 2.0626 * pow(10, 5) * uppersco_distance_pc
-            uppersco_sizes_au = (numpy.pi / 180) * (uppersco_sizes_arsec / 3600.) * uppersco_distance_au
+                c = line.split()[9]
+                uppersco_sizes.append(float(a))
+                uppersco_errors_low.append(float(b[2:-1]))
+                uppersco_errors_high.append(float(c[1:-1]))
 
             if log:
-                uppersco_sorted_disk_sizes = numpy.sort(numpy.log10(uppersco_sizes_au))
+                uppersco_sorted_disk_sizes = numpy.sort(numpy.log10(uppersco_sizes))
+                uppersco_low_sorted = numpy.array([numpy.log10(x) for _, x in sorted(zip(uppersco_sizes, uppersco_errors_low))])
+                uppersco_high_sorted = numpy.array([numpy.log10(x) for _, x in sorted(zip(uppersco_sizes, uppersco_errors_high))])
             else:
-                uppersco_sorted_disk_sizes = numpy.sort(uppersco_sizes_au)
+                uppersco_sorted_disk_sizes = numpy.sort(uppersco_sizes)
+                uppersco_low_sorted = numpy.array([x for _, x in sorted(zip(uppersco_sizes, uppersco_errors_low))])
+                uppersco_high_sorted = numpy.array([x for _, x in sorted(zip(uppersco_sizes, uppersco_errors_high))])
+
+            uppersco_low = uppersco_sorted_disk_sizes - uppersco_low_sorted
+            uppersco_high = uppersco_sorted_disk_sizes + uppersco_high_sorted
+
+            print uppersco_sorted_disk_sizes, uppersco_low_sorted, uppersco_high_sorted
 
             p = 1. * numpy.arange(len(uppersco_sorted_disk_sizes)) / (len(uppersco_sorted_disk_sizes) - 1)
 
             axs[1, 1].plot(uppersco_sorted_disk_sizes, p, ls='-', lw=2, label='Upper Scorpio')
+            axs[1, 1].fill_betweenx(p,
+                                    uppersco_low, uppersco_high,
+                                    alpha='0.2')
             axs[1, 1].set_title('UpperSco')
 
     ax1 = pyplot.gca()

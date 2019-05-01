@@ -1,4 +1,4 @@
-# Mauco et al 2016
+# Mauco et al 2016  2016ApJ...829...38M
 #Table 7
 #Estimated Disk Parameters
 #
