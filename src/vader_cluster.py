@@ -497,7 +497,7 @@ def main(N, Rvir, Qvir, dist, alpha, ncells, t_ini, t_end, save_interval, run_nu
 
             # Saving these values to keep track of dispersed disks later on
             s.dispersed_disk_mass = 0.01 * s.disk_mass  # Disk is dispersed if it has lost 99% of its initial mass
-            s.dispersion_threshold = 1E-4 | units.g / units.cm**2  # Density threshold for dispersed disks
+            s.dispersion_threshold = 1 | units.g / units.cm**2  # Density threshold for dispersed disks
             s.dispersed = False
             s.checked = False  # I need this to keep track of dispersed disk checks
             s.dispersal_time = t
@@ -885,7 +885,8 @@ def main(N, Rvir, Qvir, dist, alpha, ncells, t_ini, t_end, save_interval, run_nu
             ss.photoevap_mass_loss = total_photoevap_mass_loss
             ss.cumulative_photoevap_mass_loss += total_photoevap_mass_loss
 
-            if ss.cumulative_photoevap_mass_loss >= ss.initial_disk_mass:  # Disk is gone by photoevaporation
+            if ss.cumulative_photoevap_mass_loss >= ss.initial_disk_mass or ss.disk_mass < 1E-5 | units.MSun:
+                # Disk is gone by photoevaporation
                 ss.disk_radius = 0. | units.au
                 ss.disk_mass = 0. | units.MSun
                 ss.dispersed = True
