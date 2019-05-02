@@ -156,7 +156,7 @@ def get_disk_density(disk):
     radius = get_disk_radius(disk)
     radius_index = numpy.where(disk.grid.r.value_in(units.au) == radius.value_in(units.au))
     density = disk.grid[:radius_index[0][0]].column_density.value_in(units.g / units.cm**2)
-    return numpy.median(density)
+    return numpy.median(density) | (units.g / units.cm**2)
 
 
 def accretion_rate(mass):
