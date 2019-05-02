@@ -794,6 +794,73 @@ def cdfs_w_old(open_path, labels, colors, density, N, t):
     pyplot.show()
     #fig.savefig('plot2.png')
 
+def cdfs_in_time(p, save_path, N, times):
+    """ Plot cumulative distributions of disk sizes (au) and masses (MJup).
+
+    :param open_path: list of folders to use
+    :param save_path: location where the figures are saved
+    :param N: number of stars
+    :param t: time to show in plot
+    """
+    pyplot.figure(1)
+    pyplot.figure(2)
+
+
+    for t in times:
+        f = '{0}/N{1}_t{2}.hdf5'.format(p, N, t)
+        stars = io.read_set_from_file(f, 'hdf5', close_file=True)
+
+        # Take only the small stars
+        #density = 1E-7
+        small_stars = stars[stars.stellar_mass.value_in(units.MSun) <= 1.9]
+        #small_stars = small_stars[small_stars.disk_mass.value_in(units.MSun) /
+         #                         (numpy.pi * small_stars.disk_radius.value_in(units.au) ** 2) > density]
+        small_stars = small_stars[small_stars.dispersed == False]
+        #disked_stars = small_stars[small_stars.photoevap_mass_loss < small_stars.initial_disk_mass]
+
+        disk_sizes, disk_masses = 2. * small_stars.disk_radius.value_in(units.au), small_stars.disk_mass.value_in(units.MJupiter)
+
+        sorted_disk_sizes = numpy.sort(disk_sizes)
+        sorted_disk_masses = numpy.sort(disk_masses)
+
+        cumulative_sizes = numpy.array([float(x) for x in numpy.arange(sorted_disk_sizes.size + 1)])
+        cumulative_masses = numpy.array([float(x) for x in numpy.arange(sorted_disk_masses.size + 1)])
+
+        pyplot.figure(1)
+        pyplot.plot(numpy.concatenate([sorted_disk_sizes, sorted_disk_sizes[[-1]]]),
+                cumulative_sizes / len(cumulative_sizes),
+                lw=2, label=t)
+
+        pyplot.figure(2)
+        pyplot.plot(numpy.concatenate([sorted_disk_masses, sorted_disk_masses[[-1]]]),
+                cumulative_masses / len(cumulative_masses),
+                lw=2, label=t)
+
+    pyplot.figure(1)
+    ax1 = pyplot.gca()
+    ax1.legend()
+    #ax1.legend(loc='lower right', fontsize=20)
+    #ax1.set_title('CDF of disk sizes, t = {0} Myr'.format(t))
+    ax1.set_xlabel(r'$d_{disk}$ [au]')
+    ax1.set_ylabel(r'$f < d_{disk}$')
+    ax1.annotate('{0} surviving disks'.format(len(disk_sizes)), xy=(300, 0.2), fontsize=40)
+    pyplot.tight_layout()
+    pyplot.savefig('{0}/CDF_size_in_time.png'.format(save_path, t))
+
+    pyplot.figure(2)
+    ax2 = pyplot.gca()
+    ax2.legend()
+    #ax2.legend(loc='lower right', fontsize=20)
+    #ax2.set_title('CDF of disk masses, t = {0} Myr'.format(t))
+    ax2.set_xlabel(r'$M_{disk}$ [$M_{Jupiter}$]')
+    ax2.set_ylabel(r'$f < M_{disk}$')
+    ax2.annotate('{0} surviving disks'.format(len(disk_sizes)), xy=(30, 0.2), fontsize=40)
+    pyplot.tight_layout()
+    pyplot.savefig('{0}/CDF_mass_in_time.png'.format(save_path, t))
+
+    pyplot.show()
+
+
 
 def cdfs(open_path, save_path, N, t):
     """ Plot cumulative distributions of disk sizes (au) and masses (MJup).
@@ -1045,7 +1112,7 @@ def cdfs_with_observations_size(open_path, save_path, N, times, log=False):
                                  alpha='0.2')
 
             # sigma Orionis data (Mauco et al 2016)
-            lines = open('data/sigmaOrionis.txt', 'r').readlines()
+            lines = open('data/sigmaOrionis_sizes.txt', 'r').readlines()
             sOrionis_sizes_au, sOrionis_sizes_low, sOrionis_sizes_high = [], [], []
 
             for line in (line for line in lines if not line.startswith('#')):
@@ -1127,7 +1194,7 @@ def cdfs_with_observations_size(open_path, save_path, N, times, log=False):
     pyplot.show()
 
 
-def cdfs_with_observations_mass(open_path, save_path, N, t, log=False):
+def cdfs_with_observations_mass(open_path, save_path, N, times, log=True):
     """ Plot cumulative distributions of disk sizes (au) and masses (MJup).
 
     :param open_path: list of folders to use
@@ -1136,213 +1203,252 @@ def cdfs_with_observations_mass(open_path, save_path, N, t, log=False):
     :param t: time to show in plot
     :param log: if True, plot in logscale
     """
-    pyplot.figure(1)
-    pyplot.figure(2)
+    fig, axs = pyplot.subplots(2, 3)
 
-    all_sorted_disk_masses, all_sorted_disk_sizes = [], []
+    for t in times:
+        all_sorted_disk_masses = []
+        for p in open_path:
+            f = '{0}/N{1}_t{2}.hdf5'.format(p, N, t)
+            stars = io.read_set_from_file(f, 'hdf5', close_file=True)
 
-    for p in open_path:
-        f = '{0}/N{1}_t{2}.hdf5'.format(p, N, t)
-        stars = io.read_set_from_file(f, 'hdf5', close_file=True)
+            # Take only the small stars
+            small_stars = stars[stars.stellar_mass.value_in(units.MSun) <= 1.9]
+            small_stars = small_stars[small_stars.dispersed == False]
 
-        # Take only the small stars
-        small_stars = stars[stars.stellar_mass.value_in(units.MSun) <= 1.9]
-        small_stars = small_stars[small_stars.dispersed == False]
-        #print small_stars.disk_mass.value_in(units.g) / (math.pi * small_stars.disk_radius.value_in(units.cm)**2)
-        small_stars = small_stars[1. < small_stars.disk_mass.value_in(units.g) / (math.pi * small_stars.disk_radius.value_in(units.cm)**2)]
-
-        if log:
-            sizes, masses = 2. * numpy.log10(small_stars.disk_radius.value_in(units.au)), \
-                            numpy.log10(small_stars.disk_mass.value_in(units.MJupiter))
-        else:
-             sizes, masses = 2. * small_stars.disk_radius.value_in(units.au), \
-                             small_stars.disk_mass.value_in(units.MJupiter)
-
-        sorted_disk_sizes = numpy.sort(sizes)
-        sorted_disk_masses = numpy.sort(masses)
-
-        print sorted_disk_sizes
-
-        all_sorted_disk_sizes.append(sorted_disk_sizes)
-        all_sorted_disk_masses.append(sorted_disk_masses)
-
-    disk_sizes = numpy.mean(all_sorted_disk_sizes, axis=0)
-    disk_masses = numpy.mean(all_sorted_disk_masses, axis=0)
-
-    disk_sizes_stdev = numpy.std(all_sorted_disk_sizes, axis=0)
-    disk_masses_stdev = numpy.std(all_sorted_disk_masses, axis=0)
-
-    cumulative_sizes = numpy.array([float(x) for x in numpy.arange(disk_sizes.size + 1)])
-    cumulative_masses = numpy.array([float(x) for x in numpy.arange(disk_masses.size + 1)])
-
-    sizes_low = numpy.concatenate([disk_sizes, disk_sizes[[-1]]]) \
-          - numpy.concatenate([disk_sizes_stdev, disk_sizes_stdev[[-1]]])
-    sizes_high = numpy.concatenate([disk_sizes, disk_sizes[[-1]]]) \
-           + numpy.concatenate([disk_sizes_stdev, disk_sizes_stdev[[-1]]])
-
-    masses_low = numpy.concatenate([disk_masses, disk_masses[[-1]]]) \
-          - numpy.concatenate([disk_masses_stdev, disk_masses_stdev[[-1]]])
-    masses_high = numpy.concatenate([disk_masses, disk_masses[[-1]]]) \
-           + numpy.concatenate([disk_masses_stdev, disk_masses_stdev[[-1]]])
-
-    pyplot.figure(1)
-    pyplot.plot(numpy.concatenate([disk_sizes, disk_sizes[[-1]]]),
-                cumulative_sizes / len(cumulative_sizes),
-                lw=2)
-    pyplot.fill_betweenx(cumulative_sizes / len(cumulative_sizes),
-                         sizes_low, sizes_high,
-                         alpha='0.2')
-
-    pyplot.figure(2)
-    pyplot.plot(numpy.concatenate([disk_masses, disk_masses[[-1]]]),
-                cumulative_masses / len(cumulative_masses),
-                lw=2)
-    pyplot.fill_betweenx(cumulative_masses / len(cumulative_masses),
-                         masses_low, masses_high,
-                         alpha='0.2')
-
-    # Plotting observational data now
-    pyplot.figure(1)
-
-    # Trapezium data (Vicente & Alves 2005)
-    lines = open('data/Trapezium_sizes.txt', 'r').readlines()
-    trapezium_sizes = []
-
-    for line in (line for line in lines if not line.startswith('#')):
-        data = line.split()[8]
-        trapezium_sizes.append(float(data))
-
-    trapezium_sizes = numpy.array(trapezium_sizes)
-    if log:
-        sorted_trapezium_sizes = numpy.sort(numpy.log10(trapezium_sizes[trapezium_sizes > 100.]))
-    else:
-        sorted_trapezium_sizes = numpy.sort(trapezium_sizes[trapezium_sizes > 100.])
-    p = 1. * numpy.arange(len(sorted_trapezium_sizes)) / (len(sorted_trapezium_sizes) - 1)
-    pyplot.plot(sorted_trapezium_sizes, p, ls='-', lw=2, label="Trapezium")
-    # 2.0 Myr
-    # ax.text(1.95, 0.3, 'Trapezium', fontsize=18, color=plot_colors[0], rotation=85)
-    # 1.0 Myr
-    #ax.text(1.91, 0.15, 'Trapezium', fontsize=18, color=plot_colors[0], rotation=85)
-
-    # Lupus data (Ansdell et al 2016)
-    lupus_names, lupus_distances_pc, disk_sizes_arcsec = [], [], []
-
-    i = 0
-    with open("data/Lupus_sizes.txt", 'r') as filepointer:
-        for row in filepointer:
-            if i < 31:
-                i += 1
+            if log:
+                disk_masses = numpy.log10(small_stars.disk_mass.value_in(units.MJupiter))
             else:
-                n = row.split()[0]
-                lupus_names.append(n)
-                if len(row.split()) == 18:
-                    a = row.split()[10]
-                    disk_sizes_arcsec.append(float(a))
+                disk_masses = small_stars.disk_mass.value_in(units.MJupiter)
+
+            sorted_disk_masses = numpy.sort(disk_masses)
+            all_sorted_disk_masses.append(sorted_disk_masses)
+
+        sorted_disk_masses = numpy.mean(all_sorted_disk_masses, axis=0)
+        disk_masses_stdev = numpy.std(all_sorted_disk_masses, axis=0)
+
+        cumulative_masses = numpy.array([float(x) for x in numpy.arange(sorted_disk_masses.size + 1)])
+        masses_low = sorted_disk_masses - disk_masses_stdev
+        masses_high = sorted_disk_masses + disk_masses_stdev
+
+        if t == 1.0:
+            axs[0, 0].plot(numpy.concatenate([sorted_disk_masses, sorted_disk_masses[[-1]]]),
+                        cumulative_masses / len(cumulative_masses),
+                        lw=2)
+            axs[0, 0].fill_betweenx(cumulative_masses / len(cumulative_masses),
+                                 masses_low, masses_high,
+                                 alpha='0.2')
+
+            # Trapezium data
+            r_path = 'data/Trapezium_masses.txt'  # Mann & Williams 2009
+            lines = open(r_path, 'r').readlines()
+
+            trapezium_masses = []
+            trapezium_masses_errors = []
+
+            for line in (l for l in lines if not l.startswith('#')):
+                mass = 100 * float(line.split()[7]) * 1E-2 * 1E3  # Gas masses in MJup
+                mass_error = 100 * float(line.split()[9]) * 1E-2 * 1E3
+                trapezium_masses.append(mass)
+                trapezium_masses_errors.append(mass_error)
+
+            if log:
+                trapezium_sorted_masses = numpy.sort(numpy.log10(trapezium_masses))
+                trapezium_sorted_errors = numpy.array([numpy.log10(x) for _, x in sorted(zip(trapezium_masses, trapezium_masses_errors))])
+            else:
+                trapezium_sorted_masses = numpy.sort(trapezium_masses)
+                trapezium_sorted_errors = numpy.array([x for _, x in sorted(zip(trapezium_masses, trapezium_masses_errors))])
+
+            p = 1. * numpy.arange(len(trapezium_sorted_masses)) / (len(trapezium_sorted_masses) - 1)
+            trapezium_low = trapezium_sorted_masses - trapezium_sorted_errors
+            trapezium_high = trapezium_sorted_masses + trapezium_sorted_errors
+
+            axs[0, 0].plot(trapezium_sorted_masses, p, ls='-', lw=3)
+            axs[0, 0].fill_betweenx(p,
+                                    trapezium_low, trapezium_high,
+                                    alpha='0.2')
+            axs[0, 0].set_title('Trapezium')
+
+        elif t == 2.0:
+            axs[0, 1].plot(numpy.concatenate([sorted_disk_masses, sorted_disk_masses[[-1]]]),
+                        cumulative_masses / len(cumulative_masses),
+                        lw=2)
+            axs[0, 1].fill_betweenx(cumulative_masses / len(cumulative_masses),
+                                 masses_low, masses_high,
+                                 alpha='0.2')
+
+            # Lupus data
+            lupus_masses, lupus_low, lupus_high = [], [], []
+
+            # Masses are in MJup
+            lines = open('data/Lupus_masses.txt', 'r').readlines()
+
+            for line in (line for line in lines if not line.startswith('#')):
+                a = line.split()[5]
+                b = line.split()[6]
+                c = line.split()[7]
+
+                try:
+                    lupus_masses.append(float(a))
+
+                    if b == '...':
+                        lupus_low.append(float(a))
+                    else:
+                        lupus_low.append(float(b))
+
+                    if c == '...':
+                        lupus_high.append(float(a))
+                    else:
+                        lupus_high.append(float(c))
+
+                except ValueError:
+                    lupus_masses.append(float(a[1:]))
+
+                    if b == '...':
+                        lupus_low.append(float(a[1:]))
+                    else:
+                        lupus_low.append(float(b))
+
+                    if c == '...':
+                        lupus_high.append(float(a[1:]))
+                    else:
+                        lupus_high.append(float(c))
+
+            if log:
+                lupus_sorted_masses = numpy.sort(numpy.log10(lupus_masses))
+                lupus_sorted_low = numpy.array([numpy.log10(x) for _, x in sorted(zip(lupus_masses, lupus_low))])
+                lupus_sorted_high = numpy.array([numpy.log10(x) for _, x in sorted(zip(lupus_masses, lupus_high))])
+            else:
+                lupus_sorted_masses = numpy.sort(lupus_masses)
+                lupus_sorted_low = numpy.array([x for _, x in sorted(zip(lupus_masses, lupus_low))])
+                lupus_sorted_high = numpy.array([x for _, x in sorted(zip(lupus_masses, lupus_high))])
+
+            p = 1. * numpy.arange(len(lupus_sorted_masses)) / (len(lupus_sorted_masses) - 1)
+            axs[0, 1].plot(lupus_sorted_masses, p, ls='-', lw=3)
+            axs[0, 1].fill_betweenx(p,
+                                    lupus_sorted_low, lupus_sorted_high,
+                                    alpha='0.2')
+            axs[0, 1].set_title('Lupus')
+
+        elif t == 2.5:
+            axs[0, 2].plot(numpy.concatenate([sorted_disk_masses, sorted_disk_masses[[-1]]]),
+                        cumulative_masses / len(cumulative_masses),
+                        lw=2)
+            axs[0, 2].fill_betweenx(cumulative_masses / len(cumulative_masses),
+                                 masses_low, masses_high,
+                                 alpha='0.2')
+
+            # Chamaeleon I data (Mulders et al 2017)
+            lines = open('data/ChamI_masses.txt', 'r').readlines()
+            cham_masses, cham_masses_error = [], []
+
+            for line in (line for line in lines if not line.startswith('#')):  # DUST masses
+                a = line.split()[8]
+                b = line.split()[9]
+
+                cham_masses.append(float(a) / numpy.log10(317.8))  # MEarth to MJup conversion
+                cham_masses_error.append(float(b) / numpy.log10(317.8))
+
+            if log:
+                cham_sorted_masses = 2. * numpy.sort(cham_masses)  # data already in log
+                cham_sorted_error = numpy.array([2 * x for _, x in sorted(zip(cham_masses, cham_masses_error))])
+            else:
+                cham_sorted_masses = numpy.sort(100 * numpy.power(10, cham_masses))
+                cham_sorted_error = numpy.array([100 * numpy.power(10, x) for _, x in sorted(zip(cham_masses, cham_masses_error))])
+
+            p = 1. * numpy.arange(len(cham_sorted_masses)) / (len(cham_sorted_masses) - 1)
+            cham_low = cham_sorted_masses - cham_sorted_error
+            cham_high = cham_sorted_masses + cham_sorted_error
+
+            axs[0, 2].plot(cham_sorted_masses, p, ls='-', lw=3)
+            axs[0, 2].fill_betweenx(p,
+                                    cham_low, cham_high,
+                                    alpha='0.2')
+            axs[0, 2].set_title('ChamI')
+
+        elif t == 4.0:
+            axs[1, 0].plot(numpy.concatenate([sorted_disk_masses, sorted_disk_masses[[-1]]]),
+                        cumulative_masses / len(cumulative_masses),
+                        lw=2)
+            axs[1, 0].fill_betweenx(cumulative_masses / len(cumulative_masses),
+                                 masses_low, masses_high,
+                                 alpha='0.2')
+
+            # sigma Orionis data (Ansdell+ 2017)
+            lines = open('data/sigmaOrionis_masses.txt', 'r').readlines()
+            sOrionis_masses, sOrionis_masses_error = [], []
+
+            for line in (line for line in lines if not line.startswith('#')):
+                a = line.split()[15]
+                b = line.split()[16]
+                sOrionis_masses.append((100 * float(a)) / 317.8)  # MEarth to MJup conversion
+                sOrionis_masses_error.append((100 * float(b)) / 317.8)  # MEarth to MJup conversion
+
+            if log:
+                sOrionis_sorted_masses = numpy.sort(numpy.array(numpy.log10(sOrionis_masses)))
+                sOrionis_sorted_error = numpy.array([numpy.log10(x) for _, x in sorted(zip(sOrionis_masses, sOrionis_masses_error))])
+            else:
+                sOrionis_sorted_masses = numpy.sort(numpy.array(sOrionis_masses))
+                sOrionis_sorted_error = numpy.array([x for _, x in sorted(zip(sOrionis_masses, sOrionis_masses_error))])
+
+            p = 1. * numpy.arange(len(sOrionis_sorted_masses)) / (len(sOrionis_sorted_masses) - 1)
+            sOrionis_low = sOrionis_sorted_masses - sOrionis_sorted_error
+            sOrionis_high = sOrionis_sorted_masses + sOrionis_sorted_error
+            axs[1, 0].plot(sOrionis_sorted_masses, p, ls='-', lw=3)
+            axs[1, 0].fill_betweenx(p,
+                                    sOrionis_low, sOrionis_high,
+                                    alpha='0.2')
+            axs[1, 0].set_title('sigma Orionis')
+
+        elif t == 5.0:
+            axs[1, 1].plot(numpy.concatenate([sorted_disk_masses, sorted_disk_masses[[-1]]]),
+                        cumulative_masses / len(cumulative_masses),
+                        lw=2)
+            axs[1, 1].fill_betweenx(cumulative_masses / len(cumulative_masses),
+                                 masses_low, masses_high,
+                                 alpha='0.2')
+
+            # UpperSco data (Barenfeld et al 2016)
+            lines = open('data/UpperSco_masses.txt', 'r').readlines()
+            uppersco_masses, uppersco_masses_error = [], []
+
+            for line in (line for line in lines if not line.startswith('#')):
+                a = line.split()[1]
+                b = line.split()[2]
+
+                try:
+                    uppersco_masses.append((float(a) * 100) / 317.8)  # Dust mass to gas mass and MEarth to MJup conversion
+                except ValueError:
+                    uppersco_masses.append((float(a[1:]) * 100) / 317.8)
+
+                if b == "...":
+                    uppersco_masses_error.append(0.0)
                 else:
-                    disk_sizes_arcsec.append(0)
-    filepointer.close()
+                    uppersco_masses_error.append(float(b) * 100)
 
-    i = 0
-    with open("data/Lupus_stellar.txt", 'r') as filepointer:
-        for row in filepointer:
-            if i < 28:
-                i += 1
+            if log:
+                uppersco_sorted_masses = numpy.sort(numpy.log10(uppersco_masses))
+                uppersco_sorted_error = numpy.array([numpy.log10(x) for _, x in sorted(zip(uppersco_masses, uppersco_masses_error))])
             else:
-                name = row.split()[0]
-                if name in lupus_names:
-                    distance = row.split()[1]
-                    lupus_distances_pc.append(float(distance))
-    filepointer.close()
+                uppersco_sorted_masses = numpy.sort(uppersco_masses)
+                uppersco_sorted_error = numpy.array([x for _, x in sorted(zip(uppersco_masses, uppersco_masses_error))])
 
-    lupus_distances_au = 2.0626 * pow(10, 5) * numpy.array(lupus_distances_pc[lupus_distances_pc > 0])
-    disk_sizes_au = (numpy.pi / 180) * (numpy.array(disk_sizes_arcsec) / 3600) * lupus_distances_au
-    if log:
-        sorted_lupus_disk_sizes_au = numpy.sort(numpy.log10(disk_sizes_au[disk_sizes_au > 0]))
-    else:
-        sorted_lupus_disk_sizes_au = numpy.sort(disk_sizes_au[disk_sizes_au > 0])
-    p = 1. * numpy.arange(len(sorted_lupus_disk_sizes_au)) / (len(sorted_lupus_disk_sizes_au) - 1)
-    pyplot.plot(sorted_lupus_disk_sizes_au, p, ls='-', lw=2, label='Lupus clouds')
+            p = 1. * numpy.arange(len(uppersco_sorted_masses)) / (len(uppersco_sorted_masses) - 1)
+            uppersco_low = uppersco_sorted_masses - uppersco_sorted_error
+            uppersco_high = uppersco_sorted_masses + uppersco_sorted_error
 
-    # Chamaeleon I data (Pascucci et al 2016)
-    lines = open('data/ChamI_sizes.txt', 'r').readlines()
-    cham_sizes_arsec = []
+            axs[1, 1].plot(uppersco_sorted_masses, p, ls='-', lw=3)
+            axs[1, 1].fill_betweenx(p,
+                                    uppersco_low, uppersco_high,
+                                    alpha='0.2')
+            axs[1, 1].set_title('UpperSco')
 
-    for line in (line for line in lines if not line.startswith('#')):
-        a = line.split()[7]
-        b = line.split()[8]
-        if a > b:
-            cham_sizes_arsec.append(float(a))
-        else:
-            cham_sizes_arsec.append(float(b))
-
-    cham_sizes_arsec = numpy.array(cham_sizes_arsec)
-    cham_sizes_arsec = cham_sizes_arsec[cham_sizes_arsec > 0.0]
-
-    cham_distance_pc = 160
-    cham_distance_au = 2.0626 * pow(10, 5) * cham_distance_pc
-    cham_sizes_au = (numpy.pi / 180) * (cham_sizes_arsec / 3600.) * cham_distance_au
-    if log:
-        cham_sorted_disk_sizes = numpy.sort(numpy.log10(cham_sizes_au))
-    else:
-        cham_sorted_disk_sizes = numpy.sort(cham_sizes_au)
-    p = 1. * numpy.arange(len(cham_sorted_disk_sizes)) / (len(cham_sorted_disk_sizes) - 1)
-    pyplot.plot(cham_sorted_disk_sizes, p, ls='-', lw=2, label='Chamaeleon I')
-
-    # UpperSco data (Barenfeld et al 2016)
-    lines = open('data/UpperSco_sizes.txt', 'r').readlines()
-    uppersco_sizes_arsec, errors_arsec = [], []
-
-    for line in (line for line in lines if not line.startswith('#')):
-        a = line.split()[7]
-        b = line.split()[8]
-        uppersco_sizes_arsec.append(float(a))
-        errors_arsec.append(float(b))
-
-    uppersco_sizes_arsec = numpy.array(uppersco_sizes_arsec)
-    uppersco_sizes_arsec = uppersco_sizes_arsec[uppersco_sizes_arsec > 0.0]
-
-    uppersco_distance_pc = 145
-    uppersco_distance_au = 2.0626 * pow(10, 5) * uppersco_distance_pc
-    uppersco_sizes_au = (numpy.pi / 180) * (uppersco_sizes_arsec / 3600.) * uppersco_distance_au
-    if log:
-        uppersco_sorted_disk_sizes = numpy.sort(numpy.log10(uppersco_sizes_au))
-    else:
-        uppersco_sorted_disk_sizes = numpy.sort(uppersco_sizes_au)
-    p = 1. * numpy.arange(len(uppersco_sorted_disk_sizes)) / (len(uppersco_sorted_disk_sizes) - 1)
-    pyplot.plot(uppersco_sorted_disk_sizes, p, ls='-', lw=2, label='Upper Scorpio')
-
-    # sigma Orionis data (Mauco et al 2016)
-    lines = open('data/sigmaOrionis.txt', 'r').readlines()
-    sOrionis_sizes_au = []
-
-    for line in (line for line in lines if not line.startswith('#')):
-        a = line.split()[1]
-        sOrionis_sizes_au.append(float(a))
-
-    if log:
-        sOrionis_sorted_disk_sizes = numpy.sort(numpy.array(numpy.log10(sOrionis_sizes_au)))
-    else:
-        sOrionis_sorted_disk_sizes = numpy.sort(numpy.array(sOrionis_sizes_au))
-    p = 1. * numpy.arange(len(sOrionis_sorted_disk_sizes)) / (len(sOrionis_sorted_disk_sizes) - 1)
-    pyplot.plot(sOrionis_sorted_disk_sizes, p, ls='-', lw=2, label="$\sigma$ Orionis")
-
-    pyplot.figure(1)
-    ax1 = pyplot.gca()
-    ax1.legend()
-    #ax1.set_title('CDF of disk sizes, t = {0} Myr'.format(t))
-    ax1.set_xlabel(r'$d_{disk}$ [au]')
-    ax1.set_ylabel(r'$f < d_{disk}$')
-    pyplot.tight_layout()
-    pyplot.savefig('{0}/CDF_data_size_t{1}.png'.format(save_path, t))
-
-    pyplot.figure(2)
-    ax2 = pyplot.gca()
-    #ax2.legend(loc='lower right', fontsize=20)
-    #ax2.set_title('CDF of disk masses, t = {0} Myr'.format(t))
-    ax2.set_xlabel(r'$M_{disk}$ [$M_{Jupiter}$]')
-    ax2.set_ylabel(r'$f < M_{disk}$')
-    pyplot.tight_layout()
-    pyplot.savefig('{0}/CDF_data_mass_t{1}.png'.format(save_path, t))
+        ax2 = pyplot.gca()
+        #ax2.legend(loc='lower right', fontsize=20)
+        #ax2.set_title('CDF of disk masses, t = {0} Myr'.format(t))
+        ax2.set_xlabel(r'$M_{disk}$ [$M_{Jupiter}$]')
+        ax2.set_ylabel(r'$f < M_{disk}$')
+        pyplot.tight_layout()
+        pyplot.savefig('{0}/CDF_data_mass_t{1}.png'.format(save_path, t))
 
     pyplot.show()
 
@@ -1523,9 +1629,9 @@ def main(run_number, save_path, time, N, distribution, ncells, density, i, all_d
     #pyplot.show()
     else:
         #disk_fractions(N, paths, save_path)
-        #cdfs(paths, save_path, N, time)
         times = [1.0, 2.0, 2.5, 4.0, 5.0]
-        cdfs_with_observations_size(paths, save_path, N, times)
+        #cdfs_in_time(path, save_path, N, times)
+        cdfs_with_observations_mass(paths, save_path, N, times)
 
         # For presentation
         #cdfs_w_old(paths, labels, plot_colors, density, N, time)
