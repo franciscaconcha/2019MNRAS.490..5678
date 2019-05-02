@@ -155,7 +155,7 @@ def get_disk_mass(disk, radius):
 def get_disk_density(disk):
     radius = get_disk_radius(disk)
     radius_index = numpy.where(disk.grid.r.value_in(units.au) == radius.value_in(units.au))
-    density = disk.grid[:radius_index[0][0]].column_density
+    density = disk.grid[:radius_index[0][0]].column_density.value_in(units.g / units.cm**2)
     return numpy.median(density)
 
 
@@ -752,7 +752,6 @@ def main(N, Rvir, Qvir, dist, alpha, ncells, t_ini, t_end, save_interval, run_nu
 
                 # Check for dispersed disks
                 disk_density = get_disk_density(c)
-                print disk_density.value_in(units.g / units.cm**2)
                 #disk_density = get_disk_mass(c, s.disk_radius).value_in(units.g) / (numpy.pi * s.disk_radius.value_in(units.cm)**2) | units.g / units.cm**2
 
                 # Check for dispersed disks
