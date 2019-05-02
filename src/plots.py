@@ -1248,12 +1248,15 @@ def cdfs_with_observations_mass(open_path, save_path, N, times, colors, labels, 
     :param t: time to show in plot
     :param log: if True, plot in logscale
     """
-    fig = pyplot.figure()
-    axs00 = pyplot.subplot2grid((2, 6), (0, 0), colspan=2)
-    axs01 = pyplot.subplot2grid((2, 6), (0, 2), colspan=2)
-    axs02 = pyplot.subplot2grid((2, 6), (0, 4), colspan=2)
-    axs10 = pyplot.subplot2grid((2, 6), (1, 1), colspan=2)
-    axs11 = pyplot.subplot2grid((2, 6), (1, 3), colspan=2)
+    fig = pyplot.figure(figsize=(14, 12))
+    axs00 = pyplot.subplot2grid((6, 6), (0, 0), colspan=2, rowspan=2)
+    axs01 = pyplot.subplot2grid((6, 6), (0, 2), colspan=2, rowspan=2)
+    axs02 = pyplot.subplot2grid((6, 6), (0, 4), colspan=2, rowspan=2)
+    axs10 = pyplot.subplot2grid((6, 6), (2, 0), colspan=2, rowspan=2)
+    axs11 = pyplot.subplot2grid((6, 6), (2, 2), colspan=2, rowspan=2)
+    axs12 = pyplot.subplot2grid((6, 6), (2, 4), colspan=2, rowspan=2)
+    axs20 = pyplot.subplot2grid((6, 6), (4, 1), colspan=2, rowspan=2)
+    axs21 = pyplot.subplot2grid((6, 6), (4, 3), colspan=2, rowspan=2)
 
     for t in times:
         all_sorted_disk_masses = []
@@ -1442,12 +1445,57 @@ def cdfs_with_observations_mass(open_path, save_path, N, times, colors, labels, 
                            color=colors[2],
                            label=labels[2])
             axs02.fill_betweenx(p,
-                                    cham_low, cham_high,
-                                    alpha='0.2', facecolor=colors[2])
+                                cham_low, cham_high,
+                                alpha='0.2', facecolor=colors[2])
             axs02.set_title('Chamaeleon I')
             #axs02.legend()
             axs02.set_xlabel(r'$M_{disk}$ [$M_{Jupiter}$]')
             axs02.set_ylabel(r'$f < M_{disk}$')
+
+            axs12.plot(numpy.concatenate([disk_masses, disk_masses[[-1]]]),
+                        cumulative_masses / len(cumulative_masses),
+                        lw=2, color='black')
+            axs12.fill_betweenx(cumulative_masses / len(cumulative_masses),
+                                 masses_low, masses_high,
+                                 alpha='0.2', facecolor='black')
+
+            # IC 348 data (Ruiz-Rodriguez et al 2018)
+            lines = open('data/IC348_masses.txt', 'r').readlines()
+            ic348_masses, ic348_masses_error = [], []
+
+            for line in (line for line in lines if not line.startswith('#')):  # DUST masses
+                if len(line.split()) == 11:
+                    a = line.split()[8]
+                    b = line.split()[10]
+                else:
+                    a = line.split()[10]
+                    b = line.split()[12]
+
+                ic348_masses.append(float(a))
+                ic348_masses_error.append(float(b))
+
+            if log:
+                ic348_sorted_masses = 2. * numpy.sort(numpy.log10(ic348_masses))
+                ic348_sorted_error = numpy.array([2 * numpy.log10(x) for _, x in sorted(zip(ic348_masses, ic348_masses_error))])
+            else:
+                ic348_sorted_masses = numpy.sort(100 * ic348_masses)
+                ic348_sorted_error = numpy.array([100 * x for _, x in sorted(zip(ic348_masses, ic348_masses_error))])
+
+            p = 1. * numpy.arange(len(ic348_sorted_masses)) / (len(ic348_sorted_masses) - 1)
+            ic348_low = ic348_sorted_masses - ic348_sorted_error
+            ic348_high = ic348_sorted_masses + ic348_sorted_error
+
+            axs12.plot(ic348_sorted_masses, p,
+                        ls='-', lw=3,
+                        color=colors[5],
+                        label=labels[5])
+            axs12.fill_betweenx(p,
+                                ic348_low, ic348_high,
+                                alpha='0.2', facecolor=colors[5])
+            axs12.set_title('IC 348')
+            #axs02.legend()
+            axs12.set_xlabel(r'$M_{disk}$ [$M_{Jupiter}$]')
+            axs12.set_ylabel(r'$f < M_{disk}$')
 
         elif t == 4.0:
             axs10.plot(numpy.concatenate([disk_masses, disk_masses[[-1]]]),
@@ -1539,8 +1587,9 @@ def cdfs_with_observations_mass(open_path, save_path, N, times, colors, labels, 
             axs11.set_xlabel(r'$M_{disk}$ [$M_{Jupiter}$]')
             axs11.set_ylabel(r'$f < M_{disk}$')
 
-        pyplot.tight_layout()
-        pyplot.savefig('{0}/CDF_data_mass_t{1}.png'.format(save_path, t))
+    pyplot.tight_layout()
+    pyplot.subplots_adjust(wspace=1.5, hspace=2.5)  # make the figure look better
+    pyplot.savefig('{0}/CDF_data_mass.png'.format(save_path))
 
     pyplot.show()
 
@@ -1722,10 +1771,12 @@ def main(run_number, save_path, time, N, distribution, ncells, density, i, all_d
     else:
         #disk_fractions(N, paths, save_path)
         times = [1.0, 2.0, 2.5, 4.0, 5.0]
-        colors = ['#E24A33', '#348ABD', '#988ED5', '#8EBA42', '#FBC15E', '#777777', '#FFB5B8']
-        labels = ['Trapezium cluster', 'Lupus clouds', 'Chamaeleon I', '$\sigma$ Orionis', 'Upper Scorpio']
+        #colors = ['#E24A33', '#348ABD', '#988ED5', '#8EBA42', '#FFB5B8', '#FBC15E', '#777777']
+        #colors = ['#0072B2', '#009E73', '#D55E00', '#CC79A7', '#56B4E9', '#F0E442'] #seaborn color blind
+        colors = ["#638ccc", "#ca5670", "#c57c3c", "#72a555", "#ab62c0", '#0072B2', '#009E73', '#D55E00']  # colors from my prev paper
+        labels = ['Trapezium cluster', 'Lupus clouds', 'Chamaeleon I', '$\sigma$ Orionis', 'Upper Scorpio', 'IC 348']
         #cdfs_in_time(path, save_path, N, times)
-        cdfs_with_observations_size(paths, save_path, N, times, colors, labels)
+        #cdfs_with_observations_size(paths, save_path, N, times, colors, labels)
         cdfs_with_observations_mass(paths, save_path, N, times, colors, labels, log=True)
 
         # For presentation
