@@ -958,7 +958,7 @@ def cdfs(open_path, save_path, N, t):
     pyplot.show()
 
 
-def cdfs_with_observations_size(open_path, save_path, N, times, log=False):
+def cdfs_with_observations_size(open_path, save_path, N, times, colors, labels, log=False):
     """ Plot cumulative distributions of disk sizes (au) and masses (MJup).
 
     :param open_path: list of folders to use
@@ -967,7 +967,12 @@ def cdfs_with_observations_size(open_path, save_path, N, times, log=False):
     :param t: time to show in plot
     :param log: if True, plot in logscale
     """
-    fig, axs = pyplot.subplots(2, 3)
+    fig = pyplot.figure()
+    axs00 = pyplot.subplot2grid((2, 6), (0, 0), colspan=2)
+    axs01 = pyplot.subplot2grid((2, 6), (0, 2), colspan=2)
+    axs02 = pyplot.subplot2grid((2, 6), (0, 4), colspan=2)
+    axs10 = pyplot.subplot2grid((2, 6), (1, 1), colspan=2)
+    axs11 = pyplot.subplot2grid((2, 6), (1, 3), colspan=2)
 
     for t in times:
         all_sorted_disk_sizes = []
@@ -989,8 +994,22 @@ def cdfs_with_observations_size(open_path, save_path, N, times, log=False):
             sorted_disk_sizes = numpy.sort(sizes)
             all_sorted_disk_sizes.append(sorted_disk_sizes)
 
-        disk_sizes = numpy.mean(all_sorted_disk_sizes, axis=0)
-        disk_sizes_stdev = numpy.std(all_sorted_disk_sizes, axis=0)
+        try:
+            disk_sizes = numpy.mean(all_sorted_disk_sizes, axis=0)
+            disk_sizes_stdev = numpy.std(all_sorted_disk_sizes, axis=0)
+        except ValueError:
+            max_len = 0
+            for a in all_sorted_disk_sizes:
+                if len(a) > max_len:
+                    max_len = len(a)
+
+            new_sorted = []
+            for a in all_sorted_disk_sizes:
+                b = numpy.pad(a, (max_len - len(a), 0), 'constant')
+                new_sorted.append(b)
+
+            disk_sizes = numpy.mean(new_sorted, axis=0)
+            disk_sizes_stdev = numpy.std(new_sorted, axis=0)
 
         cumulative_sizes = numpy.array([float(x) for x in numpy.arange(disk_sizes.size + 1)])
 
@@ -1002,12 +1021,12 @@ def cdfs_with_observations_size(open_path, save_path, N, times, log=False):
         # Plotting together with observational data now, according to their age t
 
         if t == 1.:
-            axs[0, 0].plot(numpy.concatenate([disk_sizes, disk_sizes[[-1]]]),
+            axs00.plot(numpy.concatenate([disk_sizes, disk_sizes[[-1]]]),
                         cumulative_sizes / len(cumulative_sizes),
-                        lw=2)
-            axs[0, 0].fill_betweenx(cumulative_sizes / len(cumulative_sizes),
+                        lw=2, color='black')
+            axs00.fill_betweenx(cumulative_sizes / len(cumulative_sizes),
                                  sizes_low, sizes_high,
-                                 alpha='0.2')
+                                 alpha='0.2', facecolor='black')
 
             # Trapezium data (Vicente & Alves 2005)
             lines = open('data/Trapezium_sizes.txt', 'r').readlines()
@@ -1026,16 +1045,23 @@ def cdfs_with_observations_size(open_path, save_path, N, times, log=False):
 
             p = 1. * numpy.arange(len(sorted_trapezium_sizes)) / (len(sorted_trapezium_sizes) - 1)
 
-            axs[0, 0].plot(sorted_trapezium_sizes, p, ls='-', lw=2, label="Trapezium")
-            axs[0, 0].set_title('Trapezium')
+            axs00.plot(sorted_trapezium_sizes,
+                           p,
+                           ls='-', lw=2,
+                           color=colors[0],
+                           label=labels[0])
+            axs00.set_title('Trapezium')
+            #axs00.legend()
+            axs00.set_xlabel(r'$d_{disk}$ [au]')
+            axs00.set_ylabel(r'$f < d_{disk}$')
 
         elif t == 2.:
-            axs[0, 1].plot(numpy.concatenate([disk_sizes, disk_sizes[[-1]]]),
+            axs01.plot(numpy.concatenate([disk_sizes, disk_sizes[[-1]]]),
                         cumulative_sizes / len(cumulative_sizes),
-                        lw=2)
-            axs[0, 1].fill_betweenx(cumulative_sizes / len(cumulative_sizes),
+                        lw=2, color='black')
+            axs01.fill_betweenx(cumulative_sizes / len(cumulative_sizes),
                                  sizes_low, sizes_high,
-                                 alpha='0.2')
+                                 alpha='0.2', facecolor='black')
 
             # Lupus data (Ansdell et al 2018)
             gas_disk_sizes, gas_disk_sizes_error = [], []
@@ -1060,19 +1086,25 @@ def cdfs_with_observations_size(open_path, save_path, N, times, log=False):
             low_lupus = sorted_lupus_disk_sizes - sorted_lupus_disk_sizes_errors
             high_lupus = sorted_lupus_disk_sizes + sorted_lupus_disk_sizes_errors
 
-            axs[0, 1].plot(sorted_lupus_disk_sizes, p, ls='-', lw=2, label='Lupus clouds')
-            axs[0, 1].fill_betweenx(p,
+            axs01.plot(sorted_lupus_disk_sizes, p,
+                           ls='-', lw=2,
+                           color=colors[1],
+                           label=labels[1])
+            axs01.fill_betweenx(p,
                                     low_lupus, high_lupus,
-                                    alpha='0.2')
-            axs[0, 1].set_title('Lupus clouds')
+                                    alpha='0.2', facecolor=colors[1])
+            axs01.set_title('Lupus clouds')
+            #axs01.legend()
+            axs01.set_xlabel(r'$d_{disk}$ [au]')
+            axs01.set_ylabel(r'$f < d_{disk}$')
 
         elif t == 2.5:
-            axs[0, 2].plot(numpy.concatenate([disk_sizes, disk_sizes[[-1]]]),
+            axs02.plot(numpy.concatenate([disk_sizes, disk_sizes[[-1]]]),
                         cumulative_sizes / len(cumulative_sizes),
-                        lw=2)
-            axs[0, 2].fill_betweenx(cumulative_sizes / len(cumulative_sizes),
+                        lw=2, color='black')
+            axs02.fill_betweenx(cumulative_sizes / len(cumulative_sizes),
                                  sizes_low, sizes_high,
-                                 alpha='0.2')
+                                 alpha='0.2', facecolor='black')
 
             # Chamaeleon I data (Pascucci et al 2016)
             lines = open('data/ChamI_sizes.txt', 'r').readlines()
@@ -1100,16 +1132,22 @@ def cdfs_with_observations_size(open_path, save_path, N, times, log=False):
 
             p = 1. * numpy.arange(len(cham_sorted_disk_sizes)) / (len(cham_sorted_disk_sizes) - 1)
 
-            axs[0, 2].plot(cham_sorted_disk_sizes, p, ls='-', lw=2, label='Chamaeleon I')
-            axs[0, 2].set_title('ChamI')
+            axs02.plot(cham_sorted_disk_sizes, p,
+                           ls='-', lw=2,
+                           color=colors[2],
+                           label=labels[2])
+            axs02.set_title('Chamaeleon I')
+            #axs02.legend()
+            axs02.set_xlabel(r'$d_{disk}$ [au]')
+            axs02.set_ylabel(r'$f < d_{disk}$')
 
         elif t == 4.:
-            axs[1, 0].plot(numpy.concatenate([disk_sizes, disk_sizes[[-1]]]),
+            axs10.plot(numpy.concatenate([disk_sizes, disk_sizes[[-1]]]),
                         cumulative_sizes / len(cumulative_sizes),
-                        lw=2)
-            axs[1, 0].fill_betweenx(cumulative_sizes / len(cumulative_sizes),
+                        lw=2, color='black')
+            axs10.fill_betweenx(cumulative_sizes / len(cumulative_sizes),
                                  sizes_low, sizes_high,
-                                 alpha='0.2')
+                                 alpha='0.2', facecolor='black')
 
             # sigma Orionis data (Mauco et al 2016)
             lines = open('data/sigmaOrionis_sizes.txt', 'r').readlines()
@@ -1135,19 +1173,25 @@ def cdfs_with_observations_size(open_path, save_path, N, times, log=False):
 
             p = 1. * numpy.arange(len(sOrionis_sorted_disk_sizes)) / (len(sOrionis_sorted_disk_sizes) - 1)
 
-            axs[1, 0].plot(sOrionis_sorted_disk_sizes, p, ls='-', lw=2, label="$\sigma$ Orionis")
-            axs[1, 0].fill_betweenx(p,
+            axs10.plot(sOrionis_sorted_disk_sizes, p,
+                           ls='-', lw=2,
+                           color=colors[3],
+                           label=labels[3])
+            axs10.fill_betweenx(p,
                                     sOrionis_sorted_low, sOrionis_sorted_high,
-                                    alpha='0.2')
-            axs[1, 0].set_title('sOrionis')
+                                    alpha='0.2', facecolor=colors[3])
+            axs10.set_title('$\sigma$ Orionis')
+            #axs10.legend()
+            axs10.set_xlabel(r'$d_{disk}$ [au]')
+            axs10.set_ylabel(r'$f < d_{disk}$')
 
         elif t == 5.:
-            axs[1, 1].plot(numpy.concatenate([disk_sizes, disk_sizes[[-1]]]),
+            axs11.plot(numpy.concatenate([disk_sizes, disk_sizes[[-1]]]),
                         cumulative_sizes / len(cumulative_sizes),
-                        lw=2)
-            axs[1, 1].fill_betweenx(cumulative_sizes / len(cumulative_sizes),
+                        lw=2, color='black')
+            axs11.fill_betweenx(cumulative_sizes / len(cumulative_sizes),
                                  sizes_low, sizes_high,
-                                 alpha='0.2')
+                                 alpha='0.2', facecolor='black')
 
             # UpperSco data (Barenfeld et al 2017)
             lines = open('data/UpperSco_sizes.txt', 'r').readlines()
@@ -1177,24 +1221,25 @@ def cdfs_with_observations_size(open_path, save_path, N, times, log=False):
 
             p = 1. * numpy.arange(len(uppersco_sorted_disk_sizes)) / (len(uppersco_sorted_disk_sizes) - 1)
 
-            axs[1, 1].plot(uppersco_sorted_disk_sizes, p, ls='-', lw=2, label='Upper Scorpio')
-            axs[1, 1].fill_betweenx(p,
+            axs11.plot(uppersco_sorted_disk_sizes, p,
+                           ls='-', lw=2,
+                           color=colors[4],
+                           label=labels[4])
+            axs11.fill_betweenx(p,
                                     uppersco_low, uppersco_high,
-                                    alpha='0.2')
-            axs[1, 1].set_title('UpperSco')
+                                    alpha='0.2', facecolor=colors[4])
+            axs11.set_title('UpperSco')
+            #axs11.legend()
+            axs11.set_xlabel(r'$d_{disk}$ [au]')
+            axs11.set_ylabel(r'$f < d_{disk}$')
 
-    ax1 = pyplot.gca()
-    ax1.legend()
-    #ax1.set_title('CDF of disk sizes, t = {0} Myr'.format(t))
-    ax1.set_xlabel(r'$d_{disk}$ [au]')
-    ax1.set_ylabel(r'$f < d_{disk}$')
     pyplot.tight_layout()
-    pyplot.savefig('{0}/CDF_data_size_t{1}.png'.format(save_path, t))
+    pyplot.savefig('{0}/CDF_data_size.png'.format(save_path))
 
     pyplot.show()
 
 
-def cdfs_with_observations_mass(open_path, save_path, N, times, log=True):
+def cdfs_with_observations_mass(open_path, save_path, N, times, colors, labels, log=False):
     """ Plot cumulative distributions of disk sizes (au) and masses (MJup).
 
     :param open_path: list of folders to use
@@ -1203,7 +1248,12 @@ def cdfs_with_observations_mass(open_path, save_path, N, times, log=True):
     :param t: time to show in plot
     :param log: if True, plot in logscale
     """
-    fig, axs = pyplot.subplots(2, 3)
+    fig = pyplot.figure()
+    axs00 = pyplot.subplot2grid((2, 6), (0, 0), colspan=2)
+    axs01 = pyplot.subplot2grid((2, 6), (0, 2), colspan=2)
+    axs02 = pyplot.subplot2grid((2, 6), (0, 4), colspan=2)
+    axs10 = pyplot.subplot2grid((2, 6), (1, 1), colspan=2)
+    axs11 = pyplot.subplot2grid((2, 6), (1, 3), colspan=2)
 
     for t in times:
         all_sorted_disk_masses = []
@@ -1223,20 +1273,36 @@ def cdfs_with_observations_mass(open_path, save_path, N, times, log=True):
             sorted_disk_masses = numpy.sort(disk_masses)
             all_sorted_disk_masses.append(sorted_disk_masses)
 
-        sorted_disk_masses = numpy.mean(all_sorted_disk_masses, axis=0)
-        disk_masses_stdev = numpy.std(all_sorted_disk_masses, axis=0)
+        try:
+            disk_masses = numpy.median(all_sorted_disk_masses, axis=0)
+            disk_masses_stdev = numpy.std(all_sorted_disk_masses, axis=0)
+        except ValueError:
+            max_len = 0
+            for a in all_sorted_disk_masses:
+                if len(a) > max_len:
+                    max_len = len(a)
 
-        cumulative_masses = numpy.array([float(x) for x in numpy.arange(sorted_disk_masses.size + 1)])
-        masses_low = sorted_disk_masses - disk_masses_stdev
-        masses_high = sorted_disk_masses + disk_masses_stdev
+            new_sorted = []
+            for a in all_sorted_disk_masses:
+                b = numpy.pad(a, (max_len - len(a), 0), 'constant')
+                new_sorted.append(b)
+
+            disk_masses = numpy.median(new_sorted, axis=0)
+            disk_masses_stdev = numpy.std(new_sorted, axis=0)
+
+        cumulative_masses = numpy.array([float(x) for x in numpy.arange(disk_masses.size + 1)])
+        masses_low = numpy.concatenate([disk_masses, disk_masses[[-1]]]) \
+                    - numpy.concatenate([disk_masses_stdev, disk_masses_stdev[[-1]]])
+        masses_high = numpy.concatenate([disk_masses, disk_masses[[-1]]]) \
+                    + numpy.concatenate([disk_masses_stdev, disk_masses_stdev[[-1]]])
 
         if t == 1.0:
-            axs[0, 0].plot(numpy.concatenate([sorted_disk_masses, sorted_disk_masses[[-1]]]),
+            axs00.plot(numpy.concatenate([disk_masses, disk_masses[[-1]]]),
                         cumulative_masses / len(cumulative_masses),
-                        lw=2)
-            axs[0, 0].fill_betweenx(cumulative_masses / len(cumulative_masses),
+                        lw=2, color='black')
+            axs00.fill_betweenx(cumulative_masses / len(cumulative_masses),
                                  masses_low, masses_high,
-                                 alpha='0.2')
+                                 alpha='0.2', facecolor='black')
 
             # Trapezium data
             r_path = 'data/Trapezium_masses.txt'  # Mann & Williams 2009
@@ -1262,19 +1328,25 @@ def cdfs_with_observations_mass(open_path, save_path, N, times, log=True):
             trapezium_low = trapezium_sorted_masses - trapezium_sorted_errors
             trapezium_high = trapezium_sorted_masses + trapezium_sorted_errors
 
-            axs[0, 0].plot(trapezium_sorted_masses, p, ls='-', lw=3)
-            axs[0, 0].fill_betweenx(p,
+            axs00.plot(trapezium_sorted_masses, p,
+                           ls='-', lw=3,
+                           color=colors[0],
+                           label=labels[0])
+            axs00.fill_betweenx(p,
                                     trapezium_low, trapezium_high,
-                                    alpha='0.2')
-            axs[0, 0].set_title('Trapezium')
+                                    alpha='0.2', facecolor=colors[0])
+            axs00.set_title('Trapezium')
+            #axs00.legend()
+            axs00.set_xlabel(r'$M_{disk}$ [$M_{Jupiter}$]')
+            axs00.set_ylabel(r'$f < M_{disk}$')
 
         elif t == 2.0:
-            axs[0, 1].plot(numpy.concatenate([sorted_disk_masses, sorted_disk_masses[[-1]]]),
+            axs01.plot(numpy.concatenate([disk_masses, disk_masses[[-1]]]),
                         cumulative_masses / len(cumulative_masses),
-                        lw=2)
-            axs[0, 1].fill_betweenx(cumulative_masses / len(cumulative_masses),
+                        lw=2, color='black')
+            axs01.fill_betweenx(cumulative_masses / len(cumulative_masses),
                                  masses_low, masses_high,
-                                 alpha='0.2')
+                                 alpha='0.2', facecolor='black')
 
             # Lupus data
             lupus_masses, lupus_low, lupus_high = [], [], []
@@ -1323,19 +1395,25 @@ def cdfs_with_observations_mass(open_path, save_path, N, times, log=True):
                 lupus_sorted_high = numpy.array([x for _, x in sorted(zip(lupus_masses, lupus_high))])
 
             p = 1. * numpy.arange(len(lupus_sorted_masses)) / (len(lupus_sorted_masses) - 1)
-            axs[0, 1].plot(lupus_sorted_masses, p, ls='-', lw=3)
-            axs[0, 1].fill_betweenx(p,
+            axs01.plot(lupus_sorted_masses, p,
+                           ls='-', lw=3,
+                           color=colors[1],
+                           label=labels[1])
+            axs01.fill_betweenx(p,
                                     lupus_sorted_low, lupus_sorted_high,
-                                    alpha='0.2')
-            axs[0, 1].set_title('Lupus')
+                                    alpha='0.2', facecolor=colors[1])
+            axs01.set_title('Lupus clouds')
+            #axs01.legend()
+            axs01.set_xlabel(r'$M_{disk}$ [$M_{Jupiter}$]')
+            axs01.set_ylabel(r'$f < M_{disk}$')
 
         elif t == 2.5:
-            axs[0, 2].plot(numpy.concatenate([sorted_disk_masses, sorted_disk_masses[[-1]]]),
+            axs02.plot(numpy.concatenate([disk_masses, disk_masses[[-1]]]),
                         cumulative_masses / len(cumulative_masses),
-                        lw=2)
-            axs[0, 2].fill_betweenx(cumulative_masses / len(cumulative_masses),
+                        lw=2, color='black')
+            axs02.fill_betweenx(cumulative_masses / len(cumulative_masses),
                                  masses_low, masses_high,
-                                 alpha='0.2')
+                                 alpha='0.2', facecolor='black')
 
             # Chamaeleon I data (Mulders et al 2017)
             lines = open('data/ChamI_masses.txt', 'r').readlines()
@@ -1359,19 +1437,25 @@ def cdfs_with_observations_mass(open_path, save_path, N, times, log=True):
             cham_low = cham_sorted_masses - cham_sorted_error
             cham_high = cham_sorted_masses + cham_sorted_error
 
-            axs[0, 2].plot(cham_sorted_masses, p, ls='-', lw=3)
-            axs[0, 2].fill_betweenx(p,
+            axs02.plot(cham_sorted_masses, p,
+                           ls='-', lw=3,
+                           color=colors[2],
+                           label=labels[2])
+            axs02.fill_betweenx(p,
                                     cham_low, cham_high,
-                                    alpha='0.2')
-            axs[0, 2].set_title('ChamI')
+                                    alpha='0.2', facecolor=colors[2])
+            axs02.set_title('Chamaeleon I')
+            #axs02.legend()
+            axs02.set_xlabel(r'$M_{disk}$ [$M_{Jupiter}$]')
+            axs02.set_ylabel(r'$f < M_{disk}$')
 
         elif t == 4.0:
-            axs[1, 0].plot(numpy.concatenate([sorted_disk_masses, sorted_disk_masses[[-1]]]),
+            axs10.plot(numpy.concatenate([disk_masses, disk_masses[[-1]]]),
                         cumulative_masses / len(cumulative_masses),
-                        lw=2)
-            axs[1, 0].fill_betweenx(cumulative_masses / len(cumulative_masses),
+                        lw=2, color='black')
+            axs10.fill_betweenx(cumulative_masses / len(cumulative_masses),
                                  masses_low, masses_high,
-                                 alpha='0.2')
+                                 alpha='0.2', facecolor='black')
 
             # sigma Orionis data (Ansdell+ 2017)
             lines = open('data/sigmaOrionis_masses.txt', 'r').readlines()
@@ -1393,19 +1477,26 @@ def cdfs_with_observations_mass(open_path, save_path, N, times, log=True):
             p = 1. * numpy.arange(len(sOrionis_sorted_masses)) / (len(sOrionis_sorted_masses) - 1)
             sOrionis_low = sOrionis_sorted_masses - sOrionis_sorted_error
             sOrionis_high = sOrionis_sorted_masses + sOrionis_sorted_error
-            axs[1, 0].plot(sOrionis_sorted_masses, p, ls='-', lw=3)
-            axs[1, 0].fill_betweenx(p,
+
+            axs10.plot(sOrionis_sorted_masses, p,
+                           ls='-', lw=3,
+                           color=colors[3],
+                           label=labels[3])
+            axs10.fill_betweenx(p,
                                     sOrionis_low, sOrionis_high,
-                                    alpha='0.2')
-            axs[1, 0].set_title('sigma Orionis')
+                                    alpha='0.2', facecolor=colors[3])
+            axs10.set_title('$\sigma$ Orionis')
+            #axs10.legend()
+            axs10.set_xlabel(r'$M_{disk}$ [$M_{Jupiter}$]')
+            axs10.set_ylabel(r'$f < M_{disk}$')
 
         elif t == 5.0:
-            axs[1, 1].plot(numpy.concatenate([sorted_disk_masses, sorted_disk_masses[[-1]]]),
+            axs11.plot(numpy.concatenate([disk_masses, disk_masses[[-1]]]),
                         cumulative_masses / len(cumulative_masses),
-                        lw=2)
-            axs[1, 1].fill_betweenx(cumulative_masses / len(cumulative_masses),
+                        lw=2, color='black')
+            axs11.fill_betweenx(cumulative_masses / len(cumulative_masses),
                                  masses_low, masses_high,
-                                 alpha='0.2')
+                                 alpha='0.2', facecolor='black')
 
             # UpperSco data (Barenfeld et al 2016)
             lines = open('data/UpperSco_masses.txt', 'r').readlines()
@@ -1436,17 +1527,18 @@ def cdfs_with_observations_mass(open_path, save_path, N, times, log=True):
             uppersco_low = uppersco_sorted_masses - uppersco_sorted_error
             uppersco_high = uppersco_sorted_masses + uppersco_sorted_error
 
-            axs[1, 1].plot(uppersco_sorted_masses, p, ls='-', lw=3)
-            axs[1, 1].fill_betweenx(p,
+            axs11.plot(uppersco_sorted_masses, p,
+                           ls='-', lw=3,
+                           color=colors[4],
+                           label=labels[4])
+            axs11.fill_betweenx(p,
                                     uppersco_low, uppersco_high,
-                                    alpha='0.2')
-            axs[1, 1].set_title('UpperSco')
+                                    alpha='0.2', facecolor=colors[4])
+            axs11.set_title('UpperSco')
+            #axs11.legend()
+            axs11.set_xlabel(r'$M_{disk}$ [$M_{Jupiter}$]')
+            axs11.set_ylabel(r'$f < M_{disk}$')
 
-        ax2 = pyplot.gca()
-        #ax2.legend(loc='lower right', fontsize=20)
-        #ax2.set_title('CDF of disk masses, t = {0} Myr'.format(t))
-        ax2.set_xlabel(r'$M_{disk}$ [$M_{Jupiter}$]')
-        ax2.set_ylabel(r'$f < M_{disk}$')
         pyplot.tight_layout()
         pyplot.savefig('{0}/CDF_data_mass_t{1}.png'.format(save_path, t))
 
@@ -1607,8 +1699,8 @@ def main(run_number, save_path, time, N, distribution, ncells, density, i, all_d
              #'results/plummer_N100_c100_3/0/N100_t10.0.hdf5']#,
              #'results/fractal_N100_c50/0/N100_t0.hdf5']
 
-    paths = ['results/plummer_N100_c50_sh/0/']#,
-        #'results/{0}_N{1}_c{2}_3/0/'.format(distribution, N, ncells),
+    paths = ['results/plummer_N100_c50_sh/0/',
+             'results/cartesius/plummer_N100_c50/0/']#,
         #     'results/plummer_N{0}_c{1}_3/0/'.format(N, ncells)]#,
              #'results/fractal_N{0}_c{1}_3/0/']
 
@@ -1630,8 +1722,11 @@ def main(run_number, save_path, time, N, distribution, ncells, density, i, all_d
     else:
         #disk_fractions(N, paths, save_path)
         times = [1.0, 2.0, 2.5, 4.0, 5.0]
+        colors = ['#E24A33', '#348ABD', '#988ED5', '#8EBA42', '#FBC15E', '#777777', '#FFB5B8']
+        labels = ['Trapezium cluster', 'Lupus clouds', 'Chamaeleon I', '$\sigma$ Orionis', 'Upper Scorpio']
         #cdfs_in_time(path, save_path, N, times)
-        cdfs_with_observations_mass(paths, save_path, N, times)
+        cdfs_with_observations_size(paths, save_path, N, times, colors, labels)
+        cdfs_with_observations_mass(paths, save_path, N, times, colors, labels, log=True)
 
         # For presentation
         #cdfs_w_old(paths, labels, plot_colors, density, N, time)
