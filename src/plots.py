@@ -1314,15 +1314,16 @@ def cdfs_with_observations_mass(open_path, save_path, N, times, colors, labels, 
     :param t: time to show in plot
     :param log: if True, plot in logscale
     """
+    # Changed the order of the subplots to make sure the plots are in chronological order
     fig = pyplot.figure(figsize=(14, 12))
-    axs00 = pyplot.subplot2grid((6, 6), (0, 0), colspan=2, rowspan=2)
-    axs01 = pyplot.subplot2grid((6, 6), (0, 2), colspan=2, rowspan=2)
-    axs02 = pyplot.subplot2grid((6, 6), (0, 4), colspan=2, rowspan=2)
-    axs10 = pyplot.subplot2grid((6, 6), (2, 0), colspan=2, rowspan=2)
-    axs11 = pyplot.subplot2grid((6, 6), (2, 2), colspan=2, rowspan=2)
-    axs12 = pyplot.subplot2grid((6, 6), (2, 4), colspan=2, rowspan=2)
-    axs20 = pyplot.subplot2grid((6, 6), (4, 1), colspan=2, rowspan=2)
-    axs21 = pyplot.subplot2grid((6, 6), (4, 3), colspan=2, rowspan=2)
+    axs00 = pyplot.subplot2grid((6, 6), (0, 0), colspan=2, rowspan=2)  # ONC, 1 Myr
+    axs01 = pyplot.subplot2grid((6, 6), (2, 0), colspan=2, rowspan=2)  # Lupus, 2 Myr
+    axs02 = pyplot.subplot2grid((6, 6), (2, 2), colspan=2, rowspan=2)  # ChamI, 2.5 Myr
+    axs10 = pyplot.subplot2grid((6, 6), (4, 0), colspan=2, rowspan=2)  # sOri, 4 Myr
+    axs11 = pyplot.subplot2grid((6, 6), (4, 2), colspan=2, rowspan=2)  # Upper Sco, 5 Myr
+    axs12 = pyplot.subplot2grid((6, 6), (2, 4), colspan=2, rowspan=2)  # IC348, 2.5 Myr
+    axs20 = pyplot.subplot2grid((6, 6), (0, 4), colspan=2, rowspan=2)  # OMC-2, 1 Myr
+    axs21 = pyplot.subplot2grid((6, 6), (0, 2), colspan=2, rowspan=2)  # OMC-1, 1 Myr
 
     for t in times:
         all_sorted_disk_masses = []
@@ -1365,10 +1366,11 @@ def cdfs_with_observations_mass(open_path, save_path, N, times, colors, labels, 
         masses_high = disk_masses + disk_masses_stdev
 
         # For plots
-        xlimits = [-2.5, 5.5]
+        xlimits = [-2.5, 3.5]
         ylimits = [0.0, 1.0]
-        ticks = [-2, 0, 2, 5]
-        xtext = 1.5
+        ticks = [-2, 0, 2]
+        yticks = [0.0, 0.5, 1.0]
+        xtext = 0.7
         ytext = 0.05
         xlabel = '$\log(M_{disk})$ [$M_{Jupiter}$]'
         ylabel = '$f < M_{disk}$'
@@ -1384,8 +1386,34 @@ def cdfs_with_observations_mass(open_path, save_path, N, times, colors, labels, 
             axs00.set_xlim(xlimits)
             axs00.set_ylim(ylimits)
             axs00.set_xticks(ticks)
+            axs00.set_yticks(yticks)
 
-            # Trapezium data (Mann & Williams 2009 2009ApJ...694L..36M)
+            axs20.plot(disk_masses,
+                        cumulative_masses,
+                        lw=2, color='black')
+            axs20.fill_betweenx(cumulative_masses,
+                                 masses_low, masses_high,
+                                 alpha='0.2', facecolor='black')
+            axs20.text(xtext, ytext, 't = {0} Myr'.format(t))
+            axs20.set_xlim(xlimits)
+            axs20.set_ylim(ylimits)
+            axs20.set_xticks(ticks)
+            axs20.set_yticks(yticks)
+
+            axs21.plot(disk_masses,
+                        cumulative_masses,
+                        lw=2, color='black')
+            axs21.fill_betweenx(cumulative_masses,
+                                 masses_low, masses_high,
+                                 alpha='0.2', facecolor='black')
+            axs21.text(xtext, ytext, 't = {0} Myr'.format(t))
+            axs21.set_xlim(xlimits)
+            axs21.set_ylim(ylimits)
+            axs21.set_xticks(ticks)
+            axs21.set_yticks(yticks)
+
+
+            """# Trapezium data (Mann & Williams 2009 2009ApJ...694L..36M)
             # Data: dust masses in 1E-2 MSun
             r_path = 'data/Trapezium_masses.txt'
             lines = open(r_path, 'r').readlines()
@@ -1432,7 +1460,147 @@ def cdfs_with_observations_mass(open_path, save_path, N, times, colors, labels, 
             axs00.set_title('Trapezium')
             #axs00.legend()
             axs00.set_xlabel(xlabel)
+            axs00.set_ylabel(ylabel)"""
+
+            # ONC data (Eisner+ 2018)
+            # Data: DUST masses in MEarth
+            lines = open('data/ONC.txt', 'r').readlines()
+            onc_masses, onc_masses_error = [], []
+
+            for line in (line for line in lines if not line.startswith('#')):
+                data = line.split('&')[6]
+                a = data.split('$\pm$')[0]
+                b = data.split('$\pm$')[1]
+
+                # Unit conversion
+                me = float(a) | units.MEarth
+                mj = me.value_in(units.MJupiter)
+
+                me_error = float(b) | units.MEarth
+                mj_error = me_error.value_in(units.MJupiter)
+
+                onc_masses.append(mj)
+                onc_masses_error.append(mj_error)
+
+            # 100. factor to turn dust mass into gas mass
+            onc_masses = 100. * numpy.asarray(onc_masses)
+            onc_masses_error = 100. * numpy.asarray(onc_masses_error)
+
+            if log:
+                onc_masses = onc_masses[onc_masses > 0.0]
+                sorted_onc_masses = numpy.sort(numpy.log10(onc_masses))
+                sorted_onc_masses_errors = numpy.array([numpy.log10(x) for _, x in sorted(zip(onc_masses, onc_masses_error))])
+            else:
+                sorted_onc_masses = numpy.sort(onc_masses)
+                sorted_onc_masses_errors = numpy.array([x for _, x in sorted(zip(onc_masses, onc_masses_error))])
+
+            p = 1. * numpy.arange(len(sorted_onc_masses)) / (len(sorted_onc_masses) - 1)
+
+            onc_low = sorted_onc_masses - sorted_onc_masses_errors
+            onc_high = sorted_onc_masses + sorted_onc_masses_errors
+
+            axs00.plot(sorted_onc_masses, p,
+                           ls='-', lw=3,
+                           color=colors[0],
+                           label=labels[0])
+            axs00.fill_betweenx(p,
+                                onc_low, onc_high,
+                                alpha='0.2', facecolor=colors[0])
+            axs00.set_title('ONC')
+            #axs00.legend()
+            axs00.set_xlabel(xlabel)
             axs00.set_ylabel(ylabel)
+
+            # OMC-2 data (van Terwisga+ 2019)
+            # Data: DUST masses in MEarth
+            lines = open('data/OMC-2_masses.txt', 'r').readlines()
+            omc2_masses, omc2_masses_error = [], []
+
+            for line in (line for line in lines if not line.startswith('#')):
+                data = line.split()
+                a = data[0]
+                b = data[2]
+
+                # Unit conversion
+                me = float(a) | units.MEarth
+                mj = me.value_in(units.MJupiter)
+
+                me_error = float(b) | units.MEarth
+                mj_error = me_error.value_in(units.MJupiter)
+
+                omc2_masses.append(mj)
+                omc2_masses_error.append(mj_error)
+
+            # 100. factor to turn dust mass into gas mass
+            omc2_masses = 100. * numpy.asarray(omc2_masses)
+            omc2_masses_error = 100. * numpy.asarray(omc2_masses_error)
+
+            if log:
+                omc2_masses = omc2_masses[omc2_masses > 0.0]
+                sorted_omc2_masses = numpy.sort(numpy.log10(omc2_masses))
+                sorted_omc2_masses_errors = numpy.array([numpy.log10(x) for _, x in sorted(zip(omc2_masses, omc2_masses_error))])
+            else:
+                sorted_omc2_masses = numpy.sort(omc2_masses)
+                sorted_omc2_masses_errors = numpy.array([x for _, x in sorted(zip(omc2_masses, omc2_masses_error))])
+
+            p = 1. * numpy.arange(len(sorted_omc2_masses)) / (len(sorted_omc2_masses) - 1)
+
+            omc2_low = sorted_omc2_masses - sorted_omc2_masses_errors
+            omc2_high = sorted_omc2_masses + sorted_omc2_masses_errors
+
+            axs20.plot(sorted_omc2_masses, p,
+                           ls='-', lw=3,
+                           color=colors[6],
+                           label=labels[6])
+            axs20.fill_betweenx(p,
+                                omc2_low, omc2_high,
+                                alpha='0.2', facecolor=colors[6])
+            axs20.set_title('OMC-2')
+            #axs20.legend()
+            axs20.set_xlabel(xlabel)
+            axs20.set_ylabel(ylabel)
+
+            # OMC-1 data (Eisner+ 2016)
+            # Data: 100 * DUST masses in MJup
+            lines = open('data/OMC-1_masses.txt', 'r').readlines()
+            omc1_masses, omc1_masses_error = [], []
+
+            for line in (line for line in lines if not line.startswith('#')):
+                data = line.split()
+                a = data[12]
+                b = data[13]
+
+                # No unit conversion needed
+                omc1_masses.append(float(a))
+                omc1_masses_error.append(float(b))
+
+            omc1_masses = numpy.array(omc1_masses)
+            omc1_masses_error = numpy.array(omc1_masses_error)
+
+            if log:
+                omc1_masses = omc1_masses[omc1_masses > 0.0]
+                sorted_omc1_masses = numpy.sort(numpy.log10(omc1_masses))
+                sorted_omc1_masses_errors = numpy.array([numpy.log10(x) for _, x in sorted(zip(omc1_masses, omc1_masses_error))])
+            else:
+                sorted_omc1_masses = numpy.sort(omc1_masses)
+                sorted_omc1_masses_errors = numpy.array([x for _, x in sorted(zip(omc1_masses, omc1_masses_error))])
+
+            p = 1. * numpy.arange(len(sorted_omc1_masses)) / (len(sorted_omc1_masses) - 1)
+
+            omc1_low = sorted_omc1_masses - sorted_omc1_masses_errors
+            omc1_high = sorted_omc1_masses + sorted_omc1_masses_errors
+
+            axs21.plot(sorted_omc1_masses, p,
+                           ls='-', lw=3,
+                           color=colors[7],
+                           label=labels[7])
+            axs21.fill_betweenx(p,
+                                omc1_low, omc1_high,
+                                alpha='0.2', facecolor=colors[7])
+            axs21.set_title('OMC-1')
+            #axs21.legend()
+            axs21.set_xlabel(xlabel)
+            axs21.set_ylabel(ylabel)
 
         elif t == 2.0:
             axs01.plot(disk_masses,
@@ -1484,7 +1652,10 @@ def cdfs_with_observations_mass(open_path, save_path, N, times, colors, labels, 
                     else:
                         lupus_high.append(float(c))
 
+            lupus_masses = numpy.array(lupus_masses)
+
             if log:
+                lupus_masses = lupus_masses[lupus_masses > 0.0]
                 lupus_sorted_masses = numpy.sort(numpy.log10(lupus_masses))
                 lupus_sorted_low = numpy.array([numpy.log10(x) for _, x in sorted(zip(lupus_masses, lupus_low))])
                 lupus_sorted_high = numpy.array([numpy.log10(x) for _, x in sorted(zip(lupus_masses, lupus_high))])
@@ -1543,6 +1714,7 @@ def cdfs_with_observations_mass(open_path, save_path, N, times, colors, labels, 
             cham_masses_error = 100. * numpy.asarray(cham_masses_error)
 
             if log:
+                cham_masses = cham_masses[cham_masses > 0]
                 cham_sorted_masses = numpy.sort(numpy.log10(cham_masses))
                 cham_sorted_error = numpy.array([numpy.log10(x) for _, x in sorted(zip(cham_masses, cham_masses_error))])
             else:
@@ -1605,6 +1777,7 @@ def cdfs_with_observations_mass(open_path, save_path, N, times, colors, labels, 
             ic348_masses_error = 100. * numpy.asarray(ic348_masses_error)
 
             if log:
+                ic348_masses = ic348_masses[ic348_masses > 0.0]
                 ic348_sorted_masses = numpy.sort(numpy.log10(ic348_masses))
                 ic348_sorted_error = numpy.array([numpy.log10(x) for _, x in sorted(zip(ic348_masses, ic348_masses_error))])
             else:
@@ -1663,6 +1836,7 @@ def cdfs_with_observations_mass(open_path, save_path, N, times, colors, labels, 
             sOrionis_masses_error = 100. * numpy.asarray(sOrionis_masses_error)
 
             if log:
+                sOrionis_masses = sOrionis_masses[sOrionis_masses > 0.0]
                 sOrionis_sorted_masses = numpy.sort(numpy.array(numpy.log10(sOrionis_masses)))
                 sOrionis_sorted_error = numpy.array([numpy.log10(x) for _, x in sorted(zip(sOrionis_masses, sOrionis_masses_error))])
             else:
@@ -1727,6 +1901,7 @@ def cdfs_with_observations_mass(open_path, save_path, N, times, colors, labels, 
             uppersco_masses_error = 100. * numpy.asarray(uppersco_masses_error)
 
             if log:
+                uppersco_masses = uppersco_masses[uppersco_masses > 0.0]
                 uppersco_sorted_masses = numpy.sort(numpy.log10(uppersco_masses))
                 uppersco_sorted_error = numpy.array([numpy.log10(x) for _, x in sorted(zip(uppersco_masses, uppersco_masses_error))])
             else:
@@ -1936,7 +2111,8 @@ def main(run_number, save_path, time, N, distribution, ncells, density, i, all_d
         #colors = ['#E24A33', '#348ABD', '#988ED5', '#8EBA42', '#FFB5B8', '#FBC15E', '#777777']
         #colors = ['#0072B2', '#009E73', '#D55E00', '#CC79A7', '#56B4E9', '#F0E442'] #seaborn color blind
         colors = ["#638ccc", "#ca5670", "#c57c3c", "#72a555", "#ab62c0", '#0072B2', '#009E73', '#D55E00']  # colors from my prev paper
-        labels = ['Trapezium cluster', 'Lupus clouds', 'Chamaeleon I', '$\sigma$ Orionis', 'Upper Scorpio', 'IC 348']
+        labels = ['Trapezium cluster', 'Lupus clouds', 'Chamaeleon I', '$\sigma$ Orionis', 'Upper Scorpio', 'IC 348',
+                  'ONC', "OMC-2"]
         #cdfs_in_time(path, save_path, N, times)
         #cdfs_with_observations_size(paths, save_path, N, times, colors, labels)
         cdfs_with_observations_mass(paths, save_path, N, times, colors, labels, log=True)
