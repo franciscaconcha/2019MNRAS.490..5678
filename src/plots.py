@@ -1011,12 +1011,10 @@ def cdfs_with_observations_size(open_path, save_path, N, times, colors, labels, 
             disk_sizes = numpy.mean(new_sorted, axis=0)
             disk_sizes_stdev = numpy.std(new_sorted, axis=0)
 
-        cumulative_sizes = numpy.array([float(x) for x in numpy.arange(disk_sizes.size + 1)])
+        cumulative_sizes = 1. * numpy.arange(len(disk_sizes)) / (len(disk_sizes) - 1)
 
-        sizes_low = numpy.concatenate([disk_sizes, disk_sizes[[-1]]]) \
-                    - numpy.concatenate([disk_sizes_stdev, disk_sizes_stdev[[-1]]])
-        sizes_high = numpy.concatenate([disk_sizes, disk_sizes[[-1]]]) \
-                    + numpy.concatenate([disk_sizes_stdev, disk_sizes_stdev[[-1]]])
+        sizes_low = disk_sizes - disk_sizes_stdev
+        sizes_high = disk_sizes + disk_sizes_stdev
 
         # Plotting together with observational data now, according to their age t
 
@@ -1030,10 +1028,10 @@ def cdfs_with_observations_size(open_path, save_path, N, times, colors, labels, 
         ylabel = '$f < d_{disk}$'
 
         if t == 1.:
-            axs00.plot(numpy.concatenate([disk_sizes, disk_sizes[[-1]]]),
-                        cumulative_sizes / len(cumulative_sizes),
-                        lw=2, color='black')
-            axs00.fill_betweenx(cumulative_sizes / len(cumulative_sizes),
+            axs00.plot(disk_sizes,
+                       cumulative_sizes,
+                       lw=2, color='black')
+            axs00.fill_betweenx(cumulative_sizes,
                                  sizes_low, sizes_high,
                                  alpha='0.2', facecolor='black')
             axs00.text(xtext, ytext, 't = {0} Myr'.format(t))
@@ -1041,7 +1039,7 @@ def cdfs_with_observations_size(open_path, save_path, N, times, colors, labels, 
             axs00.set_ylim(ylimits)
             axs00.set_xticks(ticks)
 
-            # Trapezium data (Vicente & Alves 2005)
+            """# Trapezium data (Vicente & Alves 2005)
             lines = open('data/Trapezium_sizes.txt', 'r').readlines()
             trapezium_sizes = []
 
@@ -1066,13 +1064,53 @@ def cdfs_with_observations_size(open_path, save_path, N, times, colors, labels, 
             axs00.set_title('Trapezium')
             #axs00.legend()
             axs00.set_xlabel(xlabel)
+            axs00.set_ylabel(ylabel)"""
+
+            # ONC data (Eisner+ 2018)
+            lines = open('data/ONC.txt', 'r').readlines()
+            onc_sizes, onc_sizes_error = [], []
+
+            for line in (line for line in lines if not line.startswith('#')):
+                data = line.split('&')[7]
+                b = data.split('$')[1]
+                c = b.split('\pm')
+                if len(c) == 2:  # Value + error
+                    onc_sizes.append(2. * float(c[0]))  # 2. factor for radius to diameter
+                    onc_sizes_error.append(2. * float(c[1]))
+                else:  # Upper limit
+                    d = c[0].split('<')[1][1:]
+                    onc_sizes.append(float(d))
+                    onc_sizes_error.append(0.0)
+
+            if log:
+                sorted_onc_sizes = numpy.sort(numpy.log10(onc_sizes))
+                sorted_onc_sizes_errors = numpy.array([numpy.log10(x) for _, x in sorted(zip(onc_sizes, onc_sizes_error))])
+            else:
+                sorted_onc_sizes = numpy.sort(onc_sizes)
+                sorted_onc_sizes_errors = numpy.array([x for _, x in sorted(zip(onc_sizes, onc_sizes_error))])
+
+            p = 1. * numpy.arange(len(sorted_onc_sizes)) / (len(sorted_onc_sizes) - 1)
+
+            onc_low = sorted_onc_sizes - sorted_onc_sizes_errors
+            onc_high = sorted_onc_sizes + sorted_onc_sizes_errors
+
+            axs00.plot(sorted_onc_sizes, p,
+                           ls='-', lw=2,
+                           color=colors[0],
+                           label=labels[0])
+            axs00.fill_betweenx(p,
+                                onc_low, onc_high,
+                                alpha='0.2', facecolor=colors[0])
+            axs00.set_title('ONC')
+            #axs00.legend()
+            axs00.set_xlabel(xlabel)
             axs00.set_ylabel(ylabel)
 
         elif t == 2.:
-            axs01.plot(numpy.concatenate([disk_sizes, disk_sizes[[-1]]]),
-                        cumulative_sizes / len(cumulative_sizes),
+            axs01.plot(disk_sizes,
+                       cumulative_sizes,
                         lw=2, color='black')
-            axs01.fill_betweenx(cumulative_sizes / len(cumulative_sizes),
+            axs01.fill_betweenx(cumulative_sizes,
                                  sizes_low, sizes_high,
                                  alpha='0.2', facecolor='black')
             axs01.text(xtext, ytext, 't = {0} Myr'.format(t))
@@ -1116,10 +1154,10 @@ def cdfs_with_observations_size(open_path, save_path, N, times, colors, labels, 
             axs01.set_ylabel(ylabel)
 
         elif t == 2.5:
-            axs02.plot(numpy.concatenate([disk_sizes, disk_sizes[[-1]]]),
-                        cumulative_sizes / len(cumulative_sizes),
+            axs02.plot(disk_sizes,
+                       cumulative_sizes,
                         lw=2, color='black')
-            axs02.fill_betweenx(cumulative_sizes / len(cumulative_sizes),
+            axs02.fill_betweenx(cumulative_sizes,
                                  sizes_low, sizes_high,
                                  alpha='0.2', facecolor='black')
             axs02.text(xtext, ytext, 't = {0} Myr'.format(t))
@@ -1164,10 +1202,10 @@ def cdfs_with_observations_size(open_path, save_path, N, times, colors, labels, 
             axs02.set_xticks([0, 250, 500])
 
         elif t == 4.:
-            axs10.plot(numpy.concatenate([disk_sizes, disk_sizes[[-1]]]),
-                        cumulative_sizes / len(cumulative_sizes),
+            axs10.plot(disk_sizes,
+                       cumulative_sizes,
                         lw=2, color='black')
-            axs10.fill_betweenx(cumulative_sizes / len(cumulative_sizes),
+            axs10.fill_betweenx(cumulative_sizes,
                                  sizes_low, sizes_high,
                                  alpha='0.2', facecolor='black')
             axs10.text(xtext, ytext, 't = {0} Myr'.format(t))
@@ -1212,10 +1250,10 @@ def cdfs_with_observations_size(open_path, save_path, N, times, colors, labels, 
             axs10.set_ylabel(ylabel)
 
         elif t == 5.:
-            axs11.plot(numpy.concatenate([disk_sizes, disk_sizes[[-1]]]),
-                        cumulative_sizes / len(cumulative_sizes),
+            axs11.plot(disk_sizes,
+                       cumulative_sizes,
                         lw=2, color='black')
-            axs11.fill_betweenx(cumulative_sizes / len(cumulative_sizes),
+            axs11.fill_betweenx(cumulative_sizes,
                                  sizes_low, sizes_high,
                                  alpha='0.2', facecolor='black')
             axs11.text(xtext, ytext, 't = {0} Myr'.format(t))
@@ -1321,11 +1359,10 @@ def cdfs_with_observations_mass(open_path, save_path, N, times, colors, labels, 
             disk_masses = numpy.median(new_sorted, axis=0)
             disk_masses_stdev = numpy.std(new_sorted, axis=0)
 
-        cumulative_masses = numpy.array([float(x) for x in numpy.arange(disk_masses.size + 1)])
-        masses_low = numpy.concatenate([disk_masses, disk_masses[[-1]]]) \
-                    - numpy.concatenate([disk_masses_stdev, disk_masses_stdev[[-1]]])
-        masses_high = numpy.concatenate([disk_masses, disk_masses[[-1]]]) \
-                    + numpy.concatenate([disk_masses_stdev, disk_masses_stdev[[-1]]])
+        cumulative_masses = 1. * numpy.arange(len(disk_masses)) / (len(disk_masses) - 1)
+
+        masses_low = disk_masses - disk_masses_stdev
+        masses_high = disk_masses + disk_masses_stdev
 
         # For plots
         xlimits = [-2.5, 5.5]
@@ -1337,10 +1374,10 @@ def cdfs_with_observations_mass(open_path, save_path, N, times, colors, labels, 
         ylabel = '$f < M_{disk}$'
 
         if t == 1.0:
-            axs00.plot(numpy.concatenate([disk_masses, disk_masses[[-1]]]),
-                        cumulative_masses / len(cumulative_masses),
+            axs00.plot(disk_masses,
+                        cumulative_masses,
                         lw=2, color='black')
-            axs00.fill_betweenx(cumulative_masses / len(cumulative_masses),
+            axs00.fill_betweenx(cumulative_masses,
                                  masses_low, masses_high,
                                  alpha='0.2', facecolor='black')
             axs00.text(xtext, ytext, 't = {0} Myr'.format(t))
@@ -1398,10 +1435,10 @@ def cdfs_with_observations_mass(open_path, save_path, N, times, colors, labels, 
             axs00.set_ylabel(ylabel)
 
         elif t == 2.0:
-            axs01.plot(numpy.concatenate([disk_masses, disk_masses[[-1]]]),
-                        cumulative_masses / len(cumulative_masses),
+            axs01.plot(disk_masses,
+                        cumulative_masses,
                         lw=2, color='black')
-            axs01.fill_betweenx(cumulative_masses / len(cumulative_masses),
+            axs01.fill_betweenx(cumulative_masses,
                                  masses_low, masses_high,
                                  alpha='0.2', facecolor='black')
             axs01.text(xtext, ytext, 't = {0} Myr'.format(t))
@@ -1470,10 +1507,10 @@ def cdfs_with_observations_mass(open_path, save_path, N, times, colors, labels, 
             axs01.set_ylabel(ylabel)
 
         elif t == 2.5:
-            axs02.plot(numpy.concatenate([disk_masses, disk_masses[[-1]]]),
-                        cumulative_masses / len(cumulative_masses),
+            axs02.plot(disk_masses,
+                        cumulative_masses,
                         lw=2, color='black')
-            axs02.fill_betweenx(cumulative_masses / len(cumulative_masses),
+            axs02.fill_betweenx(cumulative_masses,
                                  masses_low, masses_high,
                                  alpha='0.2', facecolor='black')
             axs02.text(xtext, ytext, 't = {0} Myr'.format(t))
@@ -1529,10 +1566,10 @@ def cdfs_with_observations_mass(open_path, save_path, N, times, colors, labels, 
             axs02.set_ylabel(ylabel)
 
             # IC 348
-            axs12.plot(numpy.concatenate([disk_masses, disk_masses[[-1]]]),
-                        cumulative_masses / len(cumulative_masses),
+            axs12.plot(disk_masses,
+                        cumulative_masses,
                         lw=2, color='black')
-            axs12.fill_betweenx(cumulative_masses / len(cumulative_masses),
+            axs12.fill_betweenx(cumulative_masses,
                                  masses_low, masses_high,
                                  alpha='0.2', facecolor='black')
             axs12.text(xtext, ytext, 't = {0} Myr'.format(t))
@@ -1591,10 +1628,10 @@ def cdfs_with_observations_mass(open_path, save_path, N, times, colors, labels, 
             axs12.set_ylabel(ylabel)
 
         elif t == 4.0:
-            axs10.plot(numpy.concatenate([disk_masses, disk_masses[[-1]]]),
-                        cumulative_masses / len(cumulative_masses),
+            axs10.plot(disk_masses,
+                        cumulative_masses,
                         lw=2, color='black')
-            axs10.fill_betweenx(cumulative_masses / len(cumulative_masses),
+            axs10.fill_betweenx(cumulative_masses,
                                  masses_low, masses_high,
                                  alpha='0.2', facecolor='black')
             axs10.text(xtext, ytext, 't = {0} Myr'.format(t))
@@ -1649,10 +1686,10 @@ def cdfs_with_observations_mass(open_path, save_path, N, times, colors, labels, 
             axs10.set_ylabel(ylabel)
 
         elif t == 5.0:
-            axs11.plot(numpy.concatenate([disk_masses, disk_masses[[-1]]]),
-                        cumulative_masses / len(cumulative_masses),
+            axs11.plot(disk_masses,
+                        cumulative_masses,
                         lw=2, color='black')
-            axs11.fill_betweenx(cumulative_masses / len(cumulative_masses),
+            axs11.fill_betweenx(cumulative_masses,
                                  masses_low, masses_high,
                                  alpha='0.2', facecolor='black')
             axs11.text(xtext, ytext, 't = {0} Myr'.format(t))
