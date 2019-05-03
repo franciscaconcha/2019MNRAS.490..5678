@@ -1330,7 +1330,7 @@ def cdfs_with_observations_mass(open_path, save_path, N, times, colors, labels, 
         # For plots
         xlimits = [-2.5, 5.5]
         ylimits = [0.0, 1.0]
-        ticks = [-2, 0, 5]
+        ticks = [-2, 0, 2, 5]
         xtext = 1.5
         ytext = 0.05
         xlabel = '$\log(M_{disk})$ [$M_{Jupiter}$]'
@@ -1348,18 +1348,31 @@ def cdfs_with_observations_mass(open_path, save_path, N, times, colors, labels, 
             axs00.set_ylim(ylimits)
             axs00.set_xticks(ticks)
 
-            # Trapezium data
-            r_path = 'data/Trapezium_masses.txt'  # Mann & Williams 2009
+            # Trapezium data (Mann & Williams 2009 2009ApJ...694L..36M)
+            # Data: dust masses in 1E-2 MSun
+            r_path = 'data/Trapezium_masses.txt'
             lines = open(r_path, 'r').readlines()
 
             trapezium_masses = []
             trapezium_masses_errors = []
 
             for line in (l for l in lines if not l.startswith('#')):
-                mass = 100 * float(line.split()[7]) * 1E-2 * 1E3  # Gas masses in MJup
-                mass_error = 100 * float(line.split()[9]) * 1E-2 * 1E3
-                trapezium_masses.append(mass)
-                trapezium_masses_errors.append(mass_error)
+                a = line.split()[7]
+                b = line.split()[9]
+
+                # Unit conversion: 1E-2 MSun to MJup
+                ms = float(a) * 1E-2 | units.MSun
+                mj = ms.value_in(units.MJupiter)
+
+                ms_error = float(b) * 1E-2 | units.MSun
+                mj_error = ms_error.value_in(units.MJupiter)
+
+                trapezium_masses.append(mj)
+                trapezium_masses_errors.append(mj_error)
+
+            # 100. factor to turn dust mass into gas mass
+            trapezium_masses = 100. * numpy.asarray(trapezium_masses)
+            trapezium_masses_errors = 100. * numpy.asarray(trapezium_masses_errors)
 
             if log:
                 trapezium_sorted_masses = numpy.sort(numpy.log10(trapezium_masses))
@@ -1396,10 +1409,11 @@ def cdfs_with_observations_mass(open_path, save_path, N, times, colors, labels, 
             axs01.set_ylim(ylimits)
             axs01.set_xticks(ticks)
 
-            # Lupus data
+            # Lupus data (Ansdell+ 2018 2018ApJ...859...21A)
+            # Data: GAS masses in MJup
             lupus_masses, lupus_low, lupus_high = [], [], []
 
-            # Masses are in MJup
+            # No unit conversion needed
             lines = open('data/Lupus_masses.txt', 'r').readlines()
 
             for line in (line for line in lines if not line.startswith('#')):
@@ -1467,7 +1481,8 @@ def cdfs_with_observations_mass(open_path, save_path, N, times, colors, labels, 
             axs02.set_ylim(ylimits)
             axs02.set_xticks(ticks)
 
-            # Chamaeleon I data (Mulders et al 2017)
+            # Chamaeleon I data (Mulders et al 2017 2017ApJ...847...31M)
+            # Data: DUST masses in LOG(MEarth)
             lines = open('data/ChamI_masses.txt', 'r').readlines()
             cham_masses, cham_masses_error = [], []
 
@@ -1475,15 +1490,27 @@ def cdfs_with_observations_mass(open_path, save_path, N, times, colors, labels, 
                 a = line.split()[8]
                 b = line.split()[9]
 
-                cham_masses.append(float(a) / numpy.log10(317.8))  # MEarth to MJup conversion
-                cham_masses_error.append(float(b) / numpy.log10(317.8))
+                # MEarth to MJup conversion
+                me = numpy.power(10, float(a)) | units.MEarth  # Data is in log
+                mj = me.value_in(units.MJupiter)
+
+                me_error = numpy.power(10, float(b)) | units.MEarth
+                mj_error = me_error.value_in(units.MJupiter)
+
+                # Saving data 10^
+                cham_masses.append(mj)
+                cham_masses_error.append(mj_error)
+
+            # 100. factor to turn dust mass into gas mass
+            cham_masses = 100. * numpy.asarray(cham_masses)
+            cham_masses_error = 100. * numpy.asarray(cham_masses_error)
 
             if log:
-                cham_sorted_masses = 2. * numpy.sort(cham_masses)  # data already in log
-                cham_sorted_error = numpy.array([2 * x for _, x in sorted(zip(cham_masses, cham_masses_error))])
+                cham_sorted_masses = numpy.sort(numpy.log10(cham_masses))
+                cham_sorted_error = numpy.array([numpy.log10(x) for _, x in sorted(zip(cham_masses, cham_masses_error))])
             else:
-                cham_sorted_masses = numpy.sort(100 * numpy.power(10, cham_masses))
-                cham_sorted_error = numpy.array([100 * numpy.power(10, x) for _, x in sorted(zip(cham_masses, cham_masses_error))])
+                cham_sorted_masses = numpy.sort(cham_masses)
+                cham_sorted_error = numpy.array([x for _, x in sorted(zip(cham_masses, cham_masses_error))])
 
             p = 1. * numpy.arange(len(cham_sorted_masses)) / (len(cham_sorted_masses) - 1)
             cham_low = cham_sorted_masses - cham_sorted_error
@@ -1513,11 +1540,12 @@ def cdfs_with_observations_mass(open_path, save_path, N, times, colors, labels, 
             axs12.set_ylim(ylimits)
             axs12.set_xticks(ticks)
 
-            # IC 348 data (Ruiz-Rodriguez et al 2018)
+            # IC 348 data (Ruiz-Rodriguez et al 2018  2018MNRAS.478.3674R )
+            # Data: DUST masses in MEarth
             lines = open('data/IC348_masses.txt', 'r').readlines()
             ic348_masses, ic348_masses_error = [], []
 
-            for line in (line for line in lines if not line.startswith('#')):  # DUST masses
+            for line in (line for line in lines if not line.startswith('#')):
                 if len(line.split()) == 11:
                     a = line.split()[8]
                     b = line.split()[10]
@@ -1525,15 +1553,26 @@ def cdfs_with_observations_mass(open_path, save_path, N, times, colors, labels, 
                     a = line.split()[10]
                     b = line.split()[12]
 
-                ic348_masses.append(float(a))
-                ic348_masses_error.append(float(b))
+                # MEarth to MJup conversion
+                me = float(a) | units.MEarth
+                mj = me.value_in(units.MJupiter)
+
+                me_error = float(b) | units.MEarth
+                mj_error = me_error.value_in(units.MJupiter)
+
+                ic348_masses.append(mj)
+                ic348_masses_error.append(mj_error)
+
+            # 100. factor to turn dust mass into gas mass
+            ic348_masses = 100. * numpy.asarray(ic348_masses)
+            ic348_masses_error = 100. * numpy.asarray(ic348_masses_error)
 
             if log:
-                ic348_sorted_masses = 2. * numpy.sort(numpy.log10(ic348_masses))
-                ic348_sorted_error = numpy.array([2 * numpy.log10(x) for _, x in sorted(zip(ic348_masses, ic348_masses_error))])
+                ic348_sorted_masses = numpy.sort(numpy.log10(ic348_masses))
+                ic348_sorted_error = numpy.array([numpy.log10(x) for _, x in sorted(zip(ic348_masses, ic348_masses_error))])
             else:
-                ic348_sorted_masses = numpy.sort(100 * ic348_masses)
-                ic348_sorted_error = numpy.array([100 * x for _, x in sorted(zip(ic348_masses, ic348_masses_error))])
+                ic348_sorted_masses = numpy.sort(ic348_masses)
+                ic348_sorted_error = numpy.array([x for _, x in sorted(zip(ic348_masses, ic348_masses_error))])
 
             p = 1. * numpy.arange(len(ic348_sorted_masses)) / (len(ic348_sorted_masses) - 1)
             ic348_low = ic348_sorted_masses - ic348_sorted_error
@@ -1563,15 +1602,28 @@ def cdfs_with_observations_mass(open_path, save_path, N, times, colors, labels, 
             axs10.set_ylim(ylimits)
             axs10.set_xticks(ticks)
 
-            # sigma Orionis data (Ansdell+ 2017)
+            # sigma Orionis data (Ansdell+ 2017  2017AJ....153..240A)
+            # Data: DUST masses in MEarth
             lines = open('data/sigmaOrionis_masses.txt', 'r').readlines()
             sOrionis_masses, sOrionis_masses_error = [], []
 
             for line in (line for line in lines if not line.startswith('#')):
                 a = line.split()[15]
                 b = line.split()[16]
-                sOrionis_masses.append((100 * float(a)) / 317.8)  # MEarth to MJup conversion
-                sOrionis_masses_error.append((100 * float(b)) / 317.8)  # MEarth to MJup conversion
+
+                # MEarth to MJup conversion
+                me = float(a) | units.MEarth
+                mj = me.value_in(units.MJupiter)
+
+                me_error = float(b) | units.MEarth
+                mj_error = me_error.value_in(units.MJupiter)
+
+                sOrionis_masses.append(mj)
+                sOrionis_masses_error.append(mj_error)
+
+            # 100. factor to turn dust mass into gas mass
+            sOrionis_masses = 100. * numpy.asarray(sOrionis_masses)
+            sOrionis_masses_error = 100. * numpy.asarray(sOrionis_masses_error)
 
             if log:
                 sOrionis_sorted_masses = numpy.sort(numpy.array(numpy.log10(sOrionis_masses)))
@@ -1608,7 +1660,8 @@ def cdfs_with_observations_mass(open_path, save_path, N, times, colors, labels, 
             axs11.set_ylim(ylimits)
             axs11.set_xticks(ticks)
 
-            # UpperSco data (Barenfeld et al 2016)
+            # UpperSco data (Barenfeld et al 2016 2016ApJ...827..142B)
+            # data: DUST masses in MEarth
             lines = open('data/UpperSco_masses.txt', 'r').readlines()
             uppersco_masses, uppersco_masses_error = [], []
 
@@ -1617,14 +1670,24 @@ def cdfs_with_observations_mass(open_path, save_path, N, times, colors, labels, 
                 b = line.split()[2]
 
                 try:
-                    uppersco_masses.append((float(a) * 100) / 317.8)  # Dust mass to gas mass and MEarth to MJup conversion
+                    me = float(a) | units.MEarth  # MEarth to MJup conversion
+                    mj = me.value_in(units.MJupiter)
+                    uppersco_masses.append(mj)
                 except ValueError:
-                    uppersco_masses.append((float(a[1:]) * 100) / 317.8)
+                    me = float(a[1:]) | units.MEarth  # MEarth to MJup conversion
+                    mj = me.value_in(units.MJupiter)
+                    uppersco_masses.append(mj)
 
                 if b == "...":
                     uppersco_masses_error.append(0.0)
                 else:
-                    uppersco_masses_error.append(float(b) * 100)
+                    me_error = float(b) | units.MEarth
+                    mj_error = me_error.value_in(units.MJupiter)
+                    uppersco_masses_error.append(mj_error)
+
+            # 100. factor to turn dust mass into gas mass
+            uppersco_masses = 100. * numpy.asarray(uppersco_masses)
+            uppersco_masses_error = 100. * numpy.asarray(uppersco_masses_error)
 
             if log:
                 uppersco_sorted_masses = numpy.sort(numpy.log10(uppersco_masses))
@@ -1838,8 +1901,8 @@ def main(run_number, save_path, time, N, distribution, ncells, density, i, all_d
         colors = ["#638ccc", "#ca5670", "#c57c3c", "#72a555", "#ab62c0", '#0072B2', '#009E73', '#D55E00']  # colors from my prev paper
         labels = ['Trapezium cluster', 'Lupus clouds', 'Chamaeleon I', '$\sigma$ Orionis', 'Upper Scorpio', 'IC 348']
         #cdfs_in_time(path, save_path, N, times)
-        cdfs_with_observations_size(paths, save_path, N, times, colors, labels)
-        #cdfs_with_observations_mass(paths, save_path, N, times, colors, labels, log=True)
+        #cdfs_with_observations_size(paths, save_path, N, times, colors, labels)
+        cdfs_with_observations_mass(paths, save_path, N, times, colors, labels, log=True)
 
         # For presentation
         #cdfs_w_old(paths, labels, plot_colors, density, N, time)
