@@ -479,6 +479,7 @@ def single_star(open_path, save_path, N, i, t_end, all_distances=0):
     ax3.set_title('Disk size')
     ax3.set_xlabel('Time [Myr]')
     ax3.set_ylabel('Disk size [au]')
+    #ax3.set_xlim([0, t_end])
 
     # G0
     ax4.set_title(r'$G_0$')
@@ -494,113 +495,42 @@ def single_star(open_path, save_path, N, i, t_end, all_distances=0):
 
     times = numpy.arange(0.0, t_end + 0.05, 0.05)
 
-    photoevap_mass_loss, dyn_trunc_mass_loss, disk_size, distance_to_bright, bs_masses, g0s = [], [], [], [], [], []
-    dbs1, dbs2, dbs3 = [], [], []
+    disk_sizes = []
+    initial_size = 0.0
 
-    dispersal_time_index = 0
-    cumulative_photoevap_mass_loss = 0.0
-    cumulative_trunc_mass_loss = 0.0
+    mass_loss_pe, mass_loss_trunc = [], []
+    g0s = []
 
     for t in times:
         f = '{0}/N{1}_t{2}.hdf5'.format(open_path, N, t)
         stars = io.read_set_from_file(f, 'hdf5', close_file=True)
         bright_stars = stars[stars.stellar_mass.value_in(units.MSun) > 1.9]
         s = stars[i]
+        if t == 0.0:
+            initial_size = s.disk_radius.value_in(units.au)
         fig.suptitle(r"$M_*$ = {0:.2f} $M_\odot$, $R_d$ = {1:.2f} au, $M_d$ = {2:.2f} $M_J$".format(s.stellar_mass.value_in(units.MSun), s.initial_disk_size.value_in(units.au), s.initial_disk_mass.value_in(units.MJupiter)))
 
-        dmin = 5. * 1E17 * (1./4) * numpy.sqrt(stars[i].disk_radius.value_in(units.cm) / 1E14) | units.cm
-        print dmin.value_in(units.parsec)
-
-        g0 = s.g0
-        g0s.append(g0)
-
-        distances = []
-
-        for bs in bright_stars:
-            distances.append(distance(bs, s).value_in(units.parsec))
-
-        dbs1.append(distances[0])
-        dbs2.append(distances[1])
-        dbs3.append(distances[2])
-        nearest_bs = min(distances)
-        distance_to_bright.append(nearest_bs)
-
-        index_nearest_bs = distances.index(nearest_bs)
-        bs_masses.append(bright_stars[index_nearest_bs].stellar_mass.value_in(units.MSun))
-
-        cumulative_photoevap_mass_loss += s.photoevap_mass_loss.value_in(units.MJupiter)
-        cumulative_trunc_mass_loss += s.truncation_mass_loss.value_in(units.MJupiter)
-
-        #photoevap_mass_loss.append(ss.photoevap_mass_loss.value_in(units.MJupiter)- s.photoevap_mass_loss.value_in(units.MJupiter))
-        if cumulative_photoevap_mass_loss >= s.initial_disk_mass.value_in(units.MJupiter):
-            if dispersal_time_index == 0:
-                dispersal_time_index = list(times).index(t)
-            photoevap_mass_loss.append(0.0)
-            dyn_trunc_mass_loss.append(0.0)
-            disk_size.append(0.0)
+        if not s.dispersed:
+            disk_sizes.append(s.disk_radius.value_in(units.au))
+            mass_loss_pe.append(s.photoevap_mass_loss.value_in(units.MSun))
+            mass_loss_trunc.append(s.truncation_mass_loss.value_in(units.MSun))
         else:
-            photoevap_mass_loss.append(cumulative_photoevap_mass_loss)
-            dyn_trunc_mass_loss.append(cumulative_trunc_mass_loss)
-            disk_size.append(2 * s.disk_radius.value_in(units.au))
+            disk_sizes.append(0.0)
 
-    #disk_size[1] = disk_size[0]  # this has to do with the saving issue, will fix soon
-    #disk_size[2] = disk_size[0]
+        g0s.append(s.g0)
 
-    # Mass loss
-    ax.plot(times[:dispersal_time_index], photoevap_mass_loss[:dispersal_time_index], c='r', label="photoevap")
-    #ax.plot(times, photoevap_mass_loss, c='r', marker="o", label="photoevap")
-    ax.plot(times[:dispersal_time_index], dyn_trunc_mass_loss[:dispersal_time_index], c='b', label="dyn trunc")
-    #ax.plot(times, dyn_trunc_mass_loss, c='b', label="dyn trunc")
-    ax.legend(loc='best', fontsize=20)
-    ax.axvline(times[dispersal_time_index], ls=":")
+    mass_loss_pe = numpy.pad(mass_loss_pe, (0, len(times)-len(mass_loss_pe)), 'edge')
+    mass_loss_trunc = numpy.pad(mass_loss_trunc, (0, len(times)-len(mass_loss_trunc)), 'edge')
 
-    # Disk size
-    ax3.plot(times, disk_size, c='k')
-    ax3.axvline(times[dispersal_time_index], ls=":")
+    ax3.plot(times, disk_sizes)
+    ax3.axhline(initial_size, ls=":")
+    ax3.text(1.0, 7*initial_size/8, "Init radius = {0} au".format(initial_size))
 
-    # G0
-    ax4.plot(times, g0s, c='k')
-    ax4.axvline(times[dispersal_time_index], ls=":")
+    ax.plot(times, mass_loss_pe, color="red")
+    ax.plot(times, mass_loss_trunc, color="blue")
 
-    # Distance to nearest bright star
-    if all_distances:
-        ax2.plot(times, dbs1, label=r'{0:.2} $M_\odot$'.format(bright_stars[0].stellar_mass.value_in(units.MSun)))
-        ax2.plot(times, dbs2, label=r'{0:.2} $M_\odot$'.format(bright_stars[1].stellar_mass.value_in(units.MSun)))
-        ax2.plot(times, dbs3, label=r'{0:.2} $M_\odot$'.format(bright_stars[2].stellar_mass.value_in(units.MSun)))
-        ax2.legend(loc='best')
+    ax4.plot(times, g0s)
 
-        ax2.plot(times, distance_to_bright, c='k')
-
-        scattered_times = [times[i] for i in xrange(0, len(times), 10)]
-        scattered_distances = [distance_to_bright[i] for i in xrange(0, len(distance_to_bright), 10)]
-        scattered_masses = [bs_masses[i] for i in xrange(0, len(bs_masses), 10)]
-
-        ax2.scatter(scattered_times, scattered_distances, s=scattered_masses, marker ="*", c='r')
-
-    else:
-        ax2.plot(times, distance_to_bright, c='k', alpha=0.5)
-
-        scattered_times = [times[i] for i in xrange(0, len(times), 10)]
-        scattered_distances = [distance_to_bright[i] for i in xrange(0, len(distance_to_bright), 10)]
-        scattered_masses = [bs_masses[i] for i in xrange(0, len(bs_masses), 10)]
-
-        ax2.scatter(scattered_times, scattered_distances, s=scattered_masses, marker ="*", c='r')
-
-        sorted_masses = bright_stars.stellar_mass.value_in(units.MSun)  # Only keeping the last 3 but it's fine for what I need
-        sorted_masses.sort()
-        print sorted_masses
-
-        bs1 = mlines.Line2D([], [], color='red', marker='*', linestyle='None',
-                        markersize=sorted_masses[0], label=r'{0:.2} $M_\odot$'.format(sorted_masses[0]))
-        bs2 = mlines.Line2D([], [], color='red', marker='*', linestyle='None',
-                        markersize=sorted_masses[1], label=r'{0:.2} $M_\odot$'.format(sorted_masses[1]))
-        bs3 = mlines.Line2D([], [], color='red', marker='*', linestyle='None',
-                        markersize=0.1 * sorted_masses[2], label=r'{0} $M_\odot$'.format(sorted_masses[2]))
-        ax2.legend(handles=[bs1, bs2, bs3], loc='best', fontsize=14)
-
-    ax2.axvline(times[dispersal_time_index], ls=":")
-    pyplot.tight_layout()
-    pyplot.subplots_adjust(left=None, bottom=None, right=None, top=0.9, wspace=None, hspace=0.35)
     pyplot.show()
 
 
@@ -2098,7 +2028,7 @@ def main(run_number, save_path, time, N, distribution, ncells, density, i, all_d
     #distance_from_center(paths, time, N, labels, plot_colors, density)
 
     #path = 'results/cartesius/{0}_N{1}_c{2}/0/'.format(distribution, N, ncells)
-    path = 'results/plummer_N100_c50_sh/0/'.format(distribution, N, ncells)
+    path = 'results/cartesius/plummer_N100_c50/0/'.format(distribution, N, ncells)
 
     pyplot.style.use('paper')
 
@@ -2115,7 +2045,7 @@ def main(run_number, save_path, time, N, distribution, ncells, density, i, all_d
                   'ONC', "OMC-2"]
         #cdfs_in_time(path, save_path, N, times)
         #cdfs_with_observations_size(paths, save_path, N, times, colors, labels)
-        cdfs_with_observations_mass(paths, save_path, N, times, colors, labels, log=True)
+        #cdfs_with_observations_mass(paths, save_path, N, times, colors, labels, log=True)
 
         # For presentation
         #cdfs_w_old(paths, labels, plot_colors, density, N, time)
