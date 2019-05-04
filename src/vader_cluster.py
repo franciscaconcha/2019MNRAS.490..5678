@@ -112,7 +112,7 @@ def evolve_single_disk(code, dt):
     try:
         disk.evolve_model(dt)
     except:
-        print "Disk {0} did not converge".format(disk_codes_indices[disk])
+        print "Disk did not converge"
         global diverged_disks
         diverged_disks[disk] = True
         #disk.parameters.inner_pressure_boundary_type = 3
@@ -753,7 +753,6 @@ def main(N, Rvir, Qvir, dist, alpha, ncells, t_ini, t_end, save_interval, run_nu
 
                 # Check for dispersed disks
                 disk_density = get_disk_density(c)
-                #disk_density = get_disk_mass(c, s.disk_radius).value_in(units.g) / (numpy.pi * s.disk_radius.value_in(units.cm)**2) | units.g / units.cm**2
 
                 # Check for dispersed disks
                 if s.disk_radius.value_in(units.au) < 0.5 or disk_density <= s.dispersion_threshold:
