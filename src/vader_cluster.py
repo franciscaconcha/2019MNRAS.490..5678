@@ -112,7 +112,7 @@ def evolve_single_disk(code, dt):
     try:
         disk.evolve_model(dt)
     except:
-        print "Disk did not converge"
+        print "Disk {0} did not converge".format(disk_codes_indices[disk])
         global diverged_disks
         diverged_disks[disk] = True
         #disk.parameters.inner_pressure_boundary_type = 3
@@ -895,6 +895,7 @@ def main(N, Rvir, Qvir, dist, alpha, ncells, t_ini, t_end, save_interval, run_nu
             #print "mass loss: {0}".format(total_photoevap_mass_loss)
             #print "pre evaporate: {0}".format(get_disk_radius(disk_codes[disk_codes_indices[ss.key]]))
             # Evaporate the calculated mass loss from the disk
+            print "key: {0}".format(ss.key)
             evaporated_disk = evaporate(disk_codes[disk_codes_indices[ss.key]],
                                         total_photoevap_mass_loss)
 
