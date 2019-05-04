@@ -891,10 +891,7 @@ def main(N, Rvir, Qvir, dist, alpha, ncells, t_ini, t_end, save_interval, run_nu
                 print "Star's {0} disk dispersed by photoevaporation, deleted code".format(ss.key)
                 continue
 
-            #print "mass loss: {0}".format(total_photoevap_mass_loss)
-            #print "pre evaporate: {0}".format(get_disk_radius(disk_codes[disk_codes_indices[ss.key]]))
             # Evaporate the calculated mass loss from the disk
-            print "key: {0}".format(ss.key)
             evaporated_disk = evaporate(disk_codes[disk_codes_indices[ss.key]],
                                         total_photoevap_mass_loss)
 
