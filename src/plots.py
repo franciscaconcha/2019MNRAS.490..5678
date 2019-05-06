@@ -235,12 +235,12 @@ def size_vs_distance_from_star(paths, t, N, labels, colors, density):
 
 
 
-def mass_loss_distribution(open_path, save_path, t, N, colors, density):
+def mass_loss_distribution(open_path, save_path, tend, N, colors, density):
     from matplotlib.colors import LinearSegmentedColormap
     fig = pyplot.figure(figsize=(13, 12))
     ax = pyplot.gca()
     #fig, ax = pyplot.subplots(1, 2, figsize=(13, 12))#, gridspec_kw={"width_ratios": [12, 1]})
-    ax.set_title('N={0}, c=100, t={1} Myr'.format(N, t))
+    ax.set_title('N={0}, c=100, t={1} Myr'.format(N, tend))
     ax.set_xlabel('x [parsec]')
     ax.set_ylabel('y [parsec]')
     ax.set_xlim(-1.5, 1.5)
@@ -249,7 +249,7 @@ def mass_loss_distribution(open_path, save_path, t, N, colors, density):
     #pyplot.axes(ax).set_aspect('equal', adjustable='box')
 
     # Open t=10.0 Myr file to create colormap
-    f = '{0}/N{1}_t{2}.hdf5'.format(open_path, N, 10.0)
+    f = '{0}/N{1}_t{2}.hdf5'.format(open_path, N, tend)
     stars = io.read_set_from_file(f, 'hdf5', close_file=True)
 
     # Take only the small stars
@@ -298,7 +298,7 @@ def mass_loss_distribution(open_path, save_path, t, N, colors, density):
     #                            norm=norm,
     #                            orientation='vertical')
 
-    times = numpy.arange(0.0, 10.05, 0.05)
+    times = numpy.arange(0.0, tend + 0.05, 0.05)
 
     for t in times:
         f = '{0}/N{1}_t{2}.hdf5'.format(open_path, N, t)
@@ -313,7 +313,7 @@ def mass_loss_distribution(open_path, save_path, t, N, colors, density):
         bright_stars = stars[stars.stellar_mass.value_in(units.MSun) > 1.9]
 
         # Open final files
-        f = '{0}/N{1}_t{2}.hdf5'.format(open_path, N, 10.0)
+        f = '{0}/N{1}_t{2}.hdf5'.format(open_path, N, tend)
         stars = io.read_set_from_file(f, 'hdf5', close_file=True)
 
         # Take only the small stars
@@ -409,49 +409,63 @@ def size_in_time(open_path, save_path, N, i):  # For one star
     #pyplot.show()
 
 
-def mass_loss_in_time(open_path, save_path, N, i):  # For one star
-    #fig = pyplot.figure(figsize=(12, 8))
-    #ax = pyplot.gca()
-    fig, (ax, ax2) = pyplot.subplots(2, 1, figsize=(12, 10))#, gridspec_kw={"width_ratios": [12, 1]})
-    ax.set_title('Mass loss in time')
+def mass_loss_in_time(open_paths, save_path, tend, N, i):
+    """ Average mass loss in each time step due to photoevaporation and truncations.
+
+    :param open_path:
+    :param save_path:
+    :param tend:
+    :param N:
+    :param i:
+    :return:
+    """
+    fig = pyplot.figure()
+    ax = pyplot.gca()
+    #ax.set_title('Mass loss in time')
     ax.set_xlabel('Time [Myr]')
-    ax.set_ylabel('Mass loss [MSun]')
+    ax.set_ylabel('Mass loss [$M_{Jup}$]')
 
-    ax2.set_title('Distance to nearest bright stars')
-    ax2.set_xlabel('Time [Myr]')
-    ax2.set_ylabel('Distance [parsec]')
+    times = numpy.arange(0.0, tend + 0.05, 0.05)
 
-    #ax.set_xlim(-1.5, 1.5)
-    #ax.set_ylim(-1.5, 1.5)
-    #ax.axis('square')
-    #pyplot.axes(ax).set_aspect('equal', adjustable='box')
-
-    #ax2 = ax.twinx()
-
-    times = numpy.arange(0.0, 10.05, 0.05)
-
-    photoevap_mass_loss, dyn_trunc_mass_loss, disk_size, distance_to_bright = [], [], [], []
+    photoevap_mass_loss, trunc_mass_loss, photoevap_mass_loss_error, trunc_mass_loss_error = [], [], [], []
 
     for t in times:
-        f = '{0}/N{1}_t{2}.hdf5'.format(open_path, N, t)
-        stars = io.read_set_from_file(f, 'hdf5', close_file=True)
-        s = stars[i]
+        photoevap_in_t, trunc_in_t = [], []
+        for p in open_paths:
+            f = '{0}/N{1}_t{2}.hdf5'.format(p, N, t)
+            stars = io.read_set_from_file(f, 'hdf5', close_file=True)
+            small_stars = stars[stars.stellar_mass.value_in(units.MSun) <= 1.9]
+            disked_stars = small_stars[small_stars.dispersed == False]
 
-        photoevap_mass_loss.append(s.photoevap_mass_loss.value_in(units.MSun))
-        dyn_trunc_mass_loss.append(s.truncation_mass_loss.value_in(units.MSun))
-        disk_size.append(2 * s.disk_radius.value_in(units.au))
+            photoevap_in_t.append(numpy.median(disked_stars.photoevap_mass_loss.value_in(units.MJupiter)))
+            trunc_in_t.append(numpy.median(disked_stars.truncation_mass_loss.value_in(units.MJupiter)))
 
-    disk_size[1] = disk_size[0]  # this has to do with the saving issue, will fix soon
-    disk_size[2] = disk_size[0]
+        photoevap_mass_loss.append(numpy.mean(photoevap_in_t))
+        photoevap_mass_loss_error.append(numpy.std(photoevap_in_t))
+
+        trunc_mass_loss.append(numpy.mean(trunc_in_t))
+        trunc_mass_loss_error.append(numpy.std(trunc_in_t))
+
+    photoevap_mass_loss = numpy.array(photoevap_mass_loss)
+    trunc_mass_loss = numpy.array(trunc_mass_loss)
 
     ax.plot(times, photoevap_mass_loss, c='r', label="photoevap")
-    ax.plot(times, dyn_trunc_mass_loss, c='b', label="dyn trunc")
-    ax2.plot(times, disk_size, c='k')
+    ax.plot(times, trunc_mass_loss, c='b', label="dyn trunc")
 
-    ax.legend(loc='upper left', fontsize=20)
+    ax.fill_between(times,
+                    photoevap_mass_loss - photoevap_mass_loss_error,
+                    photoevap_mass_loss + photoevap_mass_loss_error,
+                    facecolor='red', alpha=0.2)
+    ax.fill_between(times,
+                    trunc_mass_loss - trunc_mass_loss_error,
+                    trunc_mass_loss + trunc_mass_loss_error,
+                    facecolor='blue', alpha=0.2)
+
+    ax.ticklabel_format(axis='both', style='scientific')
+    ax.legend(fontsize=20)
 
     pyplot.tight_layout()
-    #pyplot.show()
+    pyplot.show()
 
 
 def single_star(open_path, save_path, N, i, t_end, all_distances=0):
@@ -916,8 +930,8 @@ def cdfs_with_observations_size(open_path, save_path, N, times, colors, labels, 
             #print small_stars.disk_mass.value_in(units.g) / (math.pi * small_stars.disk_radius.value_in(units.cm)**2)
             small_stars = small_stars[1. < small_stars.disk_mass.value_in(units.g) / (math.pi * small_stars.disk_radius.value_in(units.cm)**2)]
 
-            if log:
-                sizes = 2. * numpy.log10(small_stars.disk_radius.value_in(units.au))
+            if log: # 2. factor radii to diameter
+                sizes = numpy.log10(2. * small_stars.disk_radius.value_in(units.au))
             else:
                 sizes = 2. * small_stars.disk_radius.value_in(units.au)
 
@@ -997,6 +1011,7 @@ def cdfs_with_observations_size(open_path, save_path, N, times, colors, labels, 
             axs00.set_ylabel(ylabel)"""
 
             # ONC data (Eisner+ 2018)
+            # Data: dust radii
             lines = open('data/ONC.txt', 'r').readlines()
             onc_sizes, onc_sizes_error = [], []
 
@@ -1005,11 +1020,11 @@ def cdfs_with_observations_size(open_path, save_path, N, times, colors, labels, 
                 b = data.split('$')[1]
                 c = b.split('\pm')
                 if len(c) == 2:  # Value + error
-                    onc_sizes.append(2. * float(c[0]))  # 2. factor for radius to diameter
-                    onc_sizes_error.append(2. * float(c[1]))
+                    onc_sizes.append(2. * 2. * float(c[0]))  # 2. factor for radius to diameter, 2. dust to gas
+                    onc_sizes_error.append(2. * 2. * float(c[1]))
                 else:  # Upper limit
                     d = c[0].split('<')[1][1:]
-                    onc_sizes.append(float(d))
+                    onc_sizes.append(2. * 2. * float(d))
                     onc_sizes_error.append(0.0)
 
             if log:
@@ -1043,20 +1058,21 @@ def cdfs_with_observations_size(open_path, save_path, N, times, colors, labels, 
             axs01.fill_betweenx(cumulative_sizes,
                                  sizes_low, sizes_high,
                                  alpha='0.2', facecolor='black')
-            axs01.text(xtext, ytext, 't = {0} Myr'.format(t))
-            axs01.set_xlim(xlimits)
+            axs01.text(370, ytext, 't = {0} Myr'.format(t))
+            axs01.set_xlim([0, 1050])
             axs01.set_ylim(ylimits)
-            axs01.set_xticks(ticks)
+            axs01.set_xticks([0, 500, 1000])
 
             # Lupus data (Ansdell et al 2018)
+            # Data: gas radii
             gas_disk_sizes, gas_disk_sizes_error = [], []
 
             lines = open('data/Lupus_sizes.txt', 'r').readlines()
             for line in (line for line in lines if not line.startswith('#')):
                 r_gas = line.split()[5]
                 r_gas_error = line.split()[6]
-                gas_disk_sizes.append(float(r_gas))
-                gas_disk_sizes_error.append(float(r_gas_error))
+                gas_disk_sizes.append(2. * float(r_gas))  # 2. factor radii to diameter
+                gas_disk_sizes_error.append(2. * float(r_gas_error))
 
             if log:
                 sorted_lupus_disk_sizes = numpy.sort(numpy.log10(gas_disk_sizes))
@@ -1096,6 +1112,7 @@ def cdfs_with_observations_size(open_path, save_path, N, times, colors, labels, 
             axs02.set_xticks(ticks)
 
             # Chamaeleon I data (Pascucci et al 2016)
+            # Data: dust major axes
             lines = open('data/ChamI_sizes.txt', 'r').readlines()
             cham_sizes_arsec = []
 
@@ -1115,9 +1132,9 @@ def cdfs_with_observations_size(open_path, save_path, N, times, colors, labels, 
             cham_sizes_au = (numpy.pi / 180) * (cham_sizes_arsec / 3600.) * cham_distance_au
 
             if log:
-                cham_sorted_disk_sizes = numpy.sort(numpy.log10(cham_sizes_au))
+                cham_sorted_disk_sizes = numpy.sort(numpy.log10(2. * cham_sizes_au))  # 2. factor dust to gas
             else:
-                cham_sorted_disk_sizes = numpy.sort(cham_sizes_au)
+                cham_sorted_disk_sizes = numpy.sort(2. * cham_sizes_au)
 
             p = 1. * numpy.arange(len(cham_sorted_disk_sizes)) / (len(cham_sorted_disk_sizes) - 1)
 
@@ -1138,12 +1155,13 @@ def cdfs_with_observations_size(open_path, save_path, N, times, colors, labels, 
             axs10.fill_betweenx(cumulative_sizes,
                                  sizes_low, sizes_high,
                                  alpha='0.2', facecolor='black')
-            axs10.text(xtext, ytext, 't = {0} Myr'.format(t))
-            axs10.set_xlim(xlimits)
+            axs10.text(370, ytext, 't = {0} Myr'.format(t))
+            axs10.set_xlim([0, 1050])
             axs10.set_ylim(ylimits)
-            axs10.set_xticks(ticks)
+            axs10.set_xticks([0, 500, 1000])
 
             # sigma Orionis data (Mauco et al 2016)
+            # Data: dust radii
             lines = open('data/sigmaOrionis_sizes.txt', 'r').readlines()
             sOrionis_sizes_au, sOrionis_sizes_low, sOrionis_sizes_high = [], [], []
 
@@ -1151,9 +1169,9 @@ def cdfs_with_observations_size(open_path, save_path, N, times, colors, labels, 
                 a = line.split()[1]
                 b = line.split()[2][1:-1]
                 c, d = b.split('-')
-                sOrionis_sizes_au.append(float(a))
-                sOrionis_sizes_low.append(float(c))
-                sOrionis_sizes_high.append(float(d))
+                sOrionis_sizes_au.append(2. * 2. * float(a))  # 2. factor radii to diameter, 2. factor dust to gas
+                sOrionis_sizes_low.append(2. * 2. * float(c))
+                sOrionis_sizes_high.append(2. * 2. * float(d))
 
             if log:
                 sOrionis_sorted_disk_sizes = numpy.sort(numpy.array(numpy.log10(sOrionis_sizes_au)))
@@ -1192,6 +1210,7 @@ def cdfs_with_observations_size(open_path, save_path, N, times, colors, labels, 
             axs11.set_xticks(ticks)
 
             # UpperSco data (Barenfeld et al 2017)
+            # Data: gas radii
             lines = open('data/UpperSco_sizes.txt', 'r').readlines()
             uppersco_sizes, uppersco_errors_low, uppersco_errors_high = [], [], []
 
@@ -1199,9 +1218,9 @@ def cdfs_with_observations_size(open_path, save_path, N, times, colors, labels, 
                 a = line.split()[7]
                 b = line.split()[8]
                 c = line.split()[9]
-                uppersco_sizes.append(float(a))
-                uppersco_errors_low.append(float(b[2:-1]))
-                uppersco_errors_high.append(float(c[1:-1]))
+                uppersco_sizes.append(2. * float(a))  # 2. factor radii to diameter
+                uppersco_errors_low.append(2. * float(b[2:-1]))
+                uppersco_errors_high.append(2. * float(c[1:-1]))
 
             if log:
                 uppersco_sorted_disk_sizes = numpy.sort(numpy.log10(uppersco_sizes))
@@ -1861,6 +1880,42 @@ def cdfs_with_observations_mass(open_path, save_path, N, times, colors, labels, 
     pyplot.show()
 
 
+def disk_mass_in_time(open_path, save_path, N, t_end):
+    fig = pyplot.figure()
+
+    total_disks, total_disks_error = [], []
+    times = numpy.arange(0.0, t_end + 1., 1.)
+    init_len = 0
+
+    for t in times:
+        total_in_t = []
+        for p in open_path:
+            f = '{0}/N{1}_t{2}.hdf5'.format(p, N, t)
+            stars = io.read_set_from_file(f, 'hdf5', close_file=True)
+            if t == 0.0:
+                init_len = len(stars)
+
+            # Take only the small stars
+            small_stars = stars[stars.stellar_mass.value_in(units.MSun) <= 1.9]
+            small_stars = small_stars[small_stars.dispersed == False]
+            small_stars = small_stars[1. < small_stars.disk_mass.value_in(units.g) / (math.pi * small_stars.disk_radius.value_in(units.cm)**2)]
+
+            masses = small_stars.disk_mass.value_in(units.MEarth)
+
+            total_in_t.append(float(len(masses[masses >= 10.])) / init_len)
+
+        total_disks.append(numpy.median(total_in_t))
+        total_disks_error.append(numpy.std(total_in_t))
+
+    pyplot.bar(times, total_disks, yerr=total_disks_error, capsize=5, facecolor='lightgray')
+    pyplot.xlabel('Time [Myr]')
+    pyplot.ylabel('$M_{disk} > 10 M_{\oplus}$')
+    pyplot.savefig('{0}/mass_fraction.png'.format(save_path))
+
+    pyplot.show()
+
+
+
 def plot_cluster(path, t, N, colors, density):
     """ Plot star positions and disk sizes
 
@@ -1978,18 +2033,9 @@ def disk_fractions(N, open_paths, save_path):
             small_stars = stars[stars.stellar_mass.value_in(units.MSun) <= 1.9]
             disked_stars = small_stars[small_stars.dispersed == False]
 
-            #density = 1E-7
-
-            #small_stars = small_stars[small_stars.disk_mass.value_in(units.MSun) /
-            #                          (numpy.pi * small_stars.disk_radius.value_in(units.au) ** 2) > density]
-            #disked_stars2 = small_stars[small_stars.dispersed == False]
-            #disked_stars = disked_stars2[disked_stars2.photoevap_mass_loss < disked_stars2.initial_disk_mass]
-
-            #print len(disked_stars2), len(disked_stars)
-
             fraction = 100. * (float(len(disked_stars)) / float(len(small_stars)))
-            print fraction
             fractions.append(fraction)
+
         all_fractions.append(fractions)
 
     all_disk_fractions = numpy.mean(all_fractions, axis=0)
@@ -2009,62 +2055,40 @@ def disk_fractions(N, open_paths, save_path):
     pyplot.show()
 
 
-def main(run_number, save_path, time, N, distribution, ncells, density, i, all_distances, single):
+def main(save_path, time, N, distribution, ncells, i, all_distances, single):
 
-    files = ['results/king_N100_c100_3/0/N100_t{0}.hdf5'.format(time)]#,
-             #'results/plummer_N100_c100_3/0/N100_t10.0.hdf5']#,
-             #'results/fractal_N100_c50/0/N100_t0.hdf5']
+    paths = ['results/final/plummer_N100_1/',
+             'results/final/plummer_N100_2/',
+             'results/final/plummer_N100_3/']
 
-    paths = ['results/plummer_N100_c50_sh/0/',
-             'results/cartesius/plummer_N100_c50/0/']#,
-        #     'results/plummer_N{0}_c{1}_3/0/'.format(N, ncells)]#,
-             #'results/fractal_N{0}_c{1}_3/0/']
-
-    labels = ["King"]#, "Plummer"]#, "Fractal"]
-    plot_colors = ["#ca5670", "#638ccc", "#c57c3c", "#72a555", "#ab62c0"]
-
-    #size_vs_mass(files, labels, plot_colors, density, N, ncells, 10.0)
-    #size_vs_distance_from_star(paths, time, N, labels, plot_colors, density)
-    #distance_from_center(paths, time, N, labels, plot_colors, density)
-
-    #path = 'results/cartesius/{0}_N{1}_c{2}/0/'.format(distribution, N, ncells)
-    path = 'results/cartesius/plummer_N100_c50/0/'.format(distribution, N, ncells)
+    path = 'results/final/plummer_N100_1/'
 
     pyplot.style.use('paper')
 
     if single:
         single_star(path, save_path, N, i, time, all_distances)
-    #pyplot.show()
     else:
-        #disk_fractions(N, paths, save_path)
         times = [1.0, 2.0, 2.5, 4.0, 5.0]
         #colors = ['#E24A33', '#348ABD', '#988ED5', '#8EBA42', '#FFB5B8', '#FBC15E', '#777777']
         #colors = ['#0072B2', '#009E73', '#D55E00', '#CC79A7', '#56B4E9', '#F0E442'] #seaborn color blind
         colors = ["#638ccc", "#ca5670", "#c57c3c", "#72a555", "#ab62c0", '#0072B2', '#009E73', '#D55E00']  # colors from my prev paper
         labels = ['Trapezium cluster', 'Lupus clouds', 'Chamaeleon I', '$\sigma$ Orionis', 'Upper Scorpio', 'IC 348',
                   'ONC', "OMC-2"]
+        mass_loss_in_time(paths, save_path, time, N, 0)
+        #disk_fractions(N, paths, save_path)
         #cdfs_in_time(path, save_path, N, times)
         #cdfs_with_observations_size(paths, save_path, N, times, colors, labels)
         #cdfs_with_observations_mass(paths, save_path, N, times, colors, labels, log=True)
-
-        # For presentation
-        #cdfs_w_old(paths, labels, plot_colors, density, N, time)
-        #size_vs_mass(files, labels, plot_colors, density, N, ncells, time)
-
-        #cdfs(paths, save_path, N, time)
-        #size_vs_distance_from_star(paths, time, N, labels, plot_colors, density)
-
+        #disk_mass_in_time(paths, save_path, N, time)
 
 def new_option_parser():
     from amuse.units.optparse import OptionParser
     result = OptionParser()
 
     # Simulation parameters
-    result.add_option("-n", dest="run_number", type="int", default=0,
-                      help="run number [%default]")
     result.add_option("-s", dest="save_path", type="string", default='/media/fran/data1/photoevap/figures',
                       help="path to save the results [%default]")
-    result.add_option("-t", dest="time", type="float", default='10.0',
+    result.add_option("-t", dest="time", type="float", default='5.0',
                       help="time to use for plots [%default]")
 
     # Cluster parameters
@@ -2080,8 +2104,6 @@ def new_option_parser():
     # Disk parameters
     result.add_option("-c", dest="ncells", type="int", default=100,
                       help="Number of cells to be used in vader disk [%default]")
-    result.add_option("-d", dest="density", type="float", default=1E-9,
-                      help="Density limit for disk surface [%default]")
     result.add_option("-i", dest="i", type="int", default=0,
                       help="Individual star to plot [%default]")
 
