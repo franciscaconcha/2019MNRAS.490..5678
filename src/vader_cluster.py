@@ -997,7 +997,7 @@ def new_option_parser():
     result.add_option("-N", dest="N", type="int", default=100,
                       help="number of stars [%default]")
     result.add_option("-R", dest="Rvir", type="float",
-                      unit=units.parsec, default=1.0,
+                      unit=units.parsec, default=0.5,
                       help="cluster virial radius [%default]")
     result.add_option("-Q", dest="Qvir", type="float", default=0.5,
                       help="virial ratio [%default]")
