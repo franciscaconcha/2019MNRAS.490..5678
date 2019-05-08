@@ -495,6 +495,7 @@ def main(N, Rvir, Qvir, dist, alpha, ncells, t_ini, t_end, save_interval, run_nu
             s.cumulative_photoevap_mass_loss = 0 | units.MJupiter
             s.truncation_mass_loss = 0 | units.MJupiter
             s.cumulative_truncation_mass_loss = 0 | units.MJupiter
+            s.EUV = False  # For photevaporation regime
 
             # Initial values of disks
             s.initial_disk_size = get_disk_radius(s_code)
@@ -825,6 +826,9 @@ def main(N, Rvir, Qvir, dist, alpha, ncells, t_ini, t_end, save_interval, run_nu
 
                 # Calculate total mass lost due to EUV photoevaporation during dt, in MSun
                 total_photoevap_mass_loss_euv = float(photoevap_Mdot * dt.value_in(units.yr)) | units.MSun
+
+                # Back to False for next time
+                ss.EUV = False
             else:
                 total_photoevap_mass_loss_euv = 0.0 | units.MSun
 
