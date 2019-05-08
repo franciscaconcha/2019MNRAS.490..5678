@@ -452,7 +452,7 @@ def main(N, Rvir, Qvir, dist, alpha, ncells, t_ini, t_end, save_interval, run_nu
     bright_stars.bright = True
 
     # Small stars: with disks; radiation from them not considered
-    small_stars = stars[stars.stellar_mass.value_in(units.MSun) < 1.9]
+    small_stars = stars[stars.stellar_mass.value_in(units.MSun) <= 1.9]
     small_stars.bright = False
 
     small_stars.disk_radius = 100 * (small_stars.stellar_mass.value_in(units.MSun) ** 0.5) | units.AU
