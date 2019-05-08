@@ -929,11 +929,8 @@ def main(N, Rvir, Qvir, dist, alpha, ncells, t_ini, t_end, save_interval, run_nu
                 print "Star's {0} disk dispersed by photoevaporation, deleted code".format(ss.key)
                 continue
 
-            # If evaporate results in actual radius change, we update the disk radius
-            # (If the mass loss was small maybe the disk radius won't change, that's why we check)
-            if get_disk_radius(disk_codes[disk_codes_indices[ss.key]]) < ss.disk_radius:
-                ss.disk_radius = get_disk_radius(disk_codes[disk_codes_indices[ss.key]])
-                ss.disk_mass = get_disk_mass(disk_codes[disk_codes_indices[ss.key]], ss.disk_radius)
+            ss.disk_radius = get_disk_radius(disk_codes[disk_codes_indices[ss.key]])
+            ss.disk_mass = get_disk_mass(disk_codes[disk_codes_indices[ss.key]], ss.disk_radius)
         ########### End Photoevaporation  ############
 
         channel_from_framework_to_gravity.copy()
