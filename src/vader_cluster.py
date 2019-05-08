@@ -495,7 +495,7 @@ def main(N, Rvir, Qvir, dist, alpha, ncells, t_ini, t_end, save_interval, run_nu
             s.cumulative_photoevap_mass_loss = 0 | units.MJupiter
             s.truncation_mass_loss = 0 | units.MJupiter
             s.cumulative_truncation_mass_loss = 0 | units.MJupiter
-            s.EUV = False  # For photevaporation regime
+            s.EUV = False  # For photoevaporation regime
 
             # Initial values of disks
             s.initial_disk_size = get_disk_radius(s_code)
