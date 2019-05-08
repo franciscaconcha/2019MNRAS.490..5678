@@ -795,21 +795,23 @@ def main(N, Rvir, Qvir, dist, alpha, ncells, t_ini, t_end, save_interval, run_nu
             lum = luminosity_fit(s.stellar_mass.value_in(units.MSun))
 
             for ss in small_stars[small_stars.dispersed == False]:
-                dmin = 5. * 1E17 * 0.25 * numpy.sqrt(ss.disk_radius.value_in(units.cm) / 1E14) | units.cm
+                # Calculate distance to bright star
                 dist = distance(s, ss)
 
                 # EUV regime -- Use Johnstone, Hollenbach, & Bally 1998
+                dmin = 5. * 1E17 * 0.25 * numpy.sqrt(ss.disk_radius.value_in(units.cm) / 1E14) | units.cm
+
                 if dist < dmin:
                     ss.EUV = True
-                    continue
 
-                # Other bright stars can still contribute FUV radiation
-                radiation_ss = radiation_at_distance(lum.value_in(units.erg / units.s),
-                                                     dist.value_in(units.cm)
-                                                     )
+                else:
+                    # Other bright stars can still contribute FUV radiation
+                    radiation_ss = radiation_at_distance(lum.value_in(units.erg / units.s),
+                                                         dist.value_in(units.cm)
+                                                         )
 
-                radiation_ss_G0 = radiation_ss.value_in(units.erg/(units.s * units.cm**2)) / 1.6E-3
-                total_radiation[ss.key] += radiation_ss_G0
+                    radiation_ss_G0 = radiation_ss.value_in(units.erg/(units.s * units.cm**2)) / 1.6E-3
+                    total_radiation[ss.key] += radiation_ss_G0
 
         # Apply photoevaporation on small stars
         for ss in small_stars[small_stars.dispersed == False]:
@@ -875,8 +877,9 @@ def main(N, Rvir, Qvir, dist, alpha, ncells, t_ini, t_end, save_interval, run_nu
             # Calculate total mass lost due to photoevaporation during dt, in MSun
             total_photoevap_mass_loss_fuv = float(numpy.power(10, photoevap_Mdot) * dt.value_in(units.yr)) | units.MSun
 
-            ss.photoevap_mass_loss = total_photoevap_mass_loss_euv + total_photoevap_mass_loss_fuv
-            ss.cumulative_photoevap_mass_loss += ss.total_photoevap_mass_loss
+            total_photoevap_mass_loss = total_photoevap_mass_loss_euv + total_photoevap_mass_loss_fuv
+            ss.photoevap_mass_loss = total_photoevap_mass_loss
+            ss.cumulative_photoevap_mass_loss += total_photoevap_mass_loss
 
             if ss.cumulative_photoevap_mass_loss >= ss.initial_disk_mass or ss.disk_mass < 0.03 | units.MEarth:  # Ansdell+2016
                 # Disk is gone by photoevaporation
@@ -899,7 +902,7 @@ def main(N, Rvir, Qvir, dist, alpha, ncells, t_ini, t_end, save_interval, run_nu
 
             # Evaporate the calculated mass loss from the disk
             evaporated_disk = evaporate(disk_codes[disk_codes_indices[ss.key]],
-                                        ss.total_photoevap_mass_loss)
+                                        total_photoevap_mass_loss)
 
             # If evaporate returns None, the disk is gone
             if evaporated_disk is not None:
