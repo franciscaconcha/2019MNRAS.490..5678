@@ -482,10 +482,10 @@ def single_star(open_path, save_path, N, i, t_end, all_distances=0):
     ax.set_title('Mass loss in time')
     ax.set_xlabel('Time [Myr]')
     ax.set_ylabel(r'Mass loss [$M_J$]')
-    ax.set_xlim(0, t_end)
+    #ax.set_xlim(0, t_end)
 
     # Distance
-    ax2.set_title('Distance to nearest bright star')
+    ax2.set_title('Distance to bright star(s)')
     ax2.set_xlabel('Time [Myr]')
     ax2.set_ylabel('Distance [parsec]')
 
@@ -507,44 +507,83 @@ def single_star(open_path, save_path, N, i, t_end, all_distances=0):
 
     #ax2 = ax.twinx()
 
-    times = numpy.arange(0.0, t_end + 0.05, 0.05)
+    times = numpy.arange(0.00, t_end + 0.05, 0.05)
 
     disk_sizes = []
     initial_size = 0.0
 
     mass_loss_pe, mass_loss_trunc = [], []
     g0s = []
+    nearest_bright = []
+
+    dispersal_time = 0.
+    checked = False
+
+    brighter = []
+    brighter_masses = []
 
     for t in times:
         f = '{0}/N{1}_t{2}.hdf5'.format(open_path, N, t)
         stars = io.read_set_from_file(f, 'hdf5', close_file=True)
-        bright_stars = stars[stars.stellar_mass.value_in(units.MSun) > 1.9]
+        bright_stars = stars[stars.bright == True]
         s = stars[i]
+        #prev_ml_pe = s.photoevap_mass_loss.value_in(units.MJupiter)
+        #prev_ml_trunc = s.truncation_mass_loss.value_in(units.MJupiter)
+        #cum_ml_pe += prev_ml_pe
+        #cum_ml_trunc += prev_ml_trunc
+        #print "MASS LOSS: {0} MJup".format(s.photoevap_mass_loss.value_in(units.MJupiter) + s.truncation_mass_loss.value_in(units.MJupiter))
+        #print "CUMULATIVE MASS LOSS: {0} MJup".format(s.cumulative_photoevap_mass_loss.value_in(units.MJupiter))
+        #print "INITIAL DISK MASS {0} MJup".format(s.initial_disk_mass.value_in(units.MJupiter))
+        #print s.dispersed
+        #print checked
+        #print "Density: {0} g/cm-2".format(s.disk_mass.value_in(units.g) / numpy.pi * s.disk_radius.value_in(units.cm)**2)
+
         if t == 0.0:
             initial_size = s.disk_radius.value_in(units.au)
-        fig.suptitle(r"$M_*$ = {0:.2f} $M_\odot$, $R_d$ = {1:.2f} au, $M_d$ = {2:.2f} $M_J$".format(s.stellar_mass.value_in(units.MSun), s.initial_disk_size.value_in(units.au), s.initial_disk_mass.value_in(units.MJupiter)))
+
+            for b in range(len(bright_stars)):
+                brighter.append([])
+                brighter_masses.append([])
 
         if not s.dispersed:
             disk_sizes.append(s.disk_radius.value_in(units.au))
-            mass_loss_pe.append(s.photoevap_mass_loss.value_in(units.MSun))
-            mass_loss_trunc.append(s.truncation_mass_loss.value_in(units.MSun))
         else:
-            disk_sizes.append(0.0)
+            if not checked:
+                dispersal_time = t
+                checked = True
+            disk_sizes.append(0.)
+
+        fig.suptitle(r"$M_*$ = {0:.2f} $M_\odot$, $R_d$ = {1:.2f} au, $M_d$ = {2:.2f} $M_J$".format(s.stellar_mass.value_in(units.MSun), initial_size, s.initial_disk_mass.value_in(units.MJupiter)))
+
+        mass_loss_pe.append(s.cumulative_photoevap_mass_loss.value_in(units.MJupiter))
+        mass_loss_trunc.append(s.cumulative_truncation_mass_loss.value_in(units.MJupiter))
 
         g0s.append(s.g0)
 
-    mass_loss_pe = numpy.pad(mass_loss_pe, (0, len(times)-len(mass_loss_pe)), 'edge')
-    mass_loss_trunc = numpy.pad(mass_loss_trunc, (0, len(times)-len(mass_loss_trunc)), 'edge')
+        for i in range(len(bright_stars)):
+            bs = bright_stars[i]
+            brighter[i].append(distance(s, bs).value_in(units.parsec))
+            brighter_masses[i].append(bs.mass.value_in(units.MSun))
 
     ax3.plot(times, disk_sizes)
     ax3.axhline(initial_size, ls=":")
     ax3.text(1.0, 7*initial_size/8, "Init radius = {0} au".format(initial_size))
+    ax3.axvline(dispersal_time, ls=":", c='black')
 
     ax.plot(times, mass_loss_pe, color="red")
     ax.plot(times, mass_loss_trunc, color="blue")
+    ax.axvline(dispersal_time, ls=":", c='black')
 
     ax4.plot(times, g0s)
+    ax4.axvline(dispersal_time, ls=":", c='black')
 
+    for j in range(len(bright_stars)):
+        ax2.plot(times, brighter[j], label="{0:.2} $M_\odot$".format(bright_stars[j].stellar_mass.value_in(units.MSun)))
+    ax2.axvline(dispersal_time, ls=":", c='black')
+    ax2.legend(loc='best')
+
+    #pyplot.tight_layout()
+    pyplot.subplots_adjust(hspace=0.5)  # make the figure look better
     pyplot.show()
 
 
@@ -1883,35 +1922,142 @@ def cdfs_with_observations_mass(open_path, save_path, N, times, colors, labels, 
 def disk_mass_in_time(open_path, save_path, N, t_end):
     fig = pyplot.figure()
 
-    total_disks, total_disks_error = [], []
-    times = numpy.arange(0.0, t_end + 1., 1.)
+    total_disks10, total_disks_low10, total_disks_high10 = [], [], []
+    total_disks4, total_disks_low4, total_disks_high4 = [], [], []
+    times = numpy.arange(0.0, t_end + 0.1, 0.1)
     init_len = 0
 
     for t in times:
-        total_in_t = []
+        total_in_t_10, total_in_t_4 = [], []
         for p in open_path:
             f = '{0}/N{1}_t{2}.hdf5'.format(p, N, t)
             stars = io.read_set_from_file(f, 'hdf5', close_file=True)
+
             if t == 0.0:
                 init_len = len(stars)
+                thiskey = stars[0].key
 
             # Take only the small stars
-            small_stars = stars[stars.stellar_mass.value_in(units.MSun) <= 1.9]
+            small_stars = stars[stars.bright == False]
             small_stars = small_stars[small_stars.dispersed == False]
-            small_stars = small_stars[1. < small_stars.disk_mass.value_in(units.g) / (math.pi * small_stars.disk_radius.value_in(units.cm)**2)]
+            #small_stars = small_stars[1}
 
-            masses = small_stars.disk_mass.value_in(units.MEarth)
+            masses = small_stars.disk_mass.value_in(units.MJupiter)[40]
+            print "t = {0} , {1}, {2}".format(t, masses, small_stars.dispersal_time.value_in(units.Myr)[40])
 
-            total_in_t.append(float(len(masses[masses >= 10.])) / init_len)
+            #total_in_t_10.append(float(len(masses[masses >= 10.])) / init_len)
+            #total_in_t_4.append(float(len(masses[masses >= 4.])) / init_len)
 
-        total_disks.append(numpy.median(total_in_t))
-        total_disks_error.append(numpy.std(total_in_t))
+            total_in_t_10.append(numpy.median(masses))
+            #total_in_t_4.append(float(len(masses[masses >= 4.])) / init_len)
 
-    pyplot.bar(times, total_disks, yerr=total_disks_error, capsize=5, facecolor='lightgray')
+        total_disks10.append(numpy.mean(total_in_t_10))
+        total_disks_low10.append(numpy.min(total_in_t_10))
+        total_disks_high10.append(numpy.max(total_in_t_10))
+
+        #total_disks4.append(numpy.mean(total_in_t_4))
+        #total_disks_low4.append(numpy.min(total_in_t_4))
+        #total_disks_high4.append(numpy.max(total_in_t_4))
+
+    #total_disks_low = numpy.min(total_disks, axis=0)
+    #total_disks_high = numpy.max(total_disks, axis=0)
+
+    pyplot.plot(times, total_disks10, label="$M_{disk} > 10 M_\oplus$")#, capsize=5, facecolor='lightgray')
+    pyplot.fill_between(times,
+                        total_disks_low10,
+                        total_disks_high10,
+                        alpha=0.2)
+
+    #pyplot.errorbar(times, total_disks4, label="$M_{disk} > 4 M_\oplus$")#, capsize=5, facecolor='lightgray')
+    #pyplot.fill_between(times,
+    #                    total_disks_low4,
+    #                    total_disks_high4,
+    #                    alpha=0.2)
+
     pyplot.xlabel('Time [Myr]')
     pyplot.ylabel('$M_{disk} > 10 M_{\oplus}$')
-    pyplot.savefig('{0}/mass_fraction.png'.format(save_path))
+    pyplot.legend()
+    pyplot.savefig('{0}/mass_fraction_line.png'.format(save_path))
 
+    pyplot.show()
+
+def total_disk_mass(open_paths100, open_paths30, save_path, t_end):
+    fig = pyplot.figure()
+
+    total_disks, total_disks_low, total_disks_high = [], [], []
+    times = numpy.arange(0.0, t_end + 0.05, 0.05)
+    init_mass = 0.
+
+    for t in times:
+        total_in_t = []
+        for p in open_paths100:
+            f = '{0}/N{1}_t{2}.hdf5'.format(p, 100, t)
+            stars = io.read_set_from_file(f, 'hdf5', close_file=True)
+            # Take only the small stars
+            small_stars = stars[stars.bright == False]
+            small_stars = small_stars[small_stars.dispersed == False]
+
+            disk_masses = small_stars.disk_mass.value_in(units.MEarth)
+
+            masses = disk_masses[disk_masses > 10.]
+            total_in_t.append(len(masses))# / init_mass)
+
+        total_disks.append(numpy.mean(total_in_t))
+        total_disks_low.append(numpy.min(total_in_t))
+        total_disks_high.append(numpy.max(total_in_t))
+
+    print total_disks_low, total_disks_high
+
+    #total_disks_low = numpy.min(total_disks, axis=0)
+    #total_disks_high = numpy.max(total_disks, axis=0)
+
+    pyplot.plot(times,
+                total_disks,
+                lw=2,
+                label=r'$\rho = 100 \mathrm{ \ M}_{\odot} \mathrm{ \ pc}^{-3}$')#, capsize=5, facecolor='lightgray')
+    pyplot.fill_between(times,
+                        total_disks_low,
+                        total_disks_high,
+                        alpha=0.2)
+
+    total_disks, total_disks_low, total_disks_high = [], [], []
+
+    for t in times:
+        total_in_t = []
+        for p in open_paths30:
+            f = '{0}/N{1}_t{2}.hdf5'.format(p, 30, t)
+            stars = io.read_set_from_file(f, 'hdf5', close_file=True)
+            # Take only the small stars
+            small_stars = stars[stars.bright == False]
+            small_stars = small_stars[small_stars.dispersed == False]
+
+            disk_masses = small_stars.disk_mass.value_in(units.MEarth)
+
+            masses = disk_masses[disk_masses > 10.]
+            total_in_t.append(len(masses))# / init_mass)
+
+        total_disks.append(numpy.mean(total_in_t))
+        total_disks_low.append(numpy.min(total_in_t))
+        total_disks_high.append(numpy.max(total_in_t))
+
+    print total_disks_low, total_disks_high
+
+    #total_disks_low = numpy.min(total_disks, axis=0)
+    #total_disks_high = numpy.max(total_disks, axis=0)
+
+    pyplot.plot(times,
+                total_disks,
+                lw=2,
+                label=r'$\rho = 30 \mathrm{ \ M}_{\odot} \mathrm{ \ pc}^{-3}$')#, capsize=5, facecolor='lightgray')
+    pyplot.fill_between(times,
+                        total_disks_low,
+                        total_disks_high,
+                        alpha=0.2)
+
+    pyplot.xlabel('Time [Myr]')
+    pyplot.ylabel('$M_{disk} > 10 M_{\oplus}$')
+    pyplot.savefig('{0}/mass_fraction_line.png'.format(save_path))
+    pyplot.legend(loc='best')
     pyplot.show()
 
 
@@ -1958,7 +2104,7 @@ def plot_cluster(path, t, N, colors, density):
     # fig.savefig('plot2.png')
 
 
-def disk_fractions(N, open_paths, save_path):
+def disk_fractions(open_paths100, open_paths30, t_end, save_path):
     filename = 'data/diskfractions.dat'
     f = open(filename, "r")
     lines = f.readlines()
@@ -2022,15 +2168,15 @@ def disk_fractions(N, open_paths, save_path):
     [bar.set_alpha(0.5) for bar in bars2]
 
     # Plotting my data
-    times = numpy.arange(0.0, 5.5, 0.5)
+    times = numpy.arange(0.0, t_end + 0.5, 0.5)
     all_fractions = []
 
-    for p in open_paths:
+    for p in open_paths100:
         fractions = []
         for t in times:
-            f = '{0}/N{1}_t{2}.hdf5'.format(p, N, t)
+            f = '{0}/N{1}_t{2}.hdf5'.format(p, 100, t)
             stars = io.read_set_from_file(f, 'hdf5', close_file=True)
-            small_stars = stars[stars.stellar_mass.value_in(units.MSun) <= 1.9]
+            small_stars = stars[stars.bright == False]
             disked_stars = small_stars[small_stars.dispersed == False]
 
             fraction = 100. * (float(len(disked_stars)) / float(len(small_stars)))
@@ -2039,13 +2185,48 @@ def disk_fractions(N, open_paths, save_path):
         all_fractions.append(fractions)
 
     all_disk_fractions = numpy.mean(all_fractions, axis=0)
-    disk_fractions_stdev = numpy.std(all_fractions, axis=0)
+    disk_fractions_high = numpy.max(all_fractions, axis=0)
+    disk_fractions_low = numpy.min(all_fractions, axis=0)
 
-    pyplot.errorbar(times,
+    pyplot.plot(times,
                     all_disk_fractions,
-                    yerr=disk_fractions_stdev,
-                    marker='o', color='k')
+                    #yerr=disk_fractions_stdev,
+                    color='k', lw=2,
+                    label=r'$\rho = 100 \mathrm{ \ M}_{\odot} \mathrm{ \ pc}^{-3}$')
+    pyplot.fill_between(times,
+                        disk_fractions_high,
+                        disk_fractions_low,
+                        facecolor='black', alpha=0.2)
 
+    all_fractions = []
+
+    for p in open_paths30:
+        fractions = []
+        for t in times:
+            f = '{0}/N{1}_t{2}.hdf5'.format(p, 30, t)
+            stars = io.read_set_from_file(f, 'hdf5', close_file=True)
+            small_stars = stars[stars.bright == False]
+            disked_stars = small_stars[small_stars.dispersed == False]
+
+            fraction = 100. * (float(len(disked_stars)) / float(len(small_stars)))
+            fractions.append(fraction)
+
+        all_fractions.append(fractions)
+
+    all_disk_fractions = numpy.mean(all_fractions, axis=0)
+    disk_fractions_high = numpy.max(all_fractions, axis=0)
+    disk_fractions_low = numpy.min(all_fractions, axis=0)
+
+    pyplot.plot(times,
+                    all_disk_fractions,
+                    #yerr=disk_fractions_stdev,
+                    color='k',
+                    ls='--', lw=2,
+                    label=r'$\rho = 30 \mathrm{ \ M}_{\odot} \mathrm{ \ pc}^{-3}$')
+    pyplot.fill_between(times,
+                        disk_fractions_high,
+                        disk_fractions_low,
+                        facecolor='black', alpha=0.2)
 
     pyplot.legend()
     pyplot.xlabel("Age [Myr]")
@@ -2055,18 +2236,155 @@ def disk_fractions(N, open_paths, save_path):
     pyplot.show()
 
 
+def tests(open_path, i, N, t_end):
+    times = numpy.arange(0.00, t_end + 0.05, 0.05)
+
+    disk_sizes = []
+    initial_size = 0.0
+
+    mass_loss_pe, mass_loss_trunc = [], []
+    g0s = []
+    nearest_bright = []
+
+    dispersal_time = 0.
+    checked = False
+
+    brighter = []
+    brighter_masses = []
+
+    for t in times:
+        f = '{0}/N{1}_t{2}.hdf5'.format(open_path, N, t)
+        stars = io.read_set_from_file(f, 'hdf5', close_file=True)
+        small_stars = stars[stars.bright == False]
+        s = stars[i]
+        if not s.dispersed:
+            print "t={0}, m={1}, disp={2}, enc={3}, size={4}, key={5}".format(t,
+                                                           s.disk_mass.value_in(units.MJupiter),
+                                                           s.dispersal_time.value_in(units.Myr),
+                                                           s.encounters,
+                                                           s.disk_radius.value_in(units.au),
+                                                           s.key)
+
+
+def disk_stellar_mass(open_paths100, open_paths30, t_end, mass_limit, save_path):
+    fig = pyplot.figure()
+    times = numpy.arange(0.0, t_end + 0.05, 0.05)
+
+    p = open_paths100[0]
+    mass_limit = mass_limit | units.MSun
+    initial_mass = 0.0
+
+    low_mass_disks, high_mass_disks = [], []
+
+    for p in open_paths100:
+        low_all_in_p, high_all_in_p = [], []
+        for t in times:
+            f = '{0}/N{1}_t{2}.hdf5'.format(p, 100, t)
+            stars = io.read_set_from_file(f, 'hdf5', close_file=True)
+            small_stars = stars[stars.bright == False]
+            disked_stars = small_stars[small_stars.dispersed == False]
+
+            high_mass_stars = disked_stars[disked_stars.stellar_mass > mass_limit]
+            low_mass_stars = disked_stars[disked_stars.stellar_mass <= mass_limit]
+
+            if t == 0.:
+                initial_mass = numpy.sum(disked_stars.disk_mass.value_in(units.MJupiter))
+
+            low_total_mass = numpy.sum(low_mass_stars.disk_mass.value_in(units.MJupiter))
+            high_total_mass = numpy.sum(high_mass_stars.disk_mass.value_in(units.MJupiter))
+            low_total_mass_fraction = low_total_mass / initial_mass
+            high_total_mass_fraction = high_total_mass / initial_mass
+            low_all_in_p.append(low_total_mass_fraction)
+            high_all_in_p.append(high_total_mass_fraction)
+
+        low_mass_disks.append(low_all_in_p)
+        high_mass_disks.append(high_all_in_p)
+
+    low_mass_disks = numpy.median(low_mass_disks, axis=0)
+    high_mass_disks = numpy.median(high_mass_disks, axis=0)
+
+    pyplot.plot(times, low_mass_disks, label="M$_* \leq {0}$ M$_\odot$".format(mass_limit.value_in(units.MSun)))
+    pyplot.plot(times, high_mass_disks, label="M$_* > {0}$ M$_\odot$".format(mass_limit.value_in(units.MSun)))
+
+    low_mass_disks, high_mass_disks = [], []
+
+    for p in open_paths30:
+        low_all_in_p, high_all_in_p = [], []
+        for t in times:
+            f = '{0}/N{1}_t{2}.hdf5'.format(p, 30, t)
+            stars = io.read_set_from_file(f, 'hdf5', close_file=True)
+            small_stars = stars[stars.bright == False]
+            disked_stars = small_stars[small_stars.dispersed == False]
+
+            high_mass_stars = disked_stars[disked_stars.stellar_mass > mass_limit]
+            low_mass_stars = disked_stars[disked_stars.stellar_mass <= mass_limit]
+
+            if t == 0.:
+                initial_mass = numpy.sum(disked_stars.disk_mass.value_in(units.MJupiter))
+
+            low_total_mass = numpy.sum(low_mass_stars.disk_mass.value_in(units.MJupiter))
+            high_total_mass = numpy.sum(high_mass_stars.disk_mass.value_in(units.MJupiter))
+            low_total_mass_fraction = low_total_mass / initial_mass
+            high_total_mass_fraction = high_total_mass / initial_mass
+            low_all_in_p.append(low_total_mass_fraction)
+            high_all_in_p.append(high_total_mass_fraction)
+
+        low_mass_disks.append(low_all_in_p)
+        high_mass_disks.append(high_all_in_p)
+
+    low_mass_disks = numpy.median(low_mass_disks, axis=0)
+    high_mass_disks = numpy.median(high_mass_disks, axis=0)
+
+    #pyplot.plot(times, low_mass_disks, label="low mass stars", ls=':')
+    #pyplot.plot(times, high_mass_disks, label="high mass stars", ls=":")
+    pyplot.xlabel('Time [Myr]')
+    pyplot.ylabel(r'M$_{disk} / $M$_{disk}(t = 0)$')
+    pyplot.legend()
+    pyplot.show()
+
+
+def disk_stellar_mass_scatter(open_paths, N, t, save_path):
+    fig = pyplot.figure()
+    p = open_paths[0]
+    mass_limit = 0.3 | units.MSun
+
+    f = '{0}/N{1}_t{2}.hdf5'.format(p, N, t)
+    stars = io.read_set_from_file(f, 'hdf5', close_file=True)
+    small_stars = stars[stars.bright == False]
+    disked_stars = small_stars[small_stars.dispersed == False]
+
+    high_mass_stars = disked_stars[disked_stars.stellar_mass >= mass_limit]
+    low_mass_stars = disked_stars[disked_stars.stellar_mass < mass_limit]
+
+    high_stellar_mass = high_mass_stars.stellar_mass.value_in(units.MSun)
+    high_disk_mass = high_mass_stars.disk_mass.value_in(units.MJupiter)
+
+    low_stellar_mass = low_mass_stars.stellar_mass.value_in(units.MSun)
+    low_disk_mass = low_mass_stars.disk_mass.value_in(units.MJupiter)
+
+    pyplot.scatter(high_stellar_mass, high_disk_mass, color='red', label='high mass')
+    pyplot.scatter(low_stellar_mass, low_disk_mass, color='blue', label='low mass')
+    pyplot.xlabel('Stellar mass [$M_\odot$]')
+    pyplot.ylabel('Disk mass [$M_{Jup}$]')
+    pyplot.legend()
+    pyplot.show()
+
+
 def main(save_path, time, N, distribution, ncells, i, all_distances, single):
 
-    paths = ['results/final/plummer_N100_1/',
+    pathsN100 = ['results/final/plummer_N100_1/',
              'results/final/plummer_N100_2/',
              'results/final/plummer_N100_3/']
 
-    path = 'results/final/plummer_N100_1/'
+    pathsN30 = ['results/final/plummer_N30_1/']
+
+    path = 'results/final/plummer_N30_1/'
 
     pyplot.style.use('paper')
 
     if single:
-        single_star(path, save_path, N, i, time, all_distances)
+        #single_star(path, save_path, N, i, time, all_distances)
+        tests(path, i, N, time)
     else:
         times = [1.0, 2.0, 2.5, 4.0, 5.0]
         #colors = ['#E24A33', '#348ABD', '#988ED5', '#8EBA42', '#FFB5B8', '#FBC15E', '#777777']
@@ -2074,12 +2392,15 @@ def main(save_path, time, N, distribution, ncells, i, all_distances, single):
         colors = ["#638ccc", "#ca5670", "#c57c3c", "#72a555", "#ab62c0", '#0072B2', '#009E73', '#D55E00']  # colors from my prev paper
         labels = ['Trapezium cluster', 'Lupus clouds', 'Chamaeleon I', '$\sigma$ Orionis', 'Upper Scorpio', 'IC 348',
                   'ONC', "OMC-2"]
-        mass_loss_in_time(paths, save_path, time, N, 0)
-        #disk_fractions(N, paths, save_path)
+        #mass_loss_in_time(paths, save_path, time, N, 0)
+        #disk_fractions(pathsN100, pathsN30, time, save_path)
         #cdfs_in_time(path, save_path, N, times)
         #cdfs_with_observations_size(paths, save_path, N, times, colors, labels)
         #cdfs_with_observations_mass(paths, save_path, N, times, colors, labels, log=True)
         #disk_mass_in_time(paths, save_path, N, time)
+        #total_disk_mass(pathsN100, pathsN30, save_path, time)
+        disk_stellar_mass(pathsN100, pathsN30, time, 0.2, save_path)
+        #disk_stellar_mass_scatter(paths, N, time, save_path)
 
 def new_option_parser():
     from amuse.units.optparse import OptionParser
