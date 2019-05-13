@@ -491,11 +491,10 @@ def main(N, Rvir, Qvir, dist, alpha, ncells, t_ini, t_end, save_interval, run_nu
             s.dispersed = False
             s.checked = False  # I need this to keep track of dispersed disk checks
             s.dispersal_time = t
-            s.photoevap_mass_loss = 0 | units.MJupiter
-            s.cumulative_photoevap_mass_loss = 0 | units.MJupiter
-            s.truncation_mass_loss = 0 | units.MJupiter
-            s.cumulative_truncation_mass_loss = 0 | units.MJupiter
-            s.EUV = False  # For photoevaporation regime
+            s.photoevap_mass_loss = 0 | units.MSun
+            s.cumulative_photoevap_mass_loss = 0 | units.MSun
+            s.truncation_mass_loss = 0 | units.MSun
+            s.cumulative_truncation_mass_loss = 0 | units.MSun
 
             # Initial values of disks
             s.initial_disk_size = get_disk_radius(s_code)
@@ -796,92 +795,79 @@ def main(N, Rvir, Qvir, dist, alpha, ncells, t_ini, t_end, save_interval, run_nu
             lum = luminosity_fit(s.stellar_mass.value_in(units.MSun))
 
             for ss in small_stars[small_stars.dispersed == False]:
-                # Calculate distance to bright star
                 dist = distance(s, ss)
+                ss.distance_to_bright = dist  # Keep distance to decide if it's in FUV or EUV regime
+                radiation_ss = radiation_at_distance(lum.value_in(units.erg / units.s),
+                                                     dist.value_in(units.cm)
+                                                     )
 
-                # EUV regime -- Use Johnstone, Hollenbach, & Bally 1998
-                dmin = 5. * 1E17 * 0.25 * numpy.sqrt(ss.disk_radius.value_in(units.cm) / 1E14) | units.cm
-
-                if dist < dmin:
-                    ss.EUV = True
-
-                else:
-                    # Other bright stars can still contribute FUV radiation
-                    radiation_ss = radiation_at_distance(lum.value_in(units.erg / units.s),
-                                                         dist.value_in(units.cm)
-                                                         )
-
-                    radiation_ss_G0 = radiation_ss.value_in(units.erg/(units.s * units.cm**2)) / 1.6E-3
-                    total_radiation[ss.key] += radiation_ss_G0
+                radiation_ss_G0 = radiation_ss.value_in(units.erg/(units.s * units.cm**2)) / 1.6E-3
+                total_radiation[ss.key] += radiation_ss_G0
 
         # Apply photoevaporation on small stars
         for ss in small_stars[small_stars.dispersed == False]:
             ss.g0 = total_radiation[ss.key]
+            dmin = 5. * 1E17 * 0.25 * numpy.sqrt(ss.disk_radius.value_in(units.cm) / 1E14) | units.cm
+            dmax = 1E18 * numpy.sqrt(total_radiation[ss.key]) | units.cm
 
             # EUV regime -- Use Johnstone, Hollenbach, & Bally 1998
-            if ss.EUV:
+            if ss.distance_to_bright < dmin or ss.distance_to_bright > dmax:
                 # Photoevaporative mass loss in MSun/yr. Eq 20 from Johnstone, Hollenbach, & Bally 1998
                 # From the paper: e ~ 3, x ~ 1.5
                 photoevap_Mdot = 2. * 1E-9 * 3 * 4.12 * (ss.disk_radius.value_in(units.cm) / 1E14)
 
-                # Calculate total mass lost due to EUV photoevaporation during dt, in MSun
-                total_photoevap_mass_loss_euv = float(photoevap_Mdot * dt.value_in(units.yr)) | units.MSun
-
-                # Back to False for next time
-                ss.EUV = False
-            else:
-                total_photoevap_mass_loss_euv = 0.0 | units.MSun
+                # Calculate total mass lost due to photoevaporation during dt, in MSun
+                total_photoevap_mass_loss = float(photoevap_Mdot * dt.value_in(units.yr)) | units.MSun
 
             # FUV regime -- Use FRIED grid
+            else:
+                # For the small star, I want to interpolate the photoevaporation mass loss
+                # xi will be the point used for the interpolation. Adding star values...
+                xi = numpy.ndarray(shape=(1, 4), dtype=float)
+                xi[0][0] = ss.stellar_mass.value_in(units.MSun)
+                xi[0][1] = total_radiation[ss.key]
+                xi[0][3] = get_disk_radius(disk_codes[disk_codes_indices[ss.key]]).value_in(units.AU)
+                xi[0][2] = get_disk_mass(disk_codes[disk_codes_indices[ss.key]], xi[0][3] | units.AU).value_in(units.MJupiter)
 
-            # For the small star, I want to interpolate the photoevaporation mass loss
-            # xi will be the point used for the interpolation. Adding star values...
-            xi = numpy.ndarray(shape=(1, 4), dtype=float)
-            xi[0][0] = ss.stellar_mass.value_in(units.MSun)
-            xi[0][1] = total_radiation[ss.key]
-            xi[0][3] = get_disk_radius(disk_codes[disk_codes_indices[ss.key]]).value_in(units.AU)
-            xi[0][2] = get_disk_mass(disk_codes[disk_codes_indices[ss.key]], xi[0][3] | units.AU).value_in(units.MJupiter)
+                # Building the subgrid (of FRIED grid) over which I will perform the interpolation
+                subgrid = numpy.ndarray(shape=(8, 4), dtype=float)
 
-            # Building the subgrid (of FRIED grid) over which I will perform the interpolation
-            subgrid = numpy.ndarray(shape=(8, 4), dtype=float)
+                # Finding indices between which ss.mass is located in the grid
+                stellar_mass_i, stellar_mass_j = find_indices(grid_stellar_mass, ss.stellar_mass.value_in(units.MSun))
+                subgrid[0] = FRIED_grid[stellar_mass_i]
+                subgrid[1] = FRIED_grid[stellar_mass_j]
 
-            # Finding indices between which ss.mass is located in the grid
-            stellar_mass_i, stellar_mass_j = find_indices(grid_stellar_mass, ss.stellar_mass.value_in(units.MSun))
-            subgrid[0] = FRIED_grid[stellar_mass_i]
-            subgrid[1] = FRIED_grid[stellar_mass_j]
+                # Finding indices between which the radiation over the small star is located in the grid
+                FUV_i, FUV_j = find_indices(grid_FUV, total_radiation[ss.key])
+                subgrid[2] = FRIED_grid[FUV_i]
+                subgrid[3] = FRIED_grid[FUV_j]
 
-            # Finding indices between which the radiation over the small star is located in the grid
-            FUV_i, FUV_j = find_indices(grid_FUV, total_radiation[ss.key])
-            subgrid[2] = FRIED_grid[FUV_i]
-            subgrid[3] = FRIED_grid[FUV_j]
+                # Finding indices between which ss.disk_mass is located in the grid
+                disk_mass_i, disk_mass_j = find_indices(grid_disk_mass, ss.disk_mass.value_in(units.MJupiter))
+                subgrid[4] = FRIED_grid[disk_mass_i]
+                subgrid[5] = FRIED_grid[disk_mass_j]
 
-            # Finding indices between which ss.disk_mass is located in the grid
-            disk_mass_i, disk_mass_j = find_indices(grid_disk_mass, ss.disk_mass.value_in(units.MJupiter))
-            subgrid[4] = FRIED_grid[disk_mass_i]
-            subgrid[5] = FRIED_grid[disk_mass_j]
+                # Finding indices between which ss.disk_radius is located in the grid
+                disk_radius_i, disk_radius_j = find_indices(grid_disk_radius, ss.disk_radius.value_in(units.AU))
+                subgrid[6] = FRIED_grid[disk_radius_i]
+                subgrid[7] = FRIED_grid[disk_radius_j]
 
-            # Finding indices between which ss.disk_radius is located in the grid
-            disk_radius_i, disk_radius_j = find_indices(grid_disk_radius, ss.disk_radius.value_in(units.AU))
-            subgrid[6] = FRIED_grid[disk_radius_i]
-            subgrid[7] = FRIED_grid[disk_radius_j]
+                # Adding known values of Mdot, in the indices found above, to perform interpolation
+                Mdot_values = numpy.ndarray(shape=(8, ), dtype=float)
+                indices_list = [stellar_mass_i, stellar_mass_j,
+                                FUV_i, FUV_j,
+                                disk_mass_i, disk_mass_j,
+                                disk_radius_i, disk_radius_j]
+                for x in indices_list:
+                    Mdot_values[indices_list.index(x)] = grid_log10Mdot[x]
 
-            # Adding known values of Mdot, in the indices found above, to perform interpolation
-            Mdot_values = numpy.ndarray(shape=(8, ), dtype=float)
-            indices_list = [stellar_mass_i, stellar_mass_j,
-                            FUV_i, FUV_j,
-                            disk_mass_i, disk_mass_j,
-                            disk_radius_i, disk_radius_j]
-            for x in indices_list:
-                Mdot_values[indices_list.index(x)] = grid_log10Mdot[x]
+                # Interpolate!
+                # Photoevaporative mass loss in log10(MSun/yr)
+                photoevap_Mdot = interpolate.griddata(subgrid, Mdot_values, xi, method="nearest")
 
-            # Interpolate!
-            # Photoevaporative mass loss in log10(MSun/yr)
-            photoevap_Mdot = interpolate.griddata(subgrid, Mdot_values, xi, method="nearest")
+                # Calculate total mass lost due to photoevaporation during dt, in MSun
+                total_photoevap_mass_loss = float(numpy.power(10, photoevap_Mdot) * dt.value_in(units.yr)) | units.MSun
 
-            # Calculate total mass lost due to photoevaporation during dt, in MSun
-            total_photoevap_mass_loss_fuv = float(numpy.power(10, photoevap_Mdot) * dt.value_in(units.yr)) | units.MSun
-
-            total_photoevap_mass_loss = total_photoevap_mass_loss_euv + total_photoevap_mass_loss_fuv
             ss.photoevap_mass_loss = total_photoevap_mass_loss
             ss.cumulative_photoevap_mass_loss += total_photoevap_mass_loss
 
@@ -929,8 +915,11 @@ def main(N, Rvir, Qvir, dist, alpha, ncells, t_ini, t_end, save_interval, run_nu
                 print "Star's {0} disk dispersed by photoevaporation, deleted code".format(ss.key)
                 continue
 
-            ss.disk_radius = get_disk_radius(disk_codes[disk_codes_indices[ss.key]])
-            ss.disk_mass = get_disk_mass(disk_codes[disk_codes_indices[ss.key]], ss.disk_radius)
+            # If evaporate results in actual radius change, we update the disk radius
+            # (If the mass loss was small maybe the disk radius won't change, that's why we check)
+            if get_disk_radius(disk_codes[disk_codes_indices[ss.key]]) < ss.disk_radius:
+                ss.disk_radius = get_disk_radius(disk_codes[disk_codes_indices[ss.key]])
+                ss.disk_mass = get_disk_mass(disk_codes[disk_codes_indices[ss.key]], ss.disk_radius)
         ########### End Photoevaporation  ############
 
         channel_from_framework_to_gravity.copy()
@@ -994,7 +983,7 @@ def new_option_parser():
     result.add_option("-N", dest="N", type="int", default=100,
                       help="number of stars [%default]")
     result.add_option("-R", dest="Rvir", type="float",
-                      unit=units.parsec, default=0.5,
+                      unit=units.parsec, default=1.0,
                       help="cluster virial radius [%default]")
     result.add_option("-Q", dest="Qvir", type="float", default=0.5,
                       help="virial ratio [%default]")
@@ -1021,4 +1010,3 @@ def new_option_parser():
 if __name__ == '__main__':
     o, arguments = new_option_parser().parse_args()
     main(**o.__dict__)
-
