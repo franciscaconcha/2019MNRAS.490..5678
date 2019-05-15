@@ -480,7 +480,7 @@ def mass_loss_in_time(open_paths100, open_paths30, save_path, tend, N, i):
     times = numpy.arange(0.0, tend + 0.05, 0.05)
 
     # Small fix because I kept saving mas losses after disks were dispersed
-    for t in times:
+    """for t in times:
         for p in open_paths100:
             f = '{0}/N{1}_t{2}.hdf5'.format(p, 100, t)
             stars = io.read_set_from_file(f, 'hdf5', close_file=True)
@@ -500,7 +500,7 @@ def mass_loss_in_time(open_paths100, open_paths30, save_path, tend, N, i):
                 if s.dispersed:
                     s.photoevap_mass_loss = 0.0 | units.MJupiter
                     s.truncation_mass_loss = 0.0 | units.MJupiter
-            io.write_set_to_file(stars, f, 'hdf5')
+            io.write_set_to_file(stars, f, 'hdf5')"""
 
     fig = pyplot.figure()
     ax = pyplot.gca()
@@ -541,7 +541,7 @@ def mass_loss_in_time(open_paths100, open_paths30, save_path, tend, N, i):
                     facecolor="#d73027",
                     alpha=0.2)
 
-    """photoevap_mass_loss, trunc_mass_loss, photoevap_low, photoevap_high, trunc_low, trunc_high = [], [], [], [], [], []
+    photoevap_mass_loss, trunc_mass_loss, photoevap_low, photoevap_high, trunc_low, trunc_high = [], [], [], [], [], []
 
     for t in times:
         photoevap_in_t, trunc_in_t = [], []
@@ -561,17 +561,17 @@ def mass_loss_in_time(open_paths100, open_paths30, save_path, tend, N, i):
         trunc_low.append(numpy.min(trunc_in_t))
         trunc_high.append(numpy.max(trunc_in_t))
 
-    ax.semilogy(times, photoevap_mass_loss, label="Photoevaporation", ls=":")
+    ax.semilogy(times, photoevap_mass_loss, label="Photoevaporation", ls="--", lw=3, color="#009bed")
     ax.fill_between(times,
                     photoevap_low,
                     photoevap_high,
-                    alpha=0.2)
+                    alpha=0.2, facecolor="#009bed")
 
-    ax.semilogy(times, trunc_mass_loss, label="Dynamical truncations", ls=":")
+    ax.semilogy(times, trunc_mass_loss, label="Dynamical truncations", ls="--", lw=3, color="#d73027")
     ax.fill_between(times,
                     trunc_low,
                     trunc_high,
-                    alpha=0.2)"""
+                    alpha=0.2, facecolor="#d73027")
 
     ax.set_xlim([0.0, 5.0])
     ax.legend(fontsize=20)
@@ -2390,9 +2390,9 @@ def main(save_path, time, N, distribution, ncells, i, all_distances, single):
                 'results/final/plummer_N100_2/',
                 'results/final/plummer_N100_3/']
 
-    paths30 = ['results/final/plummer_N30_1/']#,
-                #'results/final/plummer_N30_2/',
-                #'results/final/plummer_N30_3/']
+    paths30 = ['results/final/plummer_N30_1/',
+               'results/final/plummer_N30_2/',
+               'results/final/plummer_N30_3/']
 
     path = 'results/final/plummer_N30_3/'
 
@@ -2408,10 +2408,10 @@ def main(save_path, time, N, distribution, ncells, i, all_distances, single):
         colors = ["#638ccc", "#ca5670", "#c57c3c", "#72a555", "#ab62c0", '#0072B2', '#009E73', '#D55E00']  # colors from my prev paper
         labels = ['Trapezium cluster', 'Lupus clouds', 'Chamaeleon I', '$\sigma$ Orionis', 'Upper Scorpio', 'IC 348',
                   'ONC', "OMC-2"]
-        #mass_loss_in_time(paths100, paths30, save_path, time, N, 0)
+        mass_loss_in_time(paths100, paths30, save_path, time, N, 0)
         #disk_fractions(paths100, paths30, time, save_path)
         #cdfs_in_time(path, save_path, N, times)
-        cdfs_with_observations_size(paths100, paths30, save_path, N, times, colors, labels)
+        #cdfs_with_observations_size(paths100, paths30, save_path, N, times, colors, labels)
         #cdfs_with_observations_mass(paths100, save_path, N, times, colors, labels, log=True)
         #disk_mass_in_time(paths, save_path, N, time)
         #total_disk_mass(paths100, paths30, save_path, time)
