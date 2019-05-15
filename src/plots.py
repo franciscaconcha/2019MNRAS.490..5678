@@ -29,35 +29,93 @@ def distance(star1, star2, center=False):
     return numpy.sqrt((star2.x - star1.x)**2 + (star2.y - star1.y)**2 + (star2.z - star1.z)**2)
 
 
-def luminosity_fit(mass):  # For G0 calculation
+def luminosity_fit(masses):  # For G0 calculation
     """
     Return stellar luminosity (in LSun) for corresponding mass, as calculated with Martijn's fit
 
     :param mass: stellar mass in MSun
     :return: stellar luminosity in LSun
     """
-    if 0.12 < mass < 0.24:
-        return (1.70294E16 * numpy.power(mass, 42.557)) | units.LSun
-    elif 0.24 < mass < 0.56:
-        return (9.11137E-9 * numpy.power(mass, 3.8845)) | units.LSun
-    elif 0.56 < mass < 0.70:
-        return (1.10021E-6 * numpy.power(mass, 12.237)) | units.LSun
-    elif 0.70 < mass < 0.91:
-        return (2.38690E-4 * numpy.power(mass, 27.199)) | units.LSun
-    elif 0.91 < mass < 1.37:
-        return (1.02477E-4 * numpy.power(mass, 18.465)) | units.LSun
-    elif 1.37 < mass < 2.07:
-        return (9.66362E-4 * numpy.power(mass, 11.410)) | units.LSun
-    elif 2.07 < mass < 3.72:
-        return (6.49335E-2 * numpy.power(mass, 5.6147)) | units.LSun
-    elif 3.72 < mass < 10.0:
-        return (6.99075E-1 * numpy.power(mass, 3.8058)) | units.LSun
-    elif 10.0 < mass < 20.2:
-        return (9.73664E0 * numpy.power(mass, 2.6620)) | units.LSun
-    elif 20.2 < mass:
-        return (1.31175E2 * numpy.power(mass, 1.7974)) | units.LSun
-    else:
-        return 0 | units.LSun
+    fit = []
+
+    for mass in masses:
+        if 0.12 <= mass < 0.24:
+            fit.append(1.70294E16 * numpy.power(mass, 42.557)) #| units.LSun
+        elif 0.24 <= mass < 0.56:
+            fit.append(9.11137E-9 * numpy.power(mass, 3.8845)) #| units.LSun
+        elif 0.56 <= mass < 0.70:
+            fit.append(1.10021E-6 * numpy.power(mass, 12.237)) #| units.LSun
+        elif 0.70 <= mass < 0.91:
+            fit.append(2.38690E-4 * numpy.power(mass, 27.199)) #| units.LSun
+        elif 0.91 <= mass < 1.37:
+            fit.append(1.02477E-4 * numpy.power(mass, 18.465)) #| units.LSun
+        elif 1.37 <= mass < 2.07:
+            fit.append(9.66362E-4 * numpy.power(mass, 11.410)) #| units.LSun
+        elif 2.07 <= mass < 3.72:
+            fit.append(6.49335E-2 * numpy.power(mass, 5.6147)) #| units.LSun
+        elif 3.72 <= mass < 10.0:
+            fit.append(6.99075E-1 * numpy.power(mass, 3.8058)) #| units.LSun
+        elif 10.0 <= mass < 20.2:
+            fit.append(9.73664E0 * numpy.power(mass, 2.6620)) #| units.LSun
+        elif 20.2 <= mass:
+            fit.append(1.31175E2 * numpy.power(mass, 1.7974)) #| units.LSun
+        else:
+            fit.append(0.) #| units.LSun
+
+    return fit
+
+
+def parravano_fit(masses):
+    """ Parravano 2003 luminosity fit for mass-FUV luminosity plot
+
+    :param mass:
+    :return:
+    """
+    fit = []
+
+    for mass in masses:
+        if 0.12 <= mass < 2.:
+            fit.append(2.77 * 1E-4 * numpy.power(mass, 11.8)) #| units.LSun
+        elif 2. <= mass < 2.5:
+            fit.append(1.88 * 1E-3 * numpy.power(mass, 9.03)) #| units.LSun
+        elif 2.5 <= mass < 3.:
+            fit.append(1.19 * 1E-2 * numpy.power(mass, 7.03)) #| units.LSun
+        elif 3. <= mass < 6.:
+            fit.append(1.47 * 1E-1 * numpy.power(mass, 4.76)) #| units.LSun
+        elif 6. <= mass < 9.:
+            fit.append(8.22 * 1E-1 * numpy.power(mass, 3.78)) #| units.LSun
+        elif 9. <= mass < 12.:
+            fit.append(2.29 * 1E0 * numpy.power(mass, 3.31)) #| units.LSun
+        elif 12. <= mass < 30.:
+            fit.append(2.70 * 1E1 * numpy.power(mass, 2.32)) #| units.LSun
+        elif 30. <= mass < 120.:
+            fit.append(3.99 * 1E2 * numpy.power(mass, 1.54)) #| units.LSun
+        else:
+            fit.append(0) #| units.LSun
+
+    return fit
+
+def luminosity_vs_mass(save_path):
+    masses = numpy.arange(0.12, 100., 0.2)
+
+    this_fit = luminosity_fit(masses)
+    parravano = parravano_fit(masses)
+
+    fig = pyplot.figure()
+    ax = pyplot.gca()
+
+    pyplot.loglog(masses, parravano, lw=3, label="Parravano et al (2003)", color='#fe6950')
+    pyplot.loglog(masses, this_fit, lw=3, label="This work", color='#002c94')
+    ax.axvline(1.9, color='black', ls=':')
+    pyplot.text(1.55, 1E-15, 'M$_*$ = 1.9 M$_\odot$', rotation=90)
+    pyplot.legend(loc='lower right')
+    pyplot.xlabel('Stellar mass [M$_\odot$]')
+    pyplot.ylabel('FUV luminosity [L$_\odot$]')
+    pyplot.xlim([0, 1E2])
+    #pyplot.ylim([0, 1E6])
+    pyplot.xticks([1, 10, 100])
+    pyplot.savefig('{0}/luminosity_fit.png'.format(save_path))
+    pyplot.show()
 
 
 def radiation_at_distance(rad, R):
@@ -409,8 +467,8 @@ def size_in_time(open_path, save_path, N, i):  # For one star
     #pyplot.show()
 
 
-def mass_loss_in_time(open_paths, save_path, tend, N, i):
-    """ Average mass loss in each time step due to photoevaporation and truncations.
+def mass_loss_in_time(open_paths100, open_paths30, save_path, tend, N, i):
+    """ Cumulative mass loss in each time step due to photoevaporation and truncations.
 
     :param open_path:
     :param save_path:
@@ -419,52 +477,107 @@ def mass_loss_in_time(open_paths, save_path, tend, N, i):
     :param i:
     :return:
     """
-    fig = pyplot.figure()
-    ax = pyplot.gca()
-    #ax.set_title('Mass loss in time')
-    ax.set_xlabel('Time [Myr]')
-    ax.set_ylabel('Mass loss [$M_{Jup}$]')
-
     times = numpy.arange(0.0, tend + 0.05, 0.05)
 
-    photoevap_mass_loss, trunc_mass_loss, photoevap_mass_loss_error, trunc_mass_loss_error = [], [], [], []
+    # Small fix because I kept saving mas losses after disks were dispersed
+    for t in times:
+        for p in open_paths100:
+            f = '{0}/N{1}_t{2}.hdf5'.format(p, 100, t)
+            stars = io.read_set_from_file(f, 'hdf5', close_file=True)
+            small_stars = stars[stars.bright == False]
+            for s in small_stars:
+                if s.dispersed:
+                    s.photoevap_mass_loss = 0.0 | units.MJupiter
+                    s.truncation_mass_loss = 0.0 | units.MJupiter
+            io.write_set_to_file(stars, f, 'hdf5')
+
+    for t in times:
+        for p in open_paths30:
+            f = '{0}/N{1}_t{2}.hdf5'.format(p, 30, t)
+            stars = io.read_set_from_file(f, 'hdf5', close_file=True)
+            small_stars = stars[stars.bright == False]
+            for s in small_stars:
+                if s.dispersed:
+                    s.photoevap_mass_loss = 0.0 | units.MJupiter
+                    s.truncation_mass_loss = 0.0 | units.MJupiter
+            io.write_set_to_file(stars, f, 'hdf5')
+
+    fig = pyplot.figure()
+    ax = pyplot.gca()
+    ax.set_xlabel('Time [Myr]')
+    ax.set_ylabel('Mean mass loss [$\log($M$_{Jup})$]')
+
+    photoevap_mass_loss, trunc_mass_loss, photoevap_low, photoevap_high, trunc_low, trunc_high = [], [], [], [], [], []
 
     for t in times:
         photoevap_in_t, trunc_in_t = [], []
-        for p in open_paths:
-            f = '{0}/N{1}_t{2}.hdf5'.format(p, N, t)
+        for p in open_paths100:
+            f = '{0}/N{1}_t{2}.hdf5'.format(p, 100, t)
             stars = io.read_set_from_file(f, 'hdf5', close_file=True)
-            small_stars = stars[stars.stellar_mass.value_in(units.MSun) <= 1.9]
-            disked_stars = small_stars[small_stars.dispersed == False]
+            small_stars = stars[stars.bright == False]
 
-            photoevap_in_t.append(numpy.median(disked_stars.photoevap_mass_loss.value_in(units.MJupiter)))
-            trunc_in_t.append(numpy.median(disked_stars.truncation_mass_loss.value_in(units.MJupiter)))
+            photoevap_in_t.append(numpy.mean(small_stars.cumulative_photoevap_mass_loss.value_in(units.MJupiter)))
+            trunc_in_t.append(numpy.mean(small_stars.cumulative_truncation_mass_loss.value_in(units.MJupiter)))
 
         photoevap_mass_loss.append(numpy.mean(photoevap_in_t))
-        photoevap_mass_loss_error.append(numpy.std(photoevap_in_t))
+        photoevap_low.append(numpy.min(photoevap_in_t))
+        photoevap_high.append(numpy.max(photoevap_in_t))
 
         trunc_mass_loss.append(numpy.mean(trunc_in_t))
-        trunc_mass_loss_error.append(numpy.std(trunc_in_t))
+        trunc_low.append(numpy.min(trunc_in_t))
+        trunc_high.append(numpy.max(trunc_in_t))
 
-    photoevap_mass_loss = numpy.array(photoevap_mass_loss)
-    trunc_mass_loss = numpy.array(trunc_mass_loss)
-
-    ax.plot(times, photoevap_mass_loss, c='r', label="photoevap")
-    ax.plot(times, trunc_mass_loss, c='b', label="dyn trunc")
-
+    ax.semilogy(times, photoevap_mass_loss, label="Photoevaporation", lw=3, color="#009bed")
     ax.fill_between(times,
-                    photoevap_mass_loss - photoevap_mass_loss_error,
-                    photoevap_mass_loss + photoevap_mass_loss_error,
-                    facecolor='red', alpha=0.2)
-    ax.fill_between(times,
-                    trunc_mass_loss - trunc_mass_loss_error,
-                    trunc_mass_loss + trunc_mass_loss_error,
-                    facecolor='blue', alpha=0.2)
+                    photoevap_low,
+                    photoevap_high,
+                    facecolor="#009bed",
+                    alpha=0.2)
 
-    ax.ticklabel_format(axis='both', style='scientific')
+    ax.semilogy(times, trunc_mass_loss, label="Dynamical truncations", lw=3, color="#d73027")
+    ax.fill_between(times,
+                    trunc_low,
+                    trunc_high,
+                    facecolor="#d73027",
+                    alpha=0.2)
+
+    """photoevap_mass_loss, trunc_mass_loss, photoevap_low, photoevap_high, trunc_low, trunc_high = [], [], [], [], [], []
+
+    for t in times:
+        photoevap_in_t, trunc_in_t = [], []
+        for p in open_paths30:
+            f = '{0}/N{1}_t{2}.hdf5'.format(p, 30, t)
+            stars = io.read_set_from_file(f, 'hdf5', close_file=True)
+            small_stars = stars[stars.bright == False]
+
+            photoevap_in_t.append(numpy.mean(small_stars.cumulative_photoevap_mass_loss.value_in(units.MJupiter)))
+            trunc_in_t.append(numpy.mean(small_stars.cumulative_truncation_mass_loss.value_in(units.MJupiter)))
+
+        photoevap_mass_loss.append(numpy.mean(photoevap_in_t))
+        photoevap_low.append(numpy.min(photoevap_in_t))
+        photoevap_high.append(numpy.max(photoevap_in_t))
+
+        trunc_mass_loss.append(numpy.mean(trunc_in_t))
+        trunc_low.append(numpy.min(trunc_in_t))
+        trunc_high.append(numpy.max(trunc_in_t))
+
+    ax.semilogy(times, photoevap_mass_loss, label="Photoevaporation", ls=":")
+    ax.fill_between(times,
+                    photoevap_low,
+                    photoevap_high,
+                    alpha=0.2)
+
+    ax.semilogy(times, trunc_mass_loss, label="Dynamical truncations", ls=":")
+    ax.fill_between(times,
+                    trunc_low,
+                    trunc_high,
+                    alpha=0.2)"""
+
+    ax.set_xlim([0.0, 5.0])
     ax.legend(fontsize=20)
 
     pyplot.tight_layout()
+    pyplot.savefig('{0}/mass_loss.png'.format(save_path))
     pyplot.show()
 
 
@@ -941,7 +1054,7 @@ def cdfs(open_path, save_path, N, t):
     pyplot.show()
 
 
-def cdfs_with_observations_size(open_path, save_path, N, times, colors, labels, log=False):
+def cdfs_with_observations_size(open_path100, open_path30, save_path, N, times, colors, labels, log=False):
     """ Plot cumulative distributions of disk sizes (au) and masses (MJup).
 
     :param open_path: list of folders to use
@@ -959,12 +1072,12 @@ def cdfs_with_observations_size(open_path, save_path, N, times, colors, labels, 
 
     for t in times:
         all_sorted_disk_sizes = []
-        for p in open_path:
-            f = '{0}/N{1}_t{2}.hdf5'.format(p, N, t)
+        for p in open_path100:
+            f = '{0}/N{1}_t{2}.hdf5'.format(p, 100, t)
             stars = io.read_set_from_file(f, 'hdf5', close_file=True)
 
             # Take only the small stars
-            small_stars = stars[stars.stellar_mass.value_in(units.MSun) <= 1.9]
+            small_stars = stars[stars.bright == False]
             small_stars = small_stars[small_stars.dispersed == False]
             #print small_stars.disk_mass.value_in(units.g) / (math.pi * small_stars.disk_radius.value_in(units.cm)**2)
             small_stars = small_stars[1. < small_stars.disk_mass.value_in(units.g) / (math.pi * small_stars.disk_radius.value_in(units.cm)**2)]
@@ -1002,8 +1115,9 @@ def cdfs_with_observations_size(open_path, save_path, N, times, colors, labels, 
         # Plotting together with observational data now, according to their age t
 
         # For plots
-        xtext = 180
+        xtext = 240
         ytext = 0.05
+        textsize = 18
         xlimits = [0, 500]
         ylimits = [0.0, 1.0]
         ticks = [0, 250, 500]
@@ -1011,44 +1125,6 @@ def cdfs_with_observations_size(open_path, save_path, N, times, colors, labels, 
         ylabel = '$f < d_{disk}$'
 
         if t == 1.:
-            axs00.plot(disk_sizes,
-                       cumulative_sizes,
-                       lw=2, color='black')
-            axs00.fill_betweenx(cumulative_sizes,
-                                 sizes_low, sizes_high,
-                                 alpha='0.2', facecolor='black')
-            axs00.text(xtext, ytext, 't = {0} Myr'.format(t))
-            axs00.set_xlim(xlimits)
-            axs00.set_ylim(ylimits)
-            axs00.set_xticks(ticks)
-
-            """# Trapezium data (Vicente & Alves 2005)
-            lines = open('data/Trapezium_sizes.txt', 'r').readlines()
-            trapezium_sizes = []
-
-            for line in (line for line in lines if not line.startswith('#')):
-                data = line.split()[8]
-                trapezium_sizes.append(float(data))
-
-            trapezium_sizes = numpy.array(trapezium_sizes)
-
-            if log:
-                sorted_trapezium_sizes = numpy.sort(numpy.log10(trapezium_sizes[trapezium_sizes > 100.]))
-            else:
-                sorted_trapezium_sizes = numpy.sort(trapezium_sizes[trapezium_sizes > 100.])
-
-            p = 1. * numpy.arange(len(sorted_trapezium_sizes)) / (len(sorted_trapezium_sizes) - 1)
-
-            axs00.plot(sorted_trapezium_sizes,
-                           p,
-                           ls='-', lw=2,
-                           color=colors[0],
-                           label=labels[0])
-            axs00.set_title('Trapezium')
-            #axs00.legend()
-            axs00.set_xlabel(xlabel)
-            axs00.set_ylabel(ylabel)"""
-
             # ONC data (Eisner+ 2018)
             # Data: dust radii
             lines = open('data/ONC.txt', 'r').readlines()
@@ -1079,7 +1155,7 @@ def cdfs_with_observations_size(open_path, save_path, N, times, colors, labels, 
             onc_high = sorted_onc_sizes + sorted_onc_sizes_errors
 
             axs00.plot(sorted_onc_sizes, p,
-                           ls='-', lw=2,
+                           ls='-', lw=3,
                            color=colors[0],
                            label=labels[0])
             axs00.fill_betweenx(p,
@@ -1090,18 +1166,19 @@ def cdfs_with_observations_size(open_path, save_path, N, times, colors, labels, 
             axs00.set_xlabel(xlabel)
             axs00.set_ylabel(ylabel)
 
-        elif t == 2.:
-            axs01.plot(disk_sizes,
+            # 100 MSun
+            axs00.plot(disk_sizes,
                        cumulative_sizes,
-                        lw=2, color='black')
-            axs01.fill_betweenx(cumulative_sizes,
+                       lw=3, color='black')
+            axs00.fill_betweenx(cumulative_sizes,
                                  sizes_low, sizes_high,
                                  alpha='0.2', facecolor='black')
-            axs01.text(370, ytext, 't = {0} Myr'.format(t))
-            axs01.set_xlim([0, 1050])
-            axs01.set_ylim(ylimits)
-            axs01.set_xticks([0, 500, 1000])
+            axs00.text(xtext, ytext, 't = {0} Myr'.format(t), fontsize=textsize)
+            axs00.set_xlim(xlimits)
+            axs00.set_ylim(ylimits)
+            axs00.set_xticks(ticks)
 
+        elif t == 2.:
             # Lupus data (Ansdell et al 2018)
             # Data: gas radii
             gas_disk_sizes, gas_disk_sizes_error = [], []
@@ -1127,7 +1204,7 @@ def cdfs_with_observations_size(open_path, save_path, N, times, colors, labels, 
             high_lupus = sorted_lupus_disk_sizes + sorted_lupus_disk_sizes_errors
 
             axs01.plot(sorted_lupus_disk_sizes, p,
-                           ls='-', lw=2,
+                           ls='-', lw=3,
                            color=colors[1],
                            label=labels[1])
             axs01.fill_betweenx(p,
@@ -1138,18 +1215,19 @@ def cdfs_with_observations_size(open_path, save_path, N, times, colors, labels, 
             axs01.set_xlabel(xlabel)
             axs01.set_ylabel(ylabel)
 
-        elif t == 2.5:
-            axs02.plot(disk_sizes,
+            # 100 MSun
+            axs01.plot(disk_sizes,
                        cumulative_sizes,
-                        lw=2, color='black')
-            axs02.fill_betweenx(cumulative_sizes,
+                        lw=3, color='black')
+            axs01.fill_betweenx(cumulative_sizes,
                                  sizes_low, sizes_high,
                                  alpha='0.2', facecolor='black')
-            axs02.text(xtext, ytext, 't = {0} Myr'.format(t))
-            axs02.set_xlim(xlimits)
-            axs02.set_ylim(ylimits)
-            axs02.set_xticks(ticks)
+            axs01.text(490, ytext, 't = {0} Myr'.format(t), fontsize=textsize)
+            axs01.set_xlim([0, 1050])
+            axs01.set_ylim(ylimits)
+            axs01.set_xticks([0, 500, 1000])
 
+        elif t == 2.5:
             # Chamaeleon I data (Pascucci et al 2016)
             # Data: dust major axes
             lines = open('data/ChamI_sizes.txt', 'r').readlines()
@@ -1178,7 +1256,7 @@ def cdfs_with_observations_size(open_path, save_path, N, times, colors, labels, 
             p = 1. * numpy.arange(len(cham_sorted_disk_sizes)) / (len(cham_sorted_disk_sizes) - 1)
 
             axs02.plot(cham_sorted_disk_sizes, p,
-                           ls='-', lw=2,
+                           ls='-', lw=3,
                            color=colors[2],
                            label=labels[2])
             axs02.set_title('Chamaeleon I')
@@ -1187,18 +1265,19 @@ def cdfs_with_observations_size(open_path, save_path, N, times, colors, labels, 
             axs02.set_ylabel(ylabel)
             axs02.set_xticks([0, 250, 500])
 
-        elif t == 4.:
-            axs10.plot(disk_sizes,
+            # 100 MSun
+            axs02.plot(disk_sizes,
                        cumulative_sizes,
-                        lw=2, color='black')
-            axs10.fill_betweenx(cumulative_sizes,
+                        lw=3, color='black')
+            axs02.fill_betweenx(cumulative_sizes,
                                  sizes_low, sizes_high,
                                  alpha='0.2', facecolor='black')
-            axs10.text(370, ytext, 't = {0} Myr'.format(t))
-            axs10.set_xlim([0, 1050])
-            axs10.set_ylim(ylimits)
-            axs10.set_xticks([0, 500, 1000])
+            axs02.text(xtext, ytext, 't = {0} Myr'.format(t), fontsize=textsize)
+            axs02.set_xlim(xlimits)
+            axs02.set_ylim(ylimits)
+            axs02.set_xticks(ticks)
 
+        elif t == 4.:
             # sigma Orionis data (Mauco et al 2016)
             # Data: dust radii
             lines = open('data/sigmaOrionis_sizes.txt', 'r').readlines()
@@ -1225,7 +1304,7 @@ def cdfs_with_observations_size(open_path, save_path, N, times, colors, labels, 
             p = 1. * numpy.arange(len(sOrionis_sorted_disk_sizes)) / (len(sOrionis_sorted_disk_sizes) - 1)
 
             axs10.plot(sOrionis_sorted_disk_sizes, p,
-                           ls='-', lw=2,
+                           ls='-', lw=3,
                            color=colors[3],
                            label=labels[3])
             axs10.fill_betweenx(p,
@@ -1236,18 +1315,19 @@ def cdfs_with_observations_size(open_path, save_path, N, times, colors, labels, 
             axs10.set_xlabel(xlabel)
             axs10.set_ylabel(ylabel)
 
-        elif t == 5.:
-            axs11.plot(disk_sizes,
+            # 100 MSun
+            axs10.plot(disk_sizes,
                        cumulative_sizes,
-                        lw=2, color='black')
-            axs11.fill_betweenx(cumulative_sizes,
+                        lw=3, color='black')
+            axs10.fill_betweenx(cumulative_sizes,
                                  sizes_low, sizes_high,
                                  alpha='0.2', facecolor='black')
-            axs11.text(xtext, ytext, 't = {0} Myr'.format(t))
-            axs11.set_xlim(xlimits)
-            axs11.set_ylim(ylimits)
-            axs11.set_xticks(ticks)
+            axs10.text(490, ytext, 't = {0} Myr'.format(t), fontsize=textsize)
+            axs10.set_xlim([0, 1050])
+            axs10.set_ylim(ylimits)
+            axs10.set_xticks([0, 500, 1000])
 
+        elif t == 5.:
             # UpperSco data (Barenfeld et al 2017)
             # Data: gas radii
             lines = open('data/UpperSco_sizes.txt', 'r').readlines()
@@ -1276,7 +1356,7 @@ def cdfs_with_observations_size(open_path, save_path, N, times, colors, labels, 
             p = 1. * numpy.arange(len(uppersco_sorted_disk_sizes)) / (len(uppersco_sorted_disk_sizes) - 1)
 
             axs11.plot(uppersco_sorted_disk_sizes, p,
-                           ls='-', lw=2,
+                           ls='-', lw=3,
                            color=colors[4],
                            label=labels[4])
             axs11.fill_betweenx(p,
@@ -1286,6 +1366,18 @@ def cdfs_with_observations_size(open_path, save_path, N, times, colors, labels, 
             #axs11.legend()
             axs11.set_xlabel(xlabel)
             axs11.set_ylabel(ylabel)
+
+            # 100 MSun
+            axs11.plot(disk_sizes,
+                       cumulative_sizes,
+                        lw=3, color='black')
+            axs11.fill_betweenx(cumulative_sizes,
+                                 sizes_low, sizes_high,
+                                 alpha='0.2', facecolor='black')
+            axs11.text(xtext, ytext, 't = {0} Myr'.format(t), fontsize=textsize)
+            axs11.set_xlim(xlimits)
+            axs11.set_ylim(ylimits)
+            axs11.set_xticks(ticks)
 
     pyplot.tight_layout()
     pyplot.savefig('{0}/CDF_data_size.png'.format(save_path))
@@ -1302,16 +1394,12 @@ def cdfs_with_observations_mass(open_path, save_path, N, times, colors, labels, 
     :param t: time to show in plot
     :param log: if True, plot in logscale
     """
-    # Changed the order of the subplots to make sure the plots are in chronological order
-    fig = pyplot.figure(figsize=(14, 12))
-    axs00 = pyplot.subplot2grid((6, 6), (0, 0), colspan=2, rowspan=2)  # ONC, 1 Myr
-    axs01 = pyplot.subplot2grid((6, 6), (2, 0), colspan=2, rowspan=2)  # Lupus, 2 Myr
-    axs02 = pyplot.subplot2grid((6, 6), (2, 2), colspan=2, rowspan=2)  # ChamI, 2.5 Myr
-    axs10 = pyplot.subplot2grid((6, 6), (4, 0), colspan=2, rowspan=2)  # sOri, 4 Myr
-    axs11 = pyplot.subplot2grid((6, 6), (4, 2), colspan=2, rowspan=2)  # Upper Sco, 5 Myr
-    axs12 = pyplot.subplot2grid((6, 6), (2, 4), colspan=2, rowspan=2)  # IC348, 2.5 Myr
-    axs20 = pyplot.subplot2grid((6, 6), (0, 4), colspan=2, rowspan=2)  # OMC-2, 1 Myr
-    axs21 = pyplot.subplot2grid((6, 6), (0, 2), colspan=2, rowspan=2)  # OMC-1, 1 Myr
+    fig = pyplot.figure()
+    axs00 = pyplot.subplot2grid((2, 6), (0, 0), colspan=2)  # 1 Myr: ONC, OMC-1, OMC-2
+    axs01 = pyplot.subplot2grid((2, 6), (0, 2), colspan=2)  # 2 Myr: Lupus
+    axs02 = pyplot.subplot2grid((2, 6), (0, 4), colspan=2)  # 2.5 Myr: ChamI, IC348
+    axs10 = pyplot.subplot2grid((2, 6), (1, 1), colspan=2)  # 4 Myr: sigmaOrionis
+    axs11 = pyplot.subplot2grid((2, 6), (1, 3), colspan=2)  # 5 Myr: UpperSco
 
     for t in times:
         all_sorted_disk_masses = []
@@ -1320,7 +1408,7 @@ def cdfs_with_observations_mass(open_path, save_path, N, times, colors, labels, 
             stars = io.read_set_from_file(f, 'hdf5', close_file=True)
 
             # Take only the small stars
-            small_stars = stars[stars.stellar_mass.value_in(units.MSun) <= 1.9]
+            small_stars = stars[stars.bright == False]
             small_stars = small_stars[small_stars.dispersed == False]
 
             if log:
@@ -1358,98 +1446,13 @@ def cdfs_with_observations_mass(open_path, save_path, N, times, colors, labels, 
         ylimits = [0.0, 1.0]
         ticks = [-2, 0, 2]
         yticks = [0.0, 0.5, 1.0]
-        xtext = 0.7
+        xtext = 0.65
         ytext = 0.05
+        textsize = 18
         xlabel = '$\log(M_{disk})$ [$M_{Jupiter}$]'
         ylabel = '$f < M_{disk}$'
 
         if t == 1.0:
-            axs00.plot(disk_masses,
-                        cumulative_masses,
-                        lw=2, color='black')
-            axs00.fill_betweenx(cumulative_masses,
-                                 masses_low, masses_high,
-                                 alpha='0.2', facecolor='black')
-            axs00.text(xtext, ytext, 't = {0} Myr'.format(t))
-            axs00.set_xlim(xlimits)
-            axs00.set_ylim(ylimits)
-            axs00.set_xticks(ticks)
-            axs00.set_yticks(yticks)
-
-            axs20.plot(disk_masses,
-                        cumulative_masses,
-                        lw=2, color='black')
-            axs20.fill_betweenx(cumulative_masses,
-                                 masses_low, masses_high,
-                                 alpha='0.2', facecolor='black')
-            axs20.text(xtext, ytext, 't = {0} Myr'.format(t))
-            axs20.set_xlim(xlimits)
-            axs20.set_ylim(ylimits)
-            axs20.set_xticks(ticks)
-            axs20.set_yticks(yticks)
-
-            axs21.plot(disk_masses,
-                        cumulative_masses,
-                        lw=2, color='black')
-            axs21.fill_betweenx(cumulative_masses,
-                                 masses_low, masses_high,
-                                 alpha='0.2', facecolor='black')
-            axs21.text(xtext, ytext, 't = {0} Myr'.format(t))
-            axs21.set_xlim(xlimits)
-            axs21.set_ylim(ylimits)
-            axs21.set_xticks(ticks)
-            axs21.set_yticks(yticks)
-
-
-            """# Trapezium data (Mann & Williams 2009 2009ApJ...694L..36M)
-            # Data: dust masses in 1E-2 MSun
-            r_path = 'data/Trapezium_masses.txt'
-            lines = open(r_path, 'r').readlines()
-
-            trapezium_masses = []
-            trapezium_masses_errors = []
-
-            for line in (l for l in lines if not l.startswith('#')):
-                a = line.split()[7]
-                b = line.split()[9]
-
-                # Unit conversion: 1E-2 MSun to MJup
-                ms = float(a) * 1E-2 | units.MSun
-                mj = ms.value_in(units.MJupiter)
-
-                ms_error = float(b) * 1E-2 | units.MSun
-                mj_error = ms_error.value_in(units.MJupiter)
-
-                trapezium_masses.append(mj)
-                trapezium_masses_errors.append(mj_error)
-
-            # 100. factor to turn dust mass into gas mass
-            trapezium_masses = 100. * numpy.asarray(trapezium_masses)
-            trapezium_masses_errors = 100. * numpy.asarray(trapezium_masses_errors)
-
-            if log:
-                trapezium_sorted_masses = numpy.sort(numpy.log10(trapezium_masses))
-                trapezium_sorted_errors = numpy.array([numpy.log10(x) for _, x in sorted(zip(trapezium_masses, trapezium_masses_errors))])
-            else:
-                trapezium_sorted_masses = numpy.sort(trapezium_masses)
-                trapezium_sorted_errors = numpy.array([x for _, x in sorted(zip(trapezium_masses, trapezium_masses_errors))])
-
-            p = 1. * numpy.arange(len(trapezium_sorted_masses)) / (len(trapezium_sorted_masses) - 1)
-            trapezium_low = trapezium_sorted_masses - trapezium_sorted_errors
-            trapezium_high = trapezium_sorted_masses + trapezium_sorted_errors
-
-            axs00.plot(trapezium_sorted_masses, p,
-                           ls='-', lw=3,
-                           color=colors[0],
-                           label=labels[0])
-            axs00.fill_betweenx(p,
-                                    trapezium_low, trapezium_high,
-                                    alpha='0.2', facecolor=colors[0])
-            axs00.set_title('Trapezium')
-            #axs00.legend()
-            axs00.set_xlabel(xlabel)
-            axs00.set_ylabel(ylabel)"""
-
             # ONC data (Eisner+ 2018)
             # Data: DUST masses in MEarth
             lines = open('data/ONC.txt', 'r').readlines()
@@ -1490,12 +1493,54 @@ def cdfs_with_observations_mass(open_path, save_path, N, times, colors, labels, 
             axs00.plot(sorted_onc_masses, p,
                            ls='-', lw=3,
                            color=colors[0],
-                           label=labels[0])
+                           label='ONC')
             axs00.fill_betweenx(p,
                                 onc_low, onc_high,
                                 alpha='0.2', facecolor=colors[0])
             axs00.set_title('ONC')
             #axs00.legend()
+            axs00.set_xlabel(xlabel)
+            axs00.set_ylabel(ylabel)
+
+            # OMC-1 data (Eisner+ 2016)
+            # Data: 100 * DUST masses in MJup
+            lines = open('data/OMC-1_masses.txt', 'r').readlines()
+            omc1_masses, omc1_masses_error = [], []
+
+            for line in (line for line in lines if not line.startswith('#')):
+                data = line.split()
+                a = data[12]
+                b = data[13]
+
+                # No unit conversion needed
+                omc1_masses.append(float(a))
+                omc1_masses_error.append(float(b))
+
+            omc1_masses = numpy.array(omc1_masses)
+            omc1_masses_error = numpy.array(omc1_masses_error)
+
+            if log:
+                omc1_masses = omc1_masses[omc1_masses > 0.0]
+                sorted_omc1_masses = numpy.sort(numpy.log10(omc1_masses))
+                sorted_omc1_masses_errors = numpy.array([numpy.log10(x) for _, x in sorted(zip(omc1_masses, omc1_masses_error))])
+            else:
+                sorted_omc1_masses = numpy.sort(omc1_masses)
+                sorted_omc1_masses_errors = numpy.array([x for _, x in sorted(zip(omc1_masses, omc1_masses_error))])
+
+            p = 1. * numpy.arange(len(sorted_omc1_masses)) / (len(sorted_omc1_masses) - 1)
+
+            omc1_low = sorted_omc1_masses - sorted_omc1_masses_errors
+            omc1_high = sorted_omc1_masses + sorted_omc1_masses_errors
+
+            axs00.plot(sorted_omc1_masses, p,
+                           ls='-', lw=3,
+                           color=colors[7],
+                           label='OMC-1')
+            axs00.fill_betweenx(p,
+                                omc1_low, omc1_high,
+                                alpha='0.2', facecolor=colors[7])
+            axs00.set_title('OMC-1')
+            #axs21.legend()
             axs00.set_xlabel(xlabel)
             axs00.set_ylabel(ylabel)
 
@@ -1536,72 +1581,33 @@ def cdfs_with_observations_mass(open_path, save_path, N, times, colors, labels, 
             omc2_low = sorted_omc2_masses - sorted_omc2_masses_errors
             omc2_high = sorted_omc2_masses + sorted_omc2_masses_errors
 
-            axs20.plot(sorted_omc2_masses, p,
+            axs00.plot(sorted_omc2_masses, p,
                            ls='-', lw=3,
                            color=colors[6],
-                           label=labels[6])
-            axs20.fill_betweenx(p,
+                           label='OMC-2')
+            axs00.fill_betweenx(p,
                                 omc2_low, omc2_high,
                                 alpha='0.2', facecolor=colors[6])
-            axs20.set_title('OMC-2')
+            axs00.set_title('OMC-2')
             #axs20.legend()
-            axs20.set_xlabel(xlabel)
-            axs20.set_ylabel(ylabel)
+            axs00.set_xlabel(xlabel)
+            axs00.set_ylabel(ylabel)
 
-            # OMC-1 data (Eisner+ 2016)
-            # Data: 100 * DUST masses in MJup
-            lines = open('data/OMC-1_masses.txt', 'r').readlines()
-            omc1_masses, omc1_masses_error = [], []
-
-            for line in (line for line in lines if not line.startswith('#')):
-                data = line.split()
-                a = data[12]
-                b = data[13]
-
-                # No unit conversion needed
-                omc1_masses.append(float(a))
-                omc1_masses_error.append(float(b))
-
-            omc1_masses = numpy.array(omc1_masses)
-            omc1_masses_error = numpy.array(omc1_masses_error)
-
-            if log:
-                omc1_masses = omc1_masses[omc1_masses > 0.0]
-                sorted_omc1_masses = numpy.sort(numpy.log10(omc1_masses))
-                sorted_omc1_masses_errors = numpy.array([numpy.log10(x) for _, x in sorted(zip(omc1_masses, omc1_masses_error))])
-            else:
-                sorted_omc1_masses = numpy.sort(omc1_masses)
-                sorted_omc1_masses_errors = numpy.array([x for _, x in sorted(zip(omc1_masses, omc1_masses_error))])
-
-            p = 1. * numpy.arange(len(sorted_omc1_masses)) / (len(sorted_omc1_masses) - 1)
-
-            omc1_low = sorted_omc1_masses - sorted_omc1_masses_errors
-            omc1_high = sorted_omc1_masses + sorted_omc1_masses_errors
-
-            axs21.plot(sorted_omc1_masses, p,
-                           ls='-', lw=3,
-                           color=colors[7],
-                           label=labels[7])
-            axs21.fill_betweenx(p,
-                                omc1_low, omc1_high,
-                                alpha='0.2', facecolor=colors[7])
-            axs21.set_title('OMC-1')
-            #axs21.legend()
-            axs21.set_xlabel(xlabel)
-            axs21.set_ylabel(ylabel)
-
-        elif t == 2.0:
-            axs01.plot(disk_masses,
+            axs00.plot(disk_masses,
                         cumulative_masses,
-                        lw=2, color='black')
-            axs01.fill_betweenx(cumulative_masses,
+                        lw=3, color='black')
+            axs00.fill_betweenx(cumulative_masses,
                                  masses_low, masses_high,
                                  alpha='0.2', facecolor='black')
-            axs01.text(xtext, ytext, 't = {0} Myr'.format(t))
-            axs01.set_xlim(xlimits)
-            axs01.set_ylim(ylimits)
-            axs01.set_xticks(ticks)
+            axs00.text(xtext, ytext, 't = {0} Myr'.format(t), fontsize=textsize)
+            axs00.set_xlim(xlimits)
+            axs00.set_ylim(ylimits)
+            axs00.set_xticks(ticks)
+            axs00.set_yticks(yticks)
+            axs00.set_title('Orion region')
+            axs00.legend(loc='upper left', fontsize=14, handlelength=0.5, framealpha=0.2)
 
+        elif t == 2.0:
             # Lupus data (Ansdell+ 2018 2018ApJ...859...21A)
             # Data: GAS masses in MJup
             lupus_masses, lupus_low, lupus_high = [], [], []
@@ -1665,18 +1671,18 @@ def cdfs_with_observations_mass(open_path, save_path, N, times, colors, labels, 
             axs01.set_xlabel(xlabel)
             axs01.set_ylabel(ylabel)
 
-        elif t == 2.5:
-            axs02.plot(disk_masses,
+            axs01.plot(disk_masses,
                         cumulative_masses,
-                        lw=2, color='black')
-            axs02.fill_betweenx(cumulative_masses,
+                        lw=3, color='black')
+            axs01.fill_betweenx(cumulative_masses,
                                  masses_low, masses_high,
                                  alpha='0.2', facecolor='black')
-            axs02.text(xtext, ytext, 't = {0} Myr'.format(t))
-            axs02.set_xlim(xlimits)
-            axs02.set_ylim(ylimits)
-            axs02.set_xticks(ticks)
+            axs01.text(xtext, ytext, 't = {0} Myr'.format(t), fontsize=textsize)
+            axs01.set_xlim(xlimits)
+            axs01.set_ylim(ylimits)
+            axs01.set_xticks(ticks)
 
+        elif t == 2.5:
             # Chamaeleon I data (Mulders et al 2017 2017ApJ...847...31M)
             # Data: DUST masses in LOG(MEarth)
             lines = open('data/ChamI_masses.txt', 'r').readlines()
@@ -1716,7 +1722,7 @@ def cdfs_with_observations_mass(open_path, save_path, N, times, colors, labels, 
             axs02.plot(cham_sorted_masses, p,
                            ls='-', lw=3,
                            color=colors[2],
-                           label=labels[2])
+                           label='ChamI')
             axs02.fill_betweenx(p,
                                 cham_low, cham_high,
                                 alpha='0.2', facecolor=colors[2])
@@ -1724,18 +1730,6 @@ def cdfs_with_observations_mass(open_path, save_path, N, times, colors, labels, 
             #axs02.legend()
             axs02.set_xlabel(xlabel)
             axs02.set_ylabel(ylabel)
-
-            # IC 348
-            axs12.plot(disk_masses,
-                        cumulative_masses,
-                        lw=2, color='black')
-            axs12.fill_betweenx(cumulative_masses,
-                                 masses_low, masses_high,
-                                 alpha='0.2', facecolor='black')
-            axs12.text(xtext, ytext, 't = {0} Myr'.format(t))
-            axs12.set_xlim(xlimits)
-            axs12.set_ylim(ylimits)
-            axs12.set_xticks(ticks)
 
             # IC 348 data (Ruiz-Rodriguez et al 2018  2018MNRAS.478.3674R )
             # Data: DUST masses in MEarth
@@ -1776,30 +1770,32 @@ def cdfs_with_observations_mass(open_path, save_path, N, times, colors, labels, 
             ic348_low = ic348_sorted_masses - ic348_sorted_error
             ic348_high = ic348_sorted_masses + ic348_sorted_error
 
-            axs12.plot(ic348_sorted_masses, p,
+            axs02.plot(ic348_sorted_masses, p,
                         ls='-', lw=3,
                         color=colors[5],
-                        label=labels[5])
-            axs12.fill_betweenx(p,
+                        label='IC 348')
+            axs02.fill_betweenx(p,
                                 ic348_low, ic348_high,
                                 alpha='0.2', facecolor=colors[5])
-            axs12.set_title('IC 348')
+            axs02.set_title('IC 348')
             #axs02.legend()
-            axs12.set_xlabel(xlabel)
-            axs12.set_ylabel(ylabel)
+            axs02.set_xlabel(xlabel)
+            axs02.set_ylabel(ylabel)
 
-        elif t == 4.0:
-            axs10.plot(disk_masses,
+            axs02.plot(disk_masses,
                         cumulative_masses,
-                        lw=2, color='black')
-            axs10.fill_betweenx(cumulative_masses,
+                        lw=3, color='black')
+            axs02.fill_betweenx(cumulative_masses,
                                  masses_low, masses_high,
                                  alpha='0.2', facecolor='black')
-            axs10.text(xtext, ytext, 't = {0} Myr'.format(t))
-            axs10.set_xlim(xlimits)
-            axs10.set_ylim(ylimits)
-            axs10.set_xticks(ticks)
+            axs02.text(xtext, ytext, 't = {0} Myr'.format(t), fontsize=textsize)
+            axs02.set_xlim(xlimits)
+            axs02.set_ylim(ylimits)
+            axs02.set_xticks(ticks)
+            axs02.set_title('ChamI \& IC 348')
+            axs02.legend(loc='upper left', fontsize=14, handlelength=0.5, framealpha=0.2)
 
+        elif t == 4.0:
             # sigma Orionis data (Ansdell+ 2017  2017AJ....153..240A)
             # Data: DUST masses in MEarth
             lines = open('data/sigmaOrionis_masses.txt', 'r').readlines()
@@ -1847,18 +1843,18 @@ def cdfs_with_observations_mass(open_path, save_path, N, times, colors, labels, 
             axs10.set_xlabel(xlabel)
             axs10.set_ylabel(ylabel)
 
-        elif t == 5.0:
-            axs11.plot(disk_masses,
+            axs10.plot(disk_masses,
                         cumulative_masses,
-                        lw=2, color='black')
-            axs11.fill_betweenx(cumulative_masses,
+                        lw=3, color='black')
+            axs10.fill_betweenx(cumulative_masses,
                                  masses_low, masses_high,
                                  alpha='0.2', facecolor='black')
-            axs11.text(xtext, ytext, 't = {0} Myr'.format(t))
-            axs11.set_xlim(xlimits)
-            axs11.set_ylim(ylimits)
-            axs11.set_xticks(ticks)
+            axs10.text(xtext, ytext, 't = {0} Myr'.format(t), fontsize=textsize)
+            axs10.set_xlim(xlimits)
+            axs10.set_ylim(ylimits)
+            axs10.set_xticks(ticks)
 
+        elif t == 5.0:
             # UpperSco data (Barenfeld et al 2016 2016ApJ...827..142B)
             # data: DUST masses in MEarth
             lines = open('data/UpperSco_masses.txt', 'r').readlines()
@@ -1912,8 +1908,18 @@ def cdfs_with_observations_mass(open_path, save_path, N, times, colors, labels, 
             axs11.set_xlabel(xlabel)
             axs11.set_ylabel(ylabel)
 
+            axs11.plot(disk_masses,
+                        cumulative_masses,
+                        lw=3, color='black')
+            axs11.fill_betweenx(cumulative_masses,
+                                 masses_low, masses_high,
+                                 alpha='0.2', facecolor='black')
+            axs11.text(xtext, ytext, 't = {0} Myr'.format(t), fontsize=textsize)
+            axs11.set_xlim(xlimits)
+            axs11.set_ylim(ylimits)
+            axs11.set_xticks(ticks)
+
     pyplot.tight_layout()
-    pyplot.subplots_adjust(wspace=1.5, hspace=2.5)  # make the figure look better
     pyplot.savefig('{0}/CDF_data_mass.png'.format(save_path))
 
     pyplot.show()
@@ -2014,7 +2020,7 @@ def total_disk_mass(open_paths100, open_paths30, save_path, t_end):
     pyplot.plot(times,
                 total_disks,
                 lw=2,
-                label=r'$\rho = 100 \mathrm{ \ M}_{\odot} \mathrm{ \ pc}^{-3}$')#, capsize=5, facecolor='lightgray')
+                label=r'$\rho \sim 100 \mathrm{ \ M}_{\odot} \mathrm{ \ pc}^{-3}$')#, capsize=5, facecolor='lightgray')
     pyplot.fill_between(times,
                         total_disks_low,
                         total_disks_high,
@@ -2048,7 +2054,7 @@ def total_disk_mass(open_paths100, open_paths30, save_path, t_end):
     pyplot.plot(times,
                 total_disks,
                 lw=2,
-                label=r'$\rho = 30 \mathrm{ \ M}_{\odot} \mathrm{ \ pc}^{-3}$')#, capsize=5, facecolor='lightgray')
+                label=r'$\rho \sim 30 \mathrm{ \ M}_{\odot} \mathrm{ \ pc}^{-3}$')#, capsize=5, facecolor='lightgray')
     pyplot.fill_between(times,
                         total_disks_low,
                         total_disks_high,
@@ -2111,8 +2117,8 @@ def disk_fractions(open_paths100, open_paths30, t_end, save_path):
     ages, ages_errors, disk_fraction, df_lower, df_higher = [], [], [], [], []
     src1_count = 0
 
-    label1 = "Ribas et al 2014"
-    label2 = "Richert et al 2018"
+    label1 = "Ribas et al (2014)"
+    label2 = "Richert et al (2018)"
 
     print matplotlib.matplotlib_fname()
 
@@ -2155,13 +2161,13 @@ def disk_fractions(open_paths100, open_paths30, t_end, save_path):
                                              disk_fraction1,
                                              xerr=ages_errors1,
                                              yerr=df_errors1,
-                                             fmt='o', lw=1, alpha=0.5,
+                                             fmt='o', lw=1, color='#0d4f7a', alpha=0.5,
                                              label=label1)
     markers2, caps2, bars2 = pyplot.errorbar(ages2,
                                              disk_fraction2,
                                              xerr=ages_errors2,
                                              yerr=df_errors2,
-                                             fmt='o', lw=1, alpha=0.5,
+                                             fmt='o', lw=1, color='#c28171', alpha=0.5,
                                              label=label2)
 
     [bar.set_alpha(0.5) for bar in bars1]
@@ -2173,11 +2179,15 @@ def disk_fractions(open_paths100, open_paths30, t_end, save_path):
 
     for p in open_paths100:
         fractions = []
+        print p
         for t in times:
             f = '{0}/N{1}_t{2}.hdf5'.format(p, 100, t)
             stars = io.read_set_from_file(f, 'hdf5', close_file=True)
             small_stars = stars[stars.bright == False]
             disked_stars = small_stars[small_stars.dispersed == False]
+
+            if t == 0.:
+                print stars[stars.bright == True].stellar_mass.value_in(units.MSun)
 
             fraction = 100. * (float(len(disked_stars)) / float(len(small_stars)))
             fractions.append(fraction)
@@ -2192,7 +2202,7 @@ def disk_fractions(open_paths100, open_paths30, t_end, save_path):
                     all_disk_fractions,
                     #yerr=disk_fractions_stdev,
                     color='k', lw=2,
-                    label=r'$\rho = 100 \mathrm{ \ M}_{\odot} \mathrm{ \ pc}^{-3}$')
+                    label=r'$\rho \sim 100 \mathrm{ \ M}_{\odot} \mathrm{ \ pc}^{-3}$')
     pyplot.fill_between(times,
                         disk_fractions_high,
                         disk_fractions_low,
@@ -2202,11 +2212,15 @@ def disk_fractions(open_paths100, open_paths30, t_end, save_path):
 
     for p in open_paths30:
         fractions = []
+        print p
         for t in times:
             f = '{0}/N{1}_t{2}.hdf5'.format(p, 30, t)
             stars = io.read_set_from_file(f, 'hdf5', close_file=True)
             small_stars = stars[stars.bright == False]
             disked_stars = small_stars[small_stars.dispersed == False]
+
+            if t == 0.:
+                print stars[stars.bright == True].stellar_mass.value_in(units.MSun)
 
             fraction = 100. * (float(len(disked_stars)) / float(len(small_stars)))
             fractions.append(fraction)
@@ -2222,7 +2236,7 @@ def disk_fractions(open_paths100, open_paths30, t_end, save_path):
                     #yerr=disk_fractions_stdev,
                     color='k',
                     ls='--', lw=2,
-                    label=r'$\rho = 30 \mathrm{ \ M}_{\odot} \mathrm{ \ pc}^{-3}$')
+                    label=r'$\rho \sim 30 \mathrm{ \ M}_{\odot} \mathrm{ \ pc}^{-3}$')
     pyplot.fill_between(times,
                         disk_fractions_high,
                         disk_fractions_low,
@@ -2303,8 +2317,8 @@ def disk_stellar_mass(open_paths100, open_paths30, t_end, mass_limit, save_path)
     low_mass_disks = numpy.median(low_mass_disks, axis=0)
     high_mass_disks = numpy.median(high_mass_disks, axis=0)
 
-    pyplot.plot(times, low_mass_disks, label="M$_* \leq {0}$ M$_\odot$".format(mass_limit.value_in(units.MSun)))
-    pyplot.plot(times, high_mass_disks, label="M$_* > {0}$ M$_\odot$".format(mass_limit.value_in(units.MSun)))
+    pyplot.plot(times, low_mass_disks, label="low mass M$_* \leq {0}$ M$_\odot$".format(mass_limit.value_in(units.MSun)))
+    pyplot.plot(times, high_mass_disks, label=" high mass M$_* > {0}$ M$_\odot$".format(mass_limit.value_in(units.MSun)))
 
     low_mass_disks, high_mass_disks = [], []
 
@@ -2332,11 +2346,11 @@ def disk_stellar_mass(open_paths100, open_paths30, t_end, mass_limit, save_path)
         low_mass_disks.append(low_all_in_p)
         high_mass_disks.append(high_all_in_p)
 
-    low_mass_disks = numpy.median(low_mass_disks, axis=0)
-    high_mass_disks = numpy.median(high_mass_disks, axis=0)
+    low_mass_disks = numpy.mean(low_mass_disks, axis=0)
+    high_mass_disks = numpy.mean(high_mass_disks, axis=0)
 
-    #pyplot.plot(times, low_mass_disks, label="low mass stars", ls=':')
-    #pyplot.plot(times, high_mass_disks, label="high mass stars", ls=":")
+    pyplot.plot(times, low_mass_disks, label="low mass stars", ls=':')
+    pyplot.plot(times, high_mass_disks, label="high mass stars", ls=":")
     pyplot.xlabel('Time [Myr]')
     pyplot.ylabel(r'M$_{disk} / $M$_{disk}(t = 0)$')
     pyplot.legend()
@@ -2372,13 +2386,15 @@ def disk_stellar_mass_scatter(open_paths, N, t, save_path):
 
 def main(save_path, time, N, distribution, ncells, i, all_distances, single):
 
-    pathsN100 = ['results/final/plummer_N100_1/',
-             'results/final/plummer_N100_2/',
-             'results/final/plummer_N100_3/']
+    paths100 = ['results/final/plummer_N100_1/',
+                'results/final/plummer_N100_2/',
+                'results/final/plummer_N100_3/']
 
-    pathsN30 = ['results/final/plummer_N30_1/']
+    paths30 = ['results/final/plummer_N30_1/']#,
+                #'results/final/plummer_N30_2/',
+                #'results/final/plummer_N30_3/']
 
-    path = 'results/final/plummer_N30_1/'
+    path = 'results/final/plummer_N30_3/'
 
     pyplot.style.use('paper')
 
@@ -2392,15 +2408,16 @@ def main(save_path, time, N, distribution, ncells, i, all_distances, single):
         colors = ["#638ccc", "#ca5670", "#c57c3c", "#72a555", "#ab62c0", '#0072B2', '#009E73', '#D55E00']  # colors from my prev paper
         labels = ['Trapezium cluster', 'Lupus clouds', 'Chamaeleon I', '$\sigma$ Orionis', 'Upper Scorpio', 'IC 348',
                   'ONC', "OMC-2"]
-        #mass_loss_in_time(paths, save_path, time, N, 0)
-        #disk_fractions(pathsN100, pathsN30, time, save_path)
+        #mass_loss_in_time(paths100, paths30, save_path, time, N, 0)
+        #disk_fractions(paths100, paths30, time, save_path)
         #cdfs_in_time(path, save_path, N, times)
-        #cdfs_with_observations_size(paths, save_path, N, times, colors, labels)
-        #cdfs_with_observations_mass(paths, save_path, N, times, colors, labels, log=True)
+        cdfs_with_observations_size(paths100, paths30, save_path, N, times, colors, labels)
+        #cdfs_with_observations_mass(paths100, save_path, N, times, colors, labels, log=True)
         #disk_mass_in_time(paths, save_path, N, time)
-        #total_disk_mass(pathsN100, pathsN30, save_path, time)
-        disk_stellar_mass(pathsN100, pathsN30, time, 0.2, save_path)
+        #total_disk_mass(paths100, paths30, save_path, time)
+        #disk_stellar_mass(paths100, paths30, time, 1.0, save_path)
         #disk_stellar_mass_scatter(paths, N, time, save_path)
+        #luminosity_vs_mass(save_path)
 
 def new_option_parser():
     from amuse.units.optparse import OptionParser
