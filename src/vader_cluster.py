@@ -496,6 +496,7 @@ def main(N, Rvir, Qvir, dist, alpha, ncells, t_ini, t_end, save_interval, run_nu
             s.truncation_mass_loss = 0 | units.MJupiter
             s.cumulative_truncation_mass_loss = 0 | units.MJupiter
             s.EUV = False  # For photoevaporation regime
+            s.nearby_supernovae = False
 
             # Initial values of disks
             s.initial_disk_size = get_disk_radius(s_code)
@@ -690,6 +691,7 @@ def main(N, Rvir, Qvir, dist, alpha, ncells, t_ini, t_end, save_interval, run_nu
                     disk_codes[disk_codes_indices[n.key]] = new_code
                     n.disk_radius = get_disk_radius(new_code)
                     n.disk_mass = get_disk_mass(new_code, n.disk_radius)
+                    n.nearby_supernovae = True
                 elif r_disk == 0.:
                     n.disk_radius = 0. | units.au
                     n.disk_mass = 0. | units.MSun
