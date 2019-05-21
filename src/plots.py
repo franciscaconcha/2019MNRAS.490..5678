@@ -2530,16 +2530,16 @@ def main(save_path, time, N, distribution, ncells, i, all_distances, single):
         labels = ['Trapezium cluster', 'Lupus clouds', 'Chamaeleon I', '$\sigma$ Orionis', 'Upper Scorpio', 'IC 348',
                   'ONC', "OMC-2"]
         mass_loss_in_time(paths100, paths30, save_path, time, N, 0)
-        disk_fractions(paths100, paths30, time, save_path)
+        #disk_fractions(paths100, paths30, time, save_path)
         #cdfs_in_time(path, save_path, N, times)
-        cdfs_with_observations_size(paths100, paths30, save_path, N, times, colors, labels)
-        cdfs_with_observations_mass(paths100, save_path, N, times, colors, labels, log=True)
+        #cdfs_with_observations_size(paths100, paths30, save_path, N, times, colors, labels)
+        #cdfs_with_observations_mass(paths100, save_path, N, times, colors, labels, log=True)
         #disk_mass_in_time(paths, save_path, N, time)
-        total_disk_mass(paths100, paths30, save_path, time)
-        disk_stellar_mass(paths100, paths30, time, 1.0, save_path)
+        #total_disk_mass(paths100, paths30, save_path, time)
+        #disk_stellar_mass(paths100, paths30, time, 1.0, save_path)
         #disk_stellar_mass_scatter(paths, N, time, save_path)
-        luminosity_vs_mass(save_path)
-        g0_in_time(paths100, paths30, save_path, 100, 0)
+        #luminosity_vs_mass(save_path)
+        #g0_in_time(paths100, paths30, save_path, 100, 0)
 
 def new_option_parser():
     from amuse.units.optparse import OptionParser
