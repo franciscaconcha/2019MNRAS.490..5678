@@ -284,12 +284,14 @@ def mass_loss_in_time(open_paths100, open_paths30, save_path, tend, N, i):
     fig = pyplot.figure()
     ax = pyplot.gca()
     ax.set_xlabel('Time [Myr]')
-    ax.set_ylabel('Mean mass loss [$\log($M$_{Jup})$]')
+    ax.set_ylabel(r'Mean mass loss [M$_{Jup}$]')
 
     photoevap_mass_loss, trunc_mass_loss, photoevap_low, photoevap_high, trunc_low, trunc_high = [], [], [], [], [], []
+    disk_mass, mass_low, mass_high = [], [], []
 
     for t in times:
         photoevap_in_t, trunc_in_t = [], []
+        mass_in_t = []
         for p in open_paths100:
             f = '{0}/N{1}_t{2}.hdf5'.format(p, 100, t)
             stars = io.read_set_from_file(f, 'hdf5', close_file=True)
@@ -297,6 +299,7 @@ def mass_loss_in_time(open_paths100, open_paths30, save_path, tend, N, i):
 
             photoevap_in_t.append(numpy.mean(small_stars.cumulative_photoevap_mass_loss.value_in(units.MJupiter)))
             trunc_in_t.append(numpy.mean(small_stars.cumulative_truncation_mass_loss.value_in(units.MJupiter)))
+            mass_in_t.append(numpy.mean(small_stars.disk_mass.value_in(units.MJupiter)))
 
         photoevap_mass_loss.append(numpy.mean(photoevap_in_t))
         photoevap_low.append(numpy.min(photoevap_in_t))
@@ -306,24 +309,38 @@ def mass_loss_in_time(open_paths100, open_paths30, save_path, tend, N, i):
         trunc_low.append(numpy.min(trunc_in_t))
         trunc_high.append(numpy.max(trunc_in_t))
 
-    ax.semilogy(times, photoevap_mass_loss, label="Photoevaporation", lw=3, color="#009bed")
+        disk_mass.append(numpy.mean(mass_in_t))
+        mass_low.append(numpy.min(mass_in_t))
+        mass_high.append(numpy.max(mass_in_t))
+
+    ax.semilogx(times, photoevap_mass_loss, label="Photoevaporation", lw=3, color="#009bed")
     ax.fill_between(times,
                     photoevap_low,
                     photoevap_high,
                     facecolor="#009bed",
                     alpha=0.2)
 
-    ax.semilogy(times, trunc_mass_loss, label="Dynamical truncations", lw=3, color="#d73027")
+    ax.semilogx(times, trunc_mass_loss, label="Dynamical truncations", lw=3, color="#d73027")
     ax.fill_between(times,
                     trunc_low,
                     trunc_high,
                     facecolor="#d73027",
                     alpha=0.2)
 
+    ax.semilogx(times, disk_mass, label="Mean mass", lw=3, color="black")
+    ax.fill_between(times,
+                    mass_low,
+                    mass_high,
+                    facecolor="black",
+                    alpha=0.2)
+
     photoevap_mass_loss, trunc_mass_loss, photoevap_low, photoevap_high, trunc_low, trunc_high = [], [], [], [], [], []
+    disk_mass, mass_low, mass_high = [], [], []
+
 
     for t in times:
         photoevap_in_t, trunc_in_t = [], []
+        mass_in_t = []
         for p in open_paths30:
             f = '{0}/N{1}_t{2}.hdf5'.format(p, 30, t)
             stars = io.read_set_from_file(f, 'hdf5', close_file=True)
@@ -331,6 +348,7 @@ def mass_loss_in_time(open_paths100, open_paths30, save_path, tend, N, i):
 
             photoevap_in_t.append(numpy.mean(small_stars.cumulative_photoevap_mass_loss.value_in(units.MJupiter)))
             trunc_in_t.append(numpy.mean(small_stars.cumulative_truncation_mass_loss.value_in(units.MJupiter)))
+            mass_in_t.append(numpy.mean(small_stars.disk_mass.value_in(units.MJupiter)))
 
         photoevap_mass_loss.append(numpy.mean(photoevap_in_t))
         photoevap_low.append(numpy.min(photoevap_in_t))
@@ -340,17 +358,28 @@ def mass_loss_in_time(open_paths100, open_paths30, save_path, tend, N, i):
         trunc_low.append(numpy.min(trunc_in_t))
         trunc_high.append(numpy.max(trunc_in_t))
 
-    ax.semilogy(times, photoevap_mass_loss, label="Photoevaporation", ls="--", lw=3, color="#009bed")
+        disk_mass.append(numpy.mean(mass_in_t))
+        mass_low.append(numpy.min(mass_in_t))
+        mass_high.append(numpy.max(mass_in_t))
+
+    ax.semilogx(times, photoevap_mass_loss, label="Photoevaporation", ls="--", lw=3, color="#009bed")
     ax.fill_between(times,
                     photoevap_low,
                     photoevap_high,
                     alpha=0.2, facecolor="#009bed")
 
-    ax.semilogy(times, trunc_mass_loss, label="Dynamical truncations", ls="--", lw=3, color="#d73027")
+    ax.semilogx(times, trunc_mass_loss, label="Dynamical truncations", ls="--", lw=3, color="#d73027")
     ax.fill_between(times,
                     trunc_low,
                     trunc_high,
                     alpha=0.2, facecolor="#d73027")
+
+    ax.semilogx(times, disk_mass, label="Mean mass", ls="--", lw=3, color="black")
+    ax.fill_between(times,
+                    mass_low,
+                    mass_high,
+                    facecolor="black",
+                    alpha=0.2)
 
     ax.set_xlim([0.0, 5.0])
     box = ax.get_position()
@@ -365,7 +394,7 @@ def mass_loss_in_time(open_paths100, open_paths30, save_path, tend, N, i):
                             TruncationObject: TruncationObjectHandler(),
                             M100Object: M100ObjectHandler(),
                             M30Object: M30ObjectHandler()},
-               loc='best', bbox_to_anchor=(0.12, -0.15), ncol=2,
+               loc='best', bbox_to_anchor=(0.73, -0.15), ncol=2,
               fontsize=20, framealpha=1.)
 
     #pyplot.tight_layout()
@@ -442,6 +471,12 @@ def single_star(open_path, save_path, N, i, t_end, all_distances=0):
         #print s.dispersed
         #print checked
         #print "Density: {0} g/cm-2".format(s.disk_mass.value_in(units.g) / numpy.pi * s.disk_radius.value_in(units.cm)**2)
+
+        print 't={0}, r={1}, m={2}, disp={3}, tdisp={4}'.format(t,
+                                                     s.disk_radius.value_in(units.au),
+                                                     s.disk_mass.value_in(units.MJupiter),
+                                                     s.dispersed,
+                                                     s.dispersal_time.value_in(units.Myr))
 
         if t == 0.0:
             initial_size = s.disk_radius.value_in(units.au)
@@ -1505,7 +1540,7 @@ def disk_fractions(open_paths100, open_paths30, t_end, save_path):
     [bar.set_alpha(0.5) for bar in bars2]
 
     # Plotting my data
-    times = numpy.arange(0.0, t_end + 0.5, 0.5)
+    times = numpy.arange(0.0, t_end + 0.05, 0.05)
     all_fractions = []
 
     for p in open_paths100:
