@@ -164,7 +164,8 @@ def parravano_fit(masses):
 
     return fit
 
-def luminosity_vs_mass(save_path):
+
+def luminosity_vs_mass(save_path, save):
     masses = numpy.arange(0.12, 100., 0.2)
 
     this_fit = luminosity_fit(masses)
@@ -183,8 +184,10 @@ def luminosity_vs_mass(save_path):
     pyplot.xlim([0, 1E2])
     #pyplot.ylim([0, 1E6])
     pyplot.xticks([1, 10, 100])
-    pyplot.savefig('{0}/luminosity_fit.png'.format(save_path))
+    if save:
+        pyplot.savefig('{0}/luminosity_fit.png'.format(save_path))
     pyplot.show()
+
 
 def g0_in_time(open_paths100, open_paths30, save_path, N, i):
     fig = pyplot.figure()
@@ -242,7 +245,8 @@ def g0_in_time(open_paths100, open_paths30, save_path, N, i):
     ax.set_ylabel(r'$\mathrm{G}_0 \ [\mathrm{erg}/\mathrm{cm}^2$]')
     ax.set_xlim([0.05, 5.0])
     ax.legend(loc='upper right', framealpha=0.4)
-    pyplot.savefig('{0}/g0.png'.format(save_path))
+    if save:
+        pyplot.savefig('{0}/g0.png'.format(save_path))
     pyplot.show()
 
 
@@ -398,7 +402,8 @@ def mass_loss_in_time(open_paths100, open_paths30, save_path, tend, N, i):
               fontsize=20, framealpha=1.)
 
     #pyplot.tight_layout()
-    pyplot.savefig('{0}/mass_loss.png'.format(save_path))
+    if save:
+        pyplot.savefig('{0}/mass_loss.png'.format(save_path))
     pyplot.show()
 
 
@@ -531,7 +536,7 @@ def single_star(open_path, save_path, N, k, t_end, all_distances=0):
     #pyplot.show()
 
 
-def cdfs_with_observations_size(open_path100, open_path30, save_path, N, times, colors, labels, log=False):
+def cdfs_with_observations_size(open_path100, open_path30, save_path, N, times, colors, labels, save, log=False):
     """ Plot cumulative distributions of disk sizes (au) and masses (MJup).
 
     :param open_path: list of folders to use
@@ -857,12 +862,14 @@ def cdfs_with_observations_size(open_path100, open_path30, save_path, N, times, 
             axs11.set_xticks(ticks)
 
     pyplot.tight_layout()
-    pyplot.savefig('{0}/CDF_data_size.png'.format(save_path))
+
+    if save:
+        pyplot.savefig('{0}/CDF_data_size.png'.format(save_path))
 
     pyplot.show()
 
 
-def cdfs_with_observations_mass(open_path, save_path, N, times, colors, labels, log=False):
+def cdfs_with_observations_mass(open_path, save_path, N, times, colors, labels, save, log=False):
     """ Plot cumulative distributions of disk sizes (au) and masses (MJup).
 
     :param open_path: list of folders to use
@@ -1397,12 +1404,14 @@ def cdfs_with_observations_mass(open_path, save_path, N, times, colors, labels, 
             axs11.set_xticks(ticks)
 
     pyplot.tight_layout()
-    pyplot.savefig('{0}/CDF_data_mass.png'.format(save_path))
+
+    if save:
+         pyplot.savefig('{0}/CDF_data_mass.png'.format(save_path))
 
     pyplot.show()
 
 
-def dist_disk_mass(open_paths100, open_paths30, save_path, t_end):
+def dist_disk_mass(open_paths100, open_paths30, save_path, t_end, save):
     fig = pyplot.figure()
 
     dt = 1.
@@ -1440,11 +1449,12 @@ def dist_disk_mass(open_paths100, open_paths30, save_path, t_end):
     pyplot.legend()
     #pyplot.xlim([0.0, 80.0])
     #pyplot.ylim([0.0, 100.0])
-    pyplot.savefig('{0}/mass_distribution.png'.format(save_path))
+    if save:
+         pyplot.savefig('{0}/mass_distribution.png'.format(save_path))
     pyplot.show()
 
 
-def dist_disk_size(open_paths100, open_paths30, save_path, t_end):
+def dist_disk_size(open_paths100, open_paths30, save_path, t_end, save):
     fig = pyplot.figure()
 
     dt = 1.
@@ -1474,11 +1484,12 @@ def dist_disk_size(open_paths100, open_paths30, save_path, t_end):
     pyplot.legend()
     #pyplot.xlim([0.0, 80.0])
     #pyplot.ylim([0.0, 100.0])
-    pyplot.savefig('{0}/size_distribution.png'.format(save_path))
+    if save:
+        pyplot.savefig('{0}/size_distribution.png'.format(save_path))
     pyplot.show()
 
 
-def disk_mass(open_paths100, open_paths30, save_path, t_end):
+def disk_mass(open_paths100, open_paths30, save_path, t_end, save):
     fig = pyplot.figure()
 
     total_disks, total_disks_low, total_disks_high = [], [], []
@@ -1589,11 +1600,12 @@ def disk_mass(open_paths100, open_paths30, save_path, t_end):
     pyplot.legend()
     pyplot.xlim([0.0, 5.0])
     pyplot.ylim([0.0, 100.0])
-    pyplot.savefig('{0}/mass_fraction_line.png'.format(save_path))
+    if save:
+        pyplot.savefig('{0}/mass_fraction_line.png'.format(save_path))
     pyplot.show()
 
 
-def disk_size(open_paths100, open_paths30, save_path, t_end):
+def disk_size(open_paths100, open_paths30, save_path, t_end, save):
     fig = pyplot.figure()
 
     total_disks, total_disks_low, total_disks_high = [], [], []
@@ -1669,11 +1681,12 @@ def disk_size(open_paths100, open_paths30, save_path, t_end):
     pyplot.legend()
     pyplot.xlim([0.0, 5.0])
     pyplot.ylim([0.0, 100.0])
-    pyplot.savefig('{0}/size_fraction_line.png'.format(save_path))
+    if save:
+        pyplot.savefig('{0}/size_fraction_line.png'.format(save_path))
     pyplot.show()
 
 
-def disk_fractions(open_paths100, open_paths30, t_end, save_path):
+def disk_fractions(open_paths100, open_paths30, t_end, save_path, save, mass_limit=0.):
     filename = 'data/diskfractions.dat'
     f = open(filename, "r")
     lines = f.readlines()
@@ -1744,9 +1757,15 @@ def disk_fractions(open_paths100, open_paths30, t_end, save_path):
         fractions = []
         print p
         for t in times:
+            if t == 0.:  # Have to do this to plot in terms of initial stellar mass, not considering accreted mass
+                f = '{0}/N{1}_t{2}.hdf5'.format(p, 100, t)
+                stars = io.read_set_from_file(f, 'hdf5', close_file=True)
+                init_mass = stars.stellar_mass
             f = '{0}/N{1}_t{2}.hdf5'.format(p, 100, t)
             stars = io.read_set_from_file(f, 'hdf5', close_file=True)
+            stars.stellar_mass = init_mass
             small_stars = stars[stars.bright == False]
+            small_stars = small_stars[small_stars.stellar_mass.value_in(units.MSun) >= mass_limit]
             disked_stars = small_stars[small_stars.dispersed == False]
 
             if t == 0.:
@@ -1777,9 +1796,15 @@ def disk_fractions(open_paths100, open_paths30, t_end, save_path):
         fractions = []
         print p
         for t in times:
+            if t == 0.:   # Have to do this to plot in terms of initial stellar mass, not considering accreted mass
+                f = '{0}/N{1}_t{2}.hdf5'.format(p, 30, t)
+                stars = io.read_set_from_file(f, 'hdf5', close_file=True)
+                init_mass = stars.stellar_mass
             f = '{0}/N{1}_t{2}.hdf5'.format(p, 30, t)
             stars = io.read_set_from_file(f, 'hdf5', close_file=True)
+            stars.stellar_mass = init_mass
             small_stars = stars[stars.bright == False]
+            small_stars = small_stars[small_stars.stellar_mass.value_in(units.MSun) >= mass_limit]
             disked_stars = small_stars[small_stars.dispersed == False]
 
             if t == 0.:
@@ -1810,7 +1835,9 @@ def disk_fractions(open_paths100, open_paths30, t_end, save_path):
     pyplot.ylabel("Disk fraction [\%]")
     pyplot.xlim([0.0, 5.0])
     pyplot.ylim([0.0, 100.0])
-    pyplot.savefig('{0}/disk_fraction.png'.format(save_path))
+
+    if save:
+        pyplot.savefig('{0}/disk_fraction.png'.format(save_path))
 
     pyplot.show()
 
@@ -1845,7 +1872,7 @@ def tests(open_path, i, N, t_end):
                                                            s.key)
 
 
-def disk_stellar_mass(open_paths100, open_paths30, t_end, mass_limit, save_path):
+def disk_stellar_mass(open_paths100, open_paths30, t_end, mass_limit, save_path, save):
     fig = pyplot.figure()
     times = numpy.arange(0.0, t_end + 0.05, 0.05)
 
@@ -1924,7 +1951,7 @@ def disk_stellar_mass(open_paths100, open_paths30, t_end, mass_limit, save_path)
     pyplot.show()
 
 
-def disk_stellar_mass_scatter(open_paths, N, t, save_path):
+def disk_stellar_mass_scatter(open_paths, N, t, save_path, save):
     fig = pyplot.figure()
     p = open_paths[0]
     mass_limit = 0.3 | units.MSun
@@ -1951,7 +1978,7 @@ def disk_stellar_mass_scatter(open_paths, N, t, save_path):
     pyplot.show()
 
 
-def main(save_path, time, N, distribution, ncells, i, all_distances, single):
+def main(save_path, time, N, distribution, ncells, i, all_distances, single, save):
 
     pyplot.style.use('paper')
 
@@ -1965,11 +1992,11 @@ def main(save_path, time, N, distribution, ncells, i, all_distances, single):
 
     path = 'results/final/plummer_N100_1/'
 
-    for j in range(100):
-        print j
-        single_star(path, save_path + '/single_N100_1', N, j, time, all_distances)
+    #for j in range(100):
+    #    print j
+    #    single_star(path, save_path + '/single_N100_1', N, j, time, all_distances)
 
-    """if single:
+    if single:
         single_star(path, save_path, N, i, time, all_distances)
         #tests(path, i, N, time)
     else:
@@ -1977,23 +2004,26 @@ def main(save_path, time, N, distribution, ncells, i, all_distances, single):
         colors = ["#638ccc", "#ca5670", "#c57c3c", "#72a555", "#ab62c0", '#0072B2', '#009E73', '#D55E00']  # colors from my prev paper
         labels = ['Trapezium cluster', 'Lupus clouds', 'Chamaeleon I', '$\sigma$ Orionis', 'Upper Scorpio', 'IC 348',
                   'ONC', "OMC-2"]
-        #mass_loss_in_time(paths100, paths30, save_path, time, N, i)
-        #disk_fractions(paths100, paths30, time, save_path)
+        #mass_loss_in_time(paths100, paths30, save_path, time, N, i, save)
+        disk_fractions(paths100, paths30, time, save_path, save, mass_limit=0.5)
         #cdfs_in_time(path, save_path, N, times)
-        #cdfs_with_observations_size(paths100, paths30, save_path, N, times, colors, labels)
-        #cdfs_with_observations_mass(paths100, save_path, N, times, colors, labels, log=True)
-        dist_disk_mass(paths100, paths30, save_path, time)
-        #dist_disk_size(paths100, paths30, save_path, time)
-        #disk_mass(paths100, paths30, save_path, time)
-        #disk_size(paths100, paths30, save_path, time)
-        #disk_stellar_mass(paths100, paths30, time, 1.0, save_path)
-        #disk_stellar_mass_scatter(paths, N, time, save_path)
-        #luminosity_vs_mass(save_path)
-        #g0_in_time(paths100, paths30, save_path, 100, 0)"""
+        #cdfs_with_observations_size(paths100, paths30, save_path, N, times, colors, labels, save)
+        #cdfs_with_observations_mass(paths100, save_path, N, times, colors, labels, save, log=True)
+        #dist_disk_mass(paths100, paths30, save_path, time, save)
+        #dist_disk_size(paths100, paths30, save_path, time, save)
+        #disk_mass(paths100, paths30, save_path, time, save)
+        #disk_size(paths100, paths30, save_path, time, save)
+        #disk_stellar_mass(paths100, paths30, time, 1.0, save_path, save)
+        #disk_stellar_mass_scatter(paths, N, time, save_path, save)
+        #luminosity_vs_mass(save_path, save)
+        #g0_in_time(paths100, paths30, save_path, 100, 0, save)
 
 def new_option_parser():
     from amuse.units.optparse import OptionParser
     result = OptionParser()
+
+    result.add_option("-S", dest="save", type="int", default=0,
+                      help="save plot? [%default]")
 
     # Simulation parameters
     result.add_option("-s", dest="save_path", type="string", default='/media/fran/data1/photoevap/figures',
