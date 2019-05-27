@@ -250,7 +250,7 @@ def g0_in_time(open_paths100, open_paths30, save_path, N, i):
     pyplot.show()
 
 
-def mass_loss_in_time(open_paths100, open_paths30, save_path, tend, N, i):
+def mass_loss_in_time(open_paths100, open_paths30, save_path, tend, save, mass_limit=0.5):
     """ Cumulative mass loss in each time step due to photoevaporation and truncations.
 
     :param open_path:
@@ -299,6 +299,7 @@ def mass_loss_in_time(open_paths100, open_paths30, save_path, tend, N, i):
         for p in open_paths100:
             f = '{0}/N{1}_t{2}.hdf5'.format(p, 100, t)
             stars = io.read_set_from_file(f, 'hdf5', close_file=True)
+            stars = stars[stars.stellar_mass.value_in(units.MSun) >= mass_limit]
             small_stars = stars[stars.bright == False]
 
             photoevap_in_t.append(numpy.mean(small_stars.cumulative_photoevap_mass_loss.value_in(units.MJupiter)))
@@ -317,14 +318,14 @@ def mass_loss_in_time(open_paths100, open_paths30, save_path, tend, N, i):
         mass_low.append(numpy.min(mass_in_t))
         mass_high.append(numpy.max(mass_in_t))
 
-    ax.loglog(times, photoevap_mass_loss, label="Photoevaporation", lw=3, color="#009bed")
+    ax.semilogx(times, photoevap_mass_loss, label="Photoevaporation", lw=3, color="#009bed")
     ax.fill_between(times,
                     photoevap_low,
                     photoevap_high,
                     facecolor="#009bed",
                     alpha=0.2)
 
-    ax.loglog(times, trunc_mass_loss, label="Dynamical truncations", lw=3, color="#d73027")
+    ax.semilogx(times, trunc_mass_loss, label="Dynamical truncations", lw=3, color="#d73027")
     ax.fill_between(times,
                     trunc_low,
                     trunc_high,
@@ -348,6 +349,7 @@ def mass_loss_in_time(open_paths100, open_paths30, save_path, tend, N, i):
         for p in open_paths30:
             f = '{0}/N{1}_t{2}.hdf5'.format(p, 30, t)
             stars = io.read_set_from_file(f, 'hdf5', close_file=True)
+            stars = stars[stars.stellar_mass.value_in(units.MSun) >= mass_limit]
             small_stars = stars[stars.bright == False]
 
             photoevap_in_t.append(numpy.mean(small_stars.cumulative_photoevap_mass_loss.value_in(units.MJupiter)))
@@ -366,17 +368,17 @@ def mass_loss_in_time(open_paths100, open_paths30, save_path, tend, N, i):
         mass_low.append(numpy.min(mass_in_t))
         mass_high.append(numpy.max(mass_in_t))
 
-    ax.loglog(times, photoevap_mass_loss, label="Photoevaporation", ls="--", lw=3, color="#009bed")
+    ax.semilogx(times, photoevap_mass_loss, label="Photoevaporation", ls="--", lw=3, color="#009bed")
     ax.fill_between(times,
                     photoevap_low,
                     photoevap_high,
-                    alpha=0.2, facecolor="#009bed")
+                    alpha=0.2, facecolor="#009bed", edgecolor='gray', hatch="/")
 
-    ax.loglog(times, trunc_mass_loss, label="Dynamical truncations", ls="--", lw=3, color="#d73027")
+    ax.semilogx(times, trunc_mass_loss, label="Dynamical truncations", ls="--", lw=3, color="#d73027")
     ax.fill_between(times,
                     trunc_low,
                     trunc_high,
-                    alpha=0.2, facecolor="#d73027")
+                    alpha=0.2, facecolor="#d73027", edgecolor='gray', hatch="/")
 
     """ax.semilogx(times, disk_mass, label="Mean mass", ls="--", lw=3, color="black")
     ax.fill_between(times,
@@ -1691,6 +1693,7 @@ def disk_fractions(open_paths100, open_paths30, t_end, save_path, save, mass_lim
     f = open(filename, "r")
     lines = f.readlines()
     ages, ages_errors, disk_fraction, df_lower, df_higher = [], [], [], [], []
+    relax_times = []
     src1_count = 0
 
     label1 = "Ribas et al (2014)"
@@ -1704,6 +1707,8 @@ def disk_fractions(open_paths100, open_paths30, t_end, save_path, save, mass_lim
             x = l.split()
             ages.append(float(x[1]))
             ages_errors.append(float(x[2]))
+            N = float(x[7])
+            relax_times.append(N / numpy.log(N))
 
             if int(x[6]) == 1:
                 src1_count += 1
@@ -1720,6 +1725,8 @@ def disk_fractions(open_paths100, open_paths30, t_end, save_path, save, mass_lim
     # Separating by paper source
     ages1 = ages[:src1_count]
     ages2 = ages[src1_count:]
+    relax1 = relax_times[:src1_count]
+    relax2 = relax_times[src1_count:]
     ages_errors1 = ages_errors[:src1_count]
     ages_errors2 = ages_errors[src1_count:]
     disk_fraction1 = disk_fraction[:src1_count]
@@ -1733,13 +1740,13 @@ def disk_fractions(open_paths100, open_paths30, t_end, save_path, save, mass_lim
     df_errors2 = numpy.array((df_lower2, df_higher2))
 
     fig = pyplot.figure(figsize=(12, 12))
-    markers1, caps1, bars1 = pyplot.errorbar(ages1,
+    markers1, caps1, bars1 = pyplot.errorbar(relax1,
                                              disk_fraction1,
                                              xerr=ages_errors1,
                                              yerr=df_errors1,
                                              fmt='o', lw=1, color='#0d4f7a', alpha=0.5,
                                              label=label1)
-    markers2, caps2, bars2 = pyplot.errorbar(ages2,
+    markers2, caps2, bars2 = pyplot.errorbar(relax2,
                                              disk_fraction2,
                                              xerr=ages_errors2,
                                              yerr=df_errors2,
@@ -2004,8 +2011,8 @@ def main(save_path, time, N, distribution, ncells, i, all_distances, single, sav
         colors = ["#638ccc", "#ca5670", "#c57c3c", "#72a555", "#ab62c0", '#0072B2', '#009E73', '#D55E00']  # colors from my prev paper
         labels = ['Trapezium cluster', 'Lupus clouds', 'Chamaeleon I', '$\sigma$ Orionis', 'Upper Scorpio', 'IC 348',
                   'ONC', "OMC-2"]
-        #mass_loss_in_time(paths100, paths30, save_path, time, N, i, save)
-        disk_fractions(paths100, paths30, time, save_path, save, mass_limit=0.5)
+        mass_loss_in_time(paths100, paths30, save_path, time, save)
+        #disk_fractions(paths100, paths30, time, save_path, save, mass_limit=0.5)
         #cdfs_in_time(path, save_path, N, times)
         #cdfs_with_observations_size(paths100, paths30, save_path, N, times, colors, labels, save)
         #cdfs_with_observations_mass(paths100, save_path, N, times, colors, labels, save, log=True)
