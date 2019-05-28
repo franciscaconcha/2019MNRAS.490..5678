@@ -1708,7 +1708,7 @@ def disk_fractions(open_paths100, open_paths30, t_end, save_path, save, mass_lim
             ages.append(float(x[1]))
             ages_errors.append(float(x[2]))
             N = float(x[7])
-            relax_times.append(N / numpy.log(N))
+            relax_times.append(N / (6 * numpy.log(N)))
 
             if int(x[6]) == 1:
                 src1_count += 1
@@ -1723,12 +1723,12 @@ def disk_fractions(open_paths100, open_paths30, t_end, save_path, save, mass_lim
     f.close()
 
     # Separating by paper source
-    ages1 = ages[:src1_count]
-    ages2 = ages[src1_count:]
-    relax1 = relax_times[:src1_count]
-    relax2 = relax_times[src1_count:]
-    ages_errors1 = ages_errors[:src1_count]
-    ages_errors2 = ages_errors[src1_count:]
+    ages1 = numpy.array(ages[:src1_count])
+    ages2 = numpy.array(ages[src1_count:])
+    relax1 = numpy.array(relax_times[:src1_count])
+    relax2 = numpy.array(relax_times[src1_count:])
+    ages_errors1 = numpy.array(ages_errors[:src1_count])
+    ages_errors2 = numpy.array(ages_errors[src1_count:])
     disk_fraction1 = disk_fraction[:src1_count]
     disk_fraction2 = disk_fraction[src1_count:]
     df_lower1 = df_lower[:src1_count]
@@ -1740,15 +1740,15 @@ def disk_fractions(open_paths100, open_paths30, t_end, save_path, save, mass_lim
     df_errors2 = numpy.array((df_lower2, df_higher2))
 
     fig = pyplot.figure(figsize=(12, 12))
-    markers1, caps1, bars1 = pyplot.errorbar(relax1,
+    markers1, caps1, bars1 = pyplot.errorbar(ages1 / relax1,
                                              disk_fraction1,
-                                             xerr=ages_errors1,
+                                             xerr=ages_errors1 / relax1,
                                              yerr=df_errors1,
                                              fmt='o', lw=1, color='#0d4f7a', alpha=0.5,
                                              label=label1)
-    markers2, caps2, bars2 = pyplot.errorbar(relax2,
+    markers2, caps2, bars2 = pyplot.errorbar(ages2 / relax2,
                                              disk_fraction2,
-                                             xerr=ages_errors2,
+                                             xerr=ages_errors2 / relax2,
                                              yerr=df_errors2,
                                              fmt='o', lw=1, color='#c28171', alpha=0.5,
                                              label=label2)
@@ -1787,12 +1787,13 @@ def disk_fractions(open_paths100, open_paths30, t_end, save_path, save, mass_lim
     disk_fractions_high = numpy.max(all_fractions, axis=0)
     disk_fractions_low = numpy.min(all_fractions, axis=0)
 
-    pyplot.plot(times,
-                    all_disk_fractions,
-                    #yerr=disk_fractions_stdev,
-                    color='k', lw=3,
-                    label=r'$\rho \sim 100 \mathrm{ \ M}_{\odot} \mathrm{ \ pc}^{-3}$')
-    pyplot.fill_between(times,
+    pyplot.plot(times / (100. / (6 * numpy.log(100))),
+                all_disk_fractions,
+                #yerr=disk_fractions_stdev,
+                color='k', lw=3,
+                label=r'$\rho \sim 100 \mathrm{ \ M}_{\odot} \mathrm{ \ pc}^{-3}$')
+    print (100./numpy.log(100))
+    pyplot.fill_between(times / (100. / (6 * numpy.log(100))),
                         disk_fractions_high,
                         disk_fractions_low,
                         facecolor='black', alpha=0.2)
@@ -1826,21 +1827,24 @@ def disk_fractions(open_paths100, open_paths30, t_end, save_path, save, mass_lim
     disk_fractions_high = numpy.max(all_fractions, axis=0)
     disk_fractions_low = numpy.min(all_fractions, axis=0)
 
-    pyplot.plot(times,
-                    all_disk_fractions,
-                    #yerr=disk_fractions_stdev,
-                    color='k',
-                    ls='--', lw=3,
-                    label=r'$\rho \sim 30 \mathrm{ \ M}_{\odot} \mathrm{ \ pc}^{-3}$')
-    pyplot.fill_between(times,
+    pyplot.plot(times / (30. / (6 * numpy.log(30))),
+                all_disk_fractions,
+                #yerr=disk_fractions_stdev,
+                color='k',
+                ls='--', lw=3,
+                label=r'$\rho \sim 30 \mathrm{ \ M}_{\odot} \mathrm{ \ pc}^{-3}$')
+    print (30. / numpy.log(30))
+    pyplot.fill_between(times / (30. / (6 * numpy.log(30))),
                         disk_fractions_high,
                         disk_fractions_low,
                         facecolor='black', alpha=0.2)
 
-    pyplot.legend()
-    pyplot.xlabel("Age [Myr]")
-    pyplot.ylabel("Disk fraction [\%]")
-    pyplot.xlim([0.0, 5.0])
+    pyplot.legend(framealpha=0.5)
+    #pyplot.xlabel("Age [Myr]")
+    pyplot.xlabel("t / t$_\mathrm{relax}$ ")
+    pyplot.ylabel("Disk fraction")
+    #pyplot.xlim([0.0, 5.0])
+    pyplot.xlim([0.0, 3.2])
     pyplot.ylim([0.0, 100.0])
 
     if save:
@@ -2011,8 +2015,8 @@ def main(save_path, time, N, distribution, ncells, i, all_distances, single, sav
         colors = ["#638ccc", "#ca5670", "#c57c3c", "#72a555", "#ab62c0", '#0072B2', '#009E73', '#D55E00']  # colors from my prev paper
         labels = ['Trapezium cluster', 'Lupus clouds', 'Chamaeleon I', '$\sigma$ Orionis', 'Upper Scorpio', 'IC 348',
                   'ONC', "OMC-2"]
-        mass_loss_in_time(paths100, paths30, save_path, time, save)
-        #disk_fractions(paths100, paths30, time, save_path, save, mass_limit=0.5)
+        #mass_loss_in_time(paths100, paths30, save_path, time, save)
+        disk_fractions(paths100, paths30, time, save_path, save, mass_limit=0.0)
         #cdfs_in_time(path, save_path, N, times)
         #cdfs_with_observations_size(paths100, paths30, save_path, N, times, colors, labels, save)
         #cdfs_with_observations_mass(paths100, save_path, N, times, colors, labels, save, log=True)
