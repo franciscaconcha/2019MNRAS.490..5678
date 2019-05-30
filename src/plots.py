@@ -1,11 +1,11 @@
 import numpy
 import math
-from matplotlib import rc
 import matplotlib
 from matplotlib import pyplot
 from amuse.lab import *
 from amuse import io
 import matplotlib.lines as mlines
+import matplotlib.patches as patches
 
 
 # Custom legend lines
@@ -22,6 +22,14 @@ class M100Object(object):
 
 
 class M30Object(object):
+    pass
+
+
+class M100shadedObject(object):
+    pass
+
+
+class M30shadedObject(object):
     pass
 
 
@@ -83,6 +91,52 @@ class M30ObjectHandler(object):
                            color="black")
         handlebox.add_artist(l1)
         return [l1]
+
+
+class M100shadedObjectHandler(object):
+    def legend_artist(self, legend, orig_handle, fontsize, handlebox):
+        x0, y0 = handlebox.xdescent, handlebox.ydescent
+        width, height = handlebox.width, handlebox.height
+        l1 = mlines.Line2D([x0, y0 + width + 5],
+                           [0.5 * height, 0.5 * height],
+                           lw=3,
+                           color="black")  # Have to change color by hand for other plots
+        l2 = patches.Rectangle(
+            (x0 - 1, y0 + width - 46),  # (x,y)
+            1.2 * width,  # width
+            1.4 * height,  # height
+            fill='black',
+            facecolor="black",
+            #edgecolor="black",
+            alpha=0.2,
+            #hatch="/",
+        )
+        handlebox.add_artist(l1)
+        handlebox.add_artist(l2)
+        return [l1, l2]
+
+
+class M30shadedObjectHandler(object):
+    def legend_artist(self, legend, orig_handle, fontsize, handlebox):
+        x0, y0 = handlebox.xdescent, handlebox.ydescent
+        width, height = handlebox.width, handlebox.height
+        l1 = mlines.Line2D([x0, y0 + width + 5],
+                           [0.5 * height, 0.5 * height],
+                           lw=3, ls="--",
+                           color="black")
+        l2 = patches.Rectangle(
+            (x0 - 1, y0 + width - 46),  # (x,y)
+            1.15 * width,  # width
+            1.4 * height,  # height
+            fill='black',
+            facecolor="black",
+            edgecolor="black",
+            alpha=0.2,
+            hatch="/",
+        )
+        handlebox.add_artist(l1)
+        handlebox.add_artist(l2)
+        return [l1, l2]
 
 def distance(star1, star2, center=False):
     """ Return distance between star1 and star2
@@ -190,8 +244,8 @@ def luminosity_vs_mass(save_path, save):
 
 
 def g0_in_time(open_paths100, open_paths30, save_path, N, i):
-    fig = pyplot.figure()
-    ax = pyplot.gca()
+    #fig = pyplot.figure()
+    #ax = pyplot.gca()
 
     times = numpy.arange(0.0, 5.05, 0.05)
 
@@ -227,7 +281,10 @@ def g0_in_time(open_paths100, open_paths30, save_path, N, i):
         g0s30_low.append(numpy.min(g0_in_time))
         g0s30_high.append(numpy.max(g0_in_time))
 
-    ax.semilogy(times, g0s100, lw=3, color='black',
+    print numpy.mean(g0s100), numpy.min(g0s100_low[g0s100_low > 0]), numpy.max(g0s100_high)
+    print numpy.mean(g0s30), numpy.min(g0s30_low[g0s30_low > 0]), numpy.max(g0s30_high)
+
+    """ax.semilogy(times, g0s100, lw=3, color='black',
                 label=r'$\rho \sim 100 \mathrm{ \ M}_{\odot} \mathrm{ \ pc}^{-3}$')
     ax.fill_between(times,
                    g0s100_low,
@@ -247,7 +304,7 @@ def g0_in_time(open_paths100, open_paths30, save_path, N, i):
     ax.legend(loc='upper right', framealpha=0.4)
     if save:
         pyplot.savefig('{0}/g0.png'.format(save_path))
-    pyplot.show()
+    pyplot.show()"""
 
 
 def mass_loss_in_time(open_paths100, open_paths30, save_path, tend, save, mass_limit=0.5):
@@ -318,14 +375,14 @@ def mass_loss_in_time(open_paths100, open_paths30, save_path, tend, save, mass_l
         mass_low.append(numpy.min(mass_in_t))
         mass_high.append(numpy.max(mass_in_t))
 
-    ax.semilogx(times, photoevap_mass_loss, label="Photoevaporation", lw=3, color="#009bed")
+    ax.loglog(times, photoevap_mass_loss, label="Photoevaporation", lw=3, color="#009bed")
     ax.fill_between(times,
                     photoevap_low,
                     photoevap_high,
                     facecolor="#009bed",
                     alpha=0.2)
 
-    ax.semilogx(times, trunc_mass_loss, label="Dynamical truncations", lw=3, color="#d73027")
+    ax.loglog(times, trunc_mass_loss, label="Dynamical truncations", lw=3, color="#d73027")
     ax.fill_between(times,
                     trunc_low,
                     trunc_high,
@@ -368,17 +425,17 @@ def mass_loss_in_time(open_paths100, open_paths30, save_path, tend, save, mass_l
         mass_low.append(numpy.min(mass_in_t))
         mass_high.append(numpy.max(mass_in_t))
 
-    ax.semilogx(times, photoevap_mass_loss, label="Photoevaporation", ls="--", lw=3, color="#009bed")
+    ax.loglog(times, photoevap_mass_loss, label="Photoevaporation", ls="--", lw=3, color="#009bed")
     ax.fill_between(times,
                     photoevap_low,
                     photoevap_high,
-                    alpha=0.2, facecolor="#009bed", edgecolor='gray', hatch="/")
+                    alpha=0.2, facecolor="#009bed", edgecolor='#009bed', hatch="/")
 
-    ax.semilogx(times, trunc_mass_loss, label="Dynamical truncations", ls="--", lw=3, color="#d73027")
+    ax.loglog(times, trunc_mass_loss, label="Dynamical truncations", ls="--", lw=3, color="#d73027")
     ax.fill_between(times,
                     trunc_low,
                     trunc_high,
-                    alpha=0.2, facecolor="#d73027", edgecolor='gray', hatch="/")
+                    alpha=0.2, facecolor="#d73027", edgecolor='#d73027', hatch="/")
 
     """ax.semilogx(times, disk_mass, label="Mean mass", ls="--", lw=3, color="black")
     ax.fill_between(times,
@@ -392,14 +449,14 @@ def mass_loss_in_time(open_paths100, open_paths30, save_path, tend, save, mass_l
     ax.set_position([box.x0, box.y0 + box.height * 0.2,
                      box.width, box.height * 0.9])
 
-    ax.legend([PhotoevapObject(), TruncationObject(), M100Object, M30Object],
+    ax.legend([PhotoevapObject(), TruncationObject(), M100shadedObject, M30shadedObject],
                ['Photoevaporation', 'Dynamical truncations',
                 r'$\rho \sim 100 \mathrm{\ M}_\odot \mathrm{\ pc}^{-3}$',
                 r'$\rho \sim 30 \mathrm{\ M}_\odot \mathrm{\ pc}^{-3}$'],
                handler_map={PhotoevapObject: PhotoevapObjectHandler(),
                             TruncationObject: TruncationObjectHandler(),
-                            M100Object: M100ObjectHandler(),
-                            M30Object: M30ObjectHandler()},
+                            M100shadedObject: M100shadedObjectHandler(),
+                            M30shadedObject: M30shadedObjectHandler()},
                loc='best', bbox_to_anchor=(0.73, -0.15), ncol=2,
               fontsize=20, framealpha=1.)
 
@@ -1495,10 +1552,10 @@ def disk_mass(open_paths100, open_paths30, save_path, t_end, save):
     fig = pyplot.figure()
 
     total_disks, total_disks_low, total_disks_high = [], [], []
-    total_disks100, total_disks_low100, total_disks_high100 = [], [], []
     times = numpy.arange(0.0, t_end + 0.05, 0.05)
     init_mass = 0.
 
+    # 100 MSun
     for t in times:
         total_in_t, total_in_t100 = [], []
         for p in open_paths100:
@@ -1511,45 +1568,30 @@ def disk_mass(open_paths100, open_paths30, save_path, t_end, save):
             disk_masses = small_stars.disk_mass.value_in(units.MEarth)
 
             masses = disk_masses[disk_masses > 10.]
-            masses100 = disk_masses[disk_masses > 100.]
 
             if t == 0.:
                 init_mass = float(len(masses))
 
-            total_in_t.append((len(masses) / init_mass) * 100.)
-            total_in_t100.append((len(masses100) / init_mass) * 100.)
+            total_in_t.append(len(masses) / init_mass)
 
         total_disks.append(numpy.mean(total_in_t))
         total_disks_low.append(numpy.min(total_in_t))
         total_disks_high.append(numpy.max(total_in_t))
 
-        total_disks100.append(numpy.mean(total_in_t100))
-        total_disks_low100.append(numpy.min(total_in_t100))
-        total_disks_high100.append(numpy.max(total_in_t100))
-
     pyplot.plot(times,
                 total_disks,
                 lw=3,
-                color='black',
+                color='darkolivegreen',
                 label=r'$\rho \sim 100 \mathrm{ \ M}_{\odot} \mathrm{ \ pc}^{-3}$')#, capsize=5, facecolor='lightgray')
     pyplot.fill_between(times,
                         total_disks_low,
                         total_disks_high,
-                        alpha=0.2, facecolor='black')
+                        alpha=0.2, facecolor='darkolivegreen')
 
-    #pyplot.plot(times,
-    #            total_disks100,
-    #            lw=3,
-    #            color='red',
-    #            label=r'$\rho \sim 100 \mathrm{ \ M}_{\odot} \mathrm{ \ pc}^{-3}$')#, capsize=5, facecolor='lightgray')
-    #pyplot.fill_between(times,
-    #                    total_disks_low100,
-    #                    total_disks_high100,
-    #                    alpha=0.2, facecolor='red')
-
+    # 30 MSun
     total_disks, total_disks_low, total_disks_high = [], [], []
-    total_disks100, total_disks_low100, total_disks_high100 = [], [], []
     init_mass = 0.
+
     for t in times:
         total_in_t = []
         total_in_t100 = []
@@ -1563,45 +1605,37 @@ def disk_mass(open_paths100, open_paths30, save_path, t_end, save):
             disk_masses = small_stars.disk_mass.value_in(units.MEarth)
 
             masses = disk_masses[disk_masses > 10.]
-            masses100 = disk_masses[disk_masses > 100.]
 
             if t == 0.:
                 init_mass = float(len(masses))
-            total_in_t.append((len(masses) / init_mass) * 100.)
-            total_in_t100.append((len(masses100) / init_mass) * 100.)
+
+            total_in_t.append(len(masses) / init_mass)
 
         total_disks.append(numpy.mean(total_in_t))
         total_disks_low.append(numpy.min(total_in_t))
         total_disks_high.append(numpy.max(total_in_t))
 
-        total_disks100.append(numpy.mean(total_in_t100))
-        total_disks_low100.append(numpy.min(total_in_t100))
-        total_disks_high100.append(numpy.max(total_in_t100))
-
     pyplot.plot(times,
                 total_disks,
-                lw=3, ls='--', color='black',
+                lw=3, ls='--', color='darkolivegreen',
                 label=r'$\rho \sim 30 \mathrm{ \ M}_{\odot} \mathrm{ \ pc}^{-3}$')#, capsize=5, facecolor='lightgray')
     pyplot.fill_between(times,
                         total_disks_low,
                         total_disks_high,
-                        alpha=0.2, facecolor='black')
-
-    #pyplot.plot(times,
-    #            total_disks100,
-    #            lw=3, ls='--', color='red',
-    #            label=r'$\rho \sim 30 \mathrm{ \ M}_{\odot} \mathrm{ \ pc}^{-3}$')#, capsize=5, facecolor='lightgray')
-    #pyplot.fill_between(times,
-    #                    total_disks_low100,
-    #                    total_disks_high100,
-    #                    alpha=0.2, facecolor='red')
-
+                        alpha=0.2, facecolor='darkolivegreen',
+                        edgecolor='darkolivegreen', hatch="/")
 
     pyplot.xlabel('Time [Myr]')
     pyplot.ylabel(r'$f_{> 10 \mathrm{\ M}_{\oplus}}$')
-    pyplot.legend()
+    pyplot.legend([M100shadedObject, M30shadedObject],
+                  [r'$\rho \sim 100 \mathrm{\ M}_\odot \mathrm{\ pc}^{-3}$',
+                   r'$\rho \sim 30 \mathrm{\ M}_\odot \mathrm{\ pc}^{-3}$'],
+                handler_map={M100shadedObject: M100shadedObjectHandler(),
+                            M30shadedObject: M30shadedObjectHandler()},
+                loc='best',# bbox_to_anchor=(0.73, -0.15), ncol=2,
+                fontsize=22, framealpha=1.)
     pyplot.xlim([0.0, 5.0])
-    pyplot.ylim([0.0, 100.0])
+    pyplot.ylim([0.0, 1.0])
     if save:
         pyplot.savefig('{0}/mass_fraction_line.png'.format(save_path))
     pyplot.show()
@@ -1630,7 +1664,7 @@ def disk_size(open_paths100, open_paths30, save_path, t_end, save):
             if t == 0.:
                 init_size = float(len(sizes))
 
-            total_in_t.append((len(sizes) / init_size) * 100.)
+            total_in_t.append(len(sizes) / init_size)
 
         total_disks.append(numpy.mean(total_in_t))
         total_disks_low.append(numpy.min(total_in_t))
@@ -1639,12 +1673,12 @@ def disk_size(open_paths100, open_paths30, save_path, t_end, save):
     pyplot.plot(times,
                 total_disks,
                 lw=3,
-                color='black',
+                color='rebeccapurple',
                 label=r'$\rho \sim 100 \mathrm{ \ M}_{\odot} \mathrm{ \ pc}^{-3}$')#, capsize=5, facecolor='lightgray')
     pyplot.fill_between(times,
                         total_disks_low,
                         total_disks_high,
-                        alpha=0.2, facecolor='black')
+                        alpha=0.2, facecolor='rebeccapurple')
 
     total_disks, total_disks_low, total_disks_high = [], [], []
     init_size = 0.
@@ -1663,7 +1697,7 @@ def disk_size(open_paths100, open_paths30, save_path, t_end, save):
 
             if t == 0.:
                 init_size = float(len(sizes))
-            total_in_t.append((len(sizes) / init_size) * 100.)
+            total_in_t.append(len(sizes) / init_size)
 
         total_disks.append(numpy.mean(total_in_t))
         total_disks_low.append(numpy.min(total_in_t))
@@ -1671,18 +1705,27 @@ def disk_size(open_paths100, open_paths30, save_path, t_end, save):
 
     pyplot.plot(times,
                 total_disks,
-                lw=3, ls='--', color='black',
+                lw=3, ls='--', color='rebeccapurple',
                 label=r'$\rho \sim 30 \mathrm{ \ M}_{\odot} \mathrm{ \ pc}^{-3}$')#, capsize=5, facecolor='lightgray')
     pyplot.fill_between(times,
                         total_disks_low,
                         total_disks_high,
-                        alpha=0.2, facecolor='black')
+                        alpha=0.2, facecolor='rebeccapurple',
+                        edgecolor='rebeccapurple', hatch="/")
 
     pyplot.xlabel('Time [Myr]')
     pyplot.ylabel(r'$f_{> 50 \mathrm{\ au}}$')
-    pyplot.legend()
+
+    pyplot.legend([M100shadedObject, M30shadedObject],
+                  [r'$\rho \sim 100 \mathrm{\ M}_\odot \mathrm{\ pc}^{-3}$',
+                   r'$\rho \sim 30 \mathrm{\ M}_\odot \mathrm{\ pc}^{-3}$'],
+                handler_map={M100shadedObject: M100shadedObjectHandler(),
+                            M30shadedObject: M30shadedObjectHandler()},
+                loc='best',# bbox_to_anchor=(0.73, -0.15), ncol=2,
+                fontsize=22, framealpha=1.)
+
     pyplot.xlim([0.0, 5.0])
-    pyplot.ylim([0.0, 100.0])
+    pyplot.ylim([0.0, 1.0])
     if save:
         pyplot.savefig('{0}/size_fraction_line.png'.format(save_path))
     pyplot.show()
@@ -1729,27 +1772,27 @@ def disk_fractions(open_paths100, open_paths30, t_end, save_path, save, mass_lim
     relax2 = numpy.array(relax_times[src1_count:])
     ages_errors1 = numpy.array(ages_errors[:src1_count])
     ages_errors2 = numpy.array(ages_errors[src1_count:])
-    disk_fraction1 = disk_fraction[:src1_count]
-    disk_fraction2 = disk_fraction[src1_count:]
-    df_lower1 = df_lower[:src1_count]
-    df_lower2 = df_lower[src1_count:]
-    df_higher1 = df_higher[:src1_count]
-    df_higher2 = df_higher[src1_count:]
+    disk_fraction1 = numpy.array(disk_fraction[:src1_count])
+    disk_fraction2 = numpy.array(disk_fraction[src1_count:])
+    df_lower1 = numpy.array(df_lower[:src1_count])
+    df_lower2 = numpy.array(df_lower[src1_count:])
+    df_higher1 = numpy.array(df_higher[:src1_count])
+    df_higher2 = numpy.array(df_higher[src1_count:])
 
     df_errors1 = numpy.array((df_lower1, df_higher1))
     df_errors2 = numpy.array((df_lower2, df_higher2))
 
     fig = pyplot.figure(figsize=(12, 12))
-    markers1, caps1, bars1 = pyplot.errorbar(ages1 / relax1,
-                                             disk_fraction1,
-                                             xerr=ages_errors1 / relax1,
-                                             yerr=df_errors1,
+    markers1, caps1, bars1 = pyplot.errorbar(ages1,# / relax1,
+                                             disk_fraction1 / 100.,
+                                             xerr=ages_errors1,# / relax1,
+                                             yerr=df_errors1 / 100.,
                                              fmt='o', lw=1, color='#0d4f7a', alpha=0.5,
                                              label=label1)
-    markers2, caps2, bars2 = pyplot.errorbar(ages2 / relax2,
-                                             disk_fraction2,
-                                             xerr=ages_errors2 / relax2,
-                                             yerr=df_errors2,
+    markers2, caps2, bars2 = pyplot.errorbar(ages2,# / relax2,
+                                             disk_fraction2 / 100.,
+                                             xerr=ages_errors2,# / relax2,
+                                             yerr=df_errors2 / 100.,
                                              fmt='o', lw=1, color='#c28171', alpha=0.5,
                                              label=label2)
 
@@ -1787,15 +1830,15 @@ def disk_fractions(open_paths100, open_paths30, t_end, save_path, save, mass_lim
     disk_fractions_high = numpy.max(all_fractions, axis=0)
     disk_fractions_low = numpy.min(all_fractions, axis=0)
 
-    pyplot.plot(times / (100. / (6 * numpy.log(100))),
-                all_disk_fractions,
+    pyplot.plot(times,# / (100. / (6 * numpy.log(100))),
+                all_disk_fractions / 100.,
                 #yerr=disk_fractions_stdev,
                 color='k', lw=3,
                 label=r'$\rho \sim 100 \mathrm{ \ M}_{\odot} \mathrm{ \ pc}^{-3}$')
     print (100./numpy.log(100))
-    pyplot.fill_between(times / (100. / (6 * numpy.log(100))),
-                        disk_fractions_high,
-                        disk_fractions_low,
+    pyplot.fill_between(times,# / (100. / (6 * numpy.log(100))),
+                        disk_fractions_high / 100.,
+                        disk_fractions_low / 100.,
                         facecolor='black', alpha=0.2)
 
     all_fractions = []
@@ -1827,25 +1870,26 @@ def disk_fractions(open_paths100, open_paths30, t_end, save_path, save, mass_lim
     disk_fractions_high = numpy.max(all_fractions, axis=0)
     disk_fractions_low = numpy.min(all_fractions, axis=0)
 
-    pyplot.plot(times / (30. / (6 * numpy.log(30))),
-                all_disk_fractions,
+    pyplot.plot(times,# / (30. / (6 * numpy.log(30))),
+                all_disk_fractions / 100.,
                 #yerr=disk_fractions_stdev,
                 color='k',
                 ls='--', lw=3,
                 label=r'$\rho \sim 30 \mathrm{ \ M}_{\odot} \mathrm{ \ pc}^{-3}$')
     print (30. / numpy.log(30))
-    pyplot.fill_between(times / (30. / (6 * numpy.log(30))),
-                        disk_fractions_high,
-                        disk_fractions_low,
+    pyplot.fill_between(times,# / (30. / (6 * numpy.log(30))),
+                        disk_fractions_high / 100.,
+                        disk_fractions_low / 100.,
                         facecolor='black', alpha=0.2)
 
     pyplot.legend(framealpha=0.5)
-    #pyplot.xlabel("Age [Myr]")
-    pyplot.xlabel("t / t$_\mathrm{relax}$ ")
+    pyplot.xlabel("Age [Myr]")
+    #pyplot.xlabel("t / t$_\mathrm{relax}$ ")
     pyplot.ylabel("Disk fraction")
-    #pyplot.xlim([0.0, 5.0])
-    pyplot.xlim([0.0, 3.2])
-    pyplot.ylim([0.0, 100.0])
+    pyplot.xlim([0.0, 5.0])
+    #pyplot.xlim([0.0, 3.2])
+    #pyplot.ylim([0.0, 100.0])
+    pyplot.ylim([0.0, 1.0])
 
     if save:
         pyplot.savefig('{0}/disk_fraction.png'.format(save_path))
@@ -1991,6 +2035,7 @@ def disk_stellar_mass_scatter(open_paths, N, t, save_path, save):
 
 def main(save_path, time, N, distribution, ncells, i, all_distances, single, save):
 
+    # My own stylesheet, comment out if not needed
     pyplot.style.use('paper')
 
     paths100 = ['results/final/plummer_N100_1/',
@@ -2015,19 +2060,19 @@ def main(save_path, time, N, distribution, ncells, i, all_distances, single, sav
         colors = ["#638ccc", "#ca5670", "#c57c3c", "#72a555", "#ab62c0", '#0072B2', '#009E73', '#D55E00']  # colors from my prev paper
         labels = ['Trapezium cluster', 'Lupus clouds', 'Chamaeleon I', '$\sigma$ Orionis', 'Upper Scorpio', 'IC 348',
                   'ONC', "OMC-2"]
-        #mass_loss_in_time(paths100, paths30, save_path, time, save)
-        disk_fractions(paths100, paths30, time, save_path, save, mass_limit=0.0)
+        #mass_loss_in_time(paths100, paths30, save_path, time, save, mass_limit=0.0)
+        #disk_fractions(paths100, paths30, time, save_path, save, mass_limit=0.0)
         #cdfs_in_time(path, save_path, N, times)
         #cdfs_with_observations_size(paths100, paths30, save_path, N, times, colors, labels, save)
         #cdfs_with_observations_mass(paths100, save_path, N, times, colors, labels, save, log=True)
         #dist_disk_mass(paths100, paths30, save_path, time, save)
         #dist_disk_size(paths100, paths30, save_path, time, save)
         #disk_mass(paths100, paths30, save_path, time, save)
-        #disk_size(paths100, paths30, save_path, time, save)
+        disk_size(paths100, paths30, save_path, time, save)
         #disk_stellar_mass(paths100, paths30, time, 1.0, save_path, save)
         #disk_stellar_mass_scatter(paths, N, time, save_path, save)
         #luminosity_vs_mass(save_path, save)
-        #g0_in_time(paths100, paths30, save_path, 100, 0, save)
+        #g0_in_time(paths100, paths30, save_path, 100, 0)
 
 def new_option_parser():
     from amuse.units.optparse import OptionParser
