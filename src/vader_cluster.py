@@ -355,8 +355,8 @@ def resolve_encounter(stars,
             new_codes.append(None)
         else:
             truncation_radius = (closest_approach.value_in(units.AU) / 3) *\
-                                 numpy.sqrt(stars[i].stellar_mass.value_in(units.MSun)
-                                      / stars[1 - i].stellar_mass.value_in(units.MSun)) | units.AU
+                                  (stars[i].stellar_mass.value_in(units.MSun)
+                                  / stars[1 - i].stellar_mass.value_in(units.MSun)) ** 0.32 | units.AU
 
             R_disk = stars[i].disk_radius  #get_disk_radius(disk_codes[i])
             print "R_disk = {0}, truncation radius={1}".format(R_disk, truncation_radius)
@@ -422,7 +422,7 @@ def main(N, Rvir, Qvir, dist, alpha, ncells, t_ini, t_end, save_interval, run_nu
         # time.sleep might help here
         pass
 
-    max_stellar_mass = 2.5 | units.MSun
+    max_stellar_mass = 100 | units.MSun
     stellar_masses = new_kroupa_mass_distribution(N, max_stellar_mass)#, random=False)
     converter = nbody_system.nbody_to_si(stellar_masses.sum(), Rvir)
 
