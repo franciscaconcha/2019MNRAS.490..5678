@@ -1731,13 +1731,24 @@ def disk_size(open_paths100, open_paths30, save_path, t_end, save):
     pyplot.show()
 
 
-def disk_fractions(open_paths100, open_paths30, t_end, save_path, save, mass_limit=0.):
+def count_stars(stars, d):
+    n = 0
+    for s in stars:
+        if numpy.sqrt(s.x.value_in(units.parsec)**2
+                      + s.y.value_in(units.parsec)**2
+                      + s.z.value_in(units.parsec)**2) < d:
+            n +=1
+    return n
+
+
+def disk_fractions(open_paths100, open_paths30, t_end, save_path, save, mass_limit=0.5):
     filename = 'data/diskfractions.dat'
     f = open(filename, "r")
     lines = f.readlines()
     ages, ages_errors, disk_fraction, df_lower, df_higher = [], [], [], [], []
     relax_times = []
     src1_count = 0
+    Nobs = []
 
     label1 = "Ribas et al (2014)"
     label2 = "Richert et al (2018)"
@@ -1751,6 +1762,7 @@ def disk_fractions(open_paths100, open_paths30, t_end, save_path, save, mass_lim
             ages.append(float(x[1]))
             ages_errors.append(float(x[2]))
             N = float(x[7])
+            Nobs.append(N)
             relax_times.append(N / (6 * numpy.log(N)))
 
             if int(x[6]) == 1:
@@ -1770,6 +1782,8 @@ def disk_fractions(open_paths100, open_paths30, t_end, save_path, save, mass_lim
     ages2 = numpy.array(ages[src1_count:])
     relax1 = numpy.array(relax_times[:src1_count])
     relax2 = numpy.array(relax_times[src1_count:])
+    Nobs1 = numpy.array(Nobs[:src1_count])
+    Nobs2 = numpy.array(Nobs[src1_count:])
     ages_errors1 = numpy.array(ages_errors[:src1_count])
     ages_errors2 = numpy.array(ages_errors[src1_count:])
     disk_fraction1 = numpy.array(disk_fraction[:src1_count])
@@ -1783,15 +1797,15 @@ def disk_fractions(open_paths100, open_paths30, t_end, save_path, save, mass_lim
     df_errors2 = numpy.array((df_lower2, df_higher2))
 
     fig = pyplot.figure(figsize=(12, 12))
-    markers1, caps1, bars1 = pyplot.errorbar(ages1,# / relax1,
+    markers1, caps1, bars1 = pyplot.errorbar(ages1 / relax1,
                                              disk_fraction1 / 100.,
-                                             xerr=ages_errors1,# / relax1,
+                                             xerr=ages_errors1 / relax1,
                                              yerr=df_errors1 / 100.,
                                              fmt='o', lw=1, color='#0d4f7a', alpha=0.5,
                                              label=label1)
-    markers2, caps2, bars2 = pyplot.errorbar(ages2,# / relax2,
+    markers2, caps2, bars2 = pyplot.errorbar(ages2 / relax2,
                                              disk_fraction2 / 100.,
-                                             xerr=ages_errors2,# / relax2,
+                                             xerr=ages_errors2 / relax2,
                                              yerr=df_errors2 / 100.,
                                              fmt='o', lw=1, color='#c28171', alpha=0.5,
                                              label=label2)
@@ -1802,17 +1816,35 @@ def disk_fractions(open_paths100, open_paths30, t_end, save_path, save, mass_lim
     # Plotting my data
     times = numpy.arange(0.0, t_end + 0.05, 0.05)
     all_fractions = []
+    all_t_relax = []
+    all_density = []
+
+    Rvir = 0.5 | units.parsec
+    g = 0.11
 
     for p in open_paths100:
         fractions = []
+        t_relax = []
         print p
         for t in times:
-            if t == 0.:  # Have to do this to plot in terms of initial stellar mass, not considering accreted mass
-                f = '{0}/N{1}_t{2}.hdf5'.format(p, 100, t)
-                stars = io.read_set_from_file(f, 'hdf5', close_file=True)
-                init_mass = stars.stellar_mass
             f = '{0}/N{1}_t{2}.hdf5'.format(p, 100, t)
             stars = io.read_set_from_file(f, 'hdf5', close_file=True)
+            if t == 0.:  # Have to do this to plot in terms of initial stellar mass, not considering accreted mass
+                init_mass = stars.stellar_mass
+            #if open_paths100.index(p) == 2:
+            converter = nbody_system.nbody_to_si(stars.stellar_mass.sum(), Rvir)
+            lr = stars.LagrangianRadii(unit_converter=converter, mf=[0.5])[0][0]
+            bound = stars.bound_subset(tidal_radius=lr, unit_converter=converter)
+            tdyn = numpy.sqrt(Rvir**3 / (constants.G * bound.stellar_mass.sum()))
+            N = len(bound)
+            trh = 0.138 * (N / numpy.log(g * N)) * tdyn
+            t_relax.append(1E-6 * trh.value_in(units.yr))
+                #    v = [numpy.sqrt(numpy.mean(stars.vx.value_in(units.parsec / units.yr)**2)),
+            #         numpy.sqrt(numpy.mean(stars.vy.value_in(units.parsec / units.yr)**2)),
+            #         numpy.sqrt(numpy.mean(stars.vz.value_in(units.parsec / units.yr)**2))]
+            #    vm = numpy.mean(numpy.array(v))
+            #    t_relax.append(1e-6 * ((0.1 * 100 * (lr / vm)) / numpy.log(100))) # yr to Myr
+            #density.append(count_stars(stars, lr))
             stars.stellar_mass = init_mass
             small_stars = stars[stars.bright == False]
             small_stars = small_stars[small_stars.stellar_mass.value_in(units.MSun) >= mass_limit]
@@ -1825,34 +1857,48 @@ def disk_fractions(open_paths100, open_paths30, t_end, save_path, save, mass_lim
             fractions.append(fraction)
 
         all_fractions.append(fractions)
+        all_t_relax.append(t_relax)
 
     all_disk_fractions = numpy.mean(all_fractions, axis=0)
     disk_fractions_high = numpy.max(all_fractions, axis=0)
     disk_fractions_low = numpy.min(all_fractions, axis=0)
 
-    pyplot.plot(times,# / (100. / (6 * numpy.log(100))),
+    pyplot.plot(times / numpy.mean(all_t_relax, axis=0),#/ (100. / (6 * numpy.log(100))),
                 all_disk_fractions / 100.,
                 #yerr=disk_fractions_stdev,
                 color='k', lw=3,
                 label=r'$\rho \sim 100 \mathrm{ \ M}_{\odot} \mathrm{ \ pc}^{-3}$')
     print (100./numpy.log(100))
-    pyplot.fill_between(times,# / (100. / (6 * numpy.log(100))),
-                        disk_fractions_high / 100.,
-                        disk_fractions_low / 100.,
-                        facecolor='black', alpha=0.2)
+    #pyplot.fill_between(times / t_relax,#times / (100. / (6 * numpy.log(100))),
+    #                    disk_fractions_high / 100.,
+    #                    disk_fractions_low / 100.,
+    #                    facecolor='black', alpha=0.2)
 
     all_fractions = []
+    all_t_relax = []
 
     for p in open_paths30:
         fractions = []
+        t_relax = []
         print p
         for t in times:
-            if t == 0.:   # Have to do this to plot in terms of initial stellar mass, not considering accreted mass
-                f = '{0}/N{1}_t{2}.hdf5'.format(p, 30, t)
-                stars = io.read_set_from_file(f, 'hdf5', close_file=True)
-                init_mass = stars.stellar_mass
             f = '{0}/N{1}_t{2}.hdf5'.format(p, 30, t)
             stars = io.read_set_from_file(f, 'hdf5', close_file=True)
+            if t == 0.:   # Have to do this to plot in terms of initial stellar mass, not considering accreted mass
+                init_mass = stars.stellar_mass
+            #if open_paths30.index(p) == 2:
+            converter = nbody_system.nbody_to_si(stars.stellar_mass.sum(), Rvir)
+            lr = stars.LagrangianRadii(unit_converter=converter, mf=[0.5])[0][0]
+            bound = stars.bound_subset(tidal_radius=lr, unit_converter=converter)
+            tdyn = numpy.sqrt(Rvir**3 / (constants.G * bound.stellar_mass.sum()))
+            N = len(bound)
+            trh = 0.138 * (N / numpy.log(g * N)) * tdyn
+            t_relax.append(1E-6 * trh.value_in(units.yr))
+            #    v = [numpy.sqrt(numpy.mean(stars.vx.value_in(units.parsec / units.yr)**2)),
+            #         numpy.sqrt(numpy.mean(stars.vy.value_in(units.parsec / units.yr)**2)),
+            #         numpy.sqrt(numpy.mean(stars.vz.value_in(units.parsec / units.yr)**2))]
+            #    vm = numpy.mean(numpy.array(v))
+            #    t_relax.append(1e-6 * ((0.1 * 30 * (lr / vm)) / numpy.log(30))) # yr to Myr
             stars.stellar_mass = init_mass
             small_stars = stars[stars.bright == False]
             small_stars = small_stars[small_stars.stellar_mass.value_in(units.MSun) >= mass_limit]
@@ -1865,28 +1911,30 @@ def disk_fractions(open_paths100, open_paths30, t_end, save_path, save, mass_lim
             fractions.append(fraction)
 
         all_fractions.append(fractions)
+        all_t_relax.append(t_relax)
 
     all_disk_fractions = numpy.mean(all_fractions, axis=0)
     disk_fractions_high = numpy.max(all_fractions, axis=0)
     disk_fractions_low = numpy.min(all_fractions, axis=0)
 
-    pyplot.plot(times,# / (30. / (6 * numpy.log(30))),
+    pyplot.plot(times / numpy.mean(all_t_relax),#(30. / (6 * numpy.log(30))),
                 all_disk_fractions / 100.,
                 #yerr=disk_fractions_stdev,
                 color='k',
                 ls='--', lw=3,
                 label=r'$\rho \sim 30 \mathrm{ \ M}_{\odot} \mathrm{ \ pc}^{-3}$')
     print (30. / numpy.log(30))
-    pyplot.fill_between(times,# / (30. / (6 * numpy.log(30))),
-                        disk_fractions_high / 100.,
-                        disk_fractions_low / 100.,
-                        facecolor='black', alpha=0.2)
+    #pyplot.fill_between(times / (30. / (6 * numpy.log(30))),
+    #                    disk_fractions_high / 100.,
+    #                    disk_fractions_low / 100.,
+    #                    facecolor='black', alpha=0.2)
 
     pyplot.legend(framealpha=0.5)
-    pyplot.xlabel("Age [Myr]")
-    #pyplot.xlabel("t / t$_\mathrm{relax}$ ")
+    #pyplot.xlabel("Age [Myr]")
+    pyplot.xlabel("t / t$_\mathrm{relax}$ ")
+    #pyplot.xlabel("Number density")
     pyplot.ylabel("Disk fraction")
-    pyplot.xlim([0.0, 5.0])
+    #pyplot.xlim([0.0, 5.0])
     #pyplot.xlim([0.0, 3.2])
     #pyplot.ylim([0.0, 100.0])
     pyplot.ylim([0.0, 1.0])
@@ -2061,14 +2109,14 @@ def main(save_path, time, N, distribution, ncells, i, all_distances, single, sav
         labels = ['Trapezium cluster', 'Lupus clouds', 'Chamaeleon I', '$\sigma$ Orionis', 'Upper Scorpio', 'IC 348',
                   'ONC', "OMC-2"]
         #mass_loss_in_time(paths100, paths30, save_path, time, save, mass_limit=0.0)
-        #disk_fractions(paths100, paths30, time, save_path, save, mass_limit=0.0)
+        disk_fractions(paths100, paths30, time, save_path, save, mass_limit=0.0)
         #cdfs_in_time(path, save_path, N, times)
         #cdfs_with_observations_size(paths100, paths30, save_path, N, times, colors, labels, save)
         #cdfs_with_observations_mass(paths100, save_path, N, times, colors, labels, save, log=True)
         #dist_disk_mass(paths100, paths30, save_path, time, save)
         #dist_disk_size(paths100, paths30, save_path, time, save)
         #disk_mass(paths100, paths30, save_path, time, save)
-        disk_size(paths100, paths30, save_path, time, save)
+        #disk_size(paths100, paths30, save_path, time, save)
         #disk_stellar_mass(paths100, paths30, time, 1.0, save_path, save)
         #disk_stellar_mass_scatter(paths, N, time, save_path, save)
         #luminosity_vs_mass(save_path, save)
