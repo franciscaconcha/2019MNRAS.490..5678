@@ -153,6 +153,47 @@ def distance(star1, star2, center=False):
     return numpy.sqrt((star2.x - star1.x)**2 + (star2.y - star1.y)**2 + (star2.z - star1.z)**2)
 
 
+def get_disk_radius(disk, density_limit=1E-10):
+    """ Calculate the radius of a disk in a vader grid.
+    :param disk: Disk to calculate radius on.
+    :param density_limit: Density limit to designate disk border.
+    :return: Disk radius in units.AU
+    """
+    prev_r = disk.grid[0].r
+
+    for i in range(len(disk.grid.r)):
+        cell_density = disk.grid[i].column_density.value_in(units.g / units.cm ** 2)
+        if cell_density < density_limit:
+            return prev_r.value_in(units.au) | units.au
+        prev_r = disk.grid[i].r
+
+    return prev_r.value_in(units.au) | units.au
+
+
+def radius_plot():
+    """ Figure 1
+
+    :return:
+    """
+    disk = initialize_vader_code(100 | units.au, 0.1 | units.MSun, 1E-5, r_max=rout, n_cells=100, linear=False)
+
+    #print disk_radii
+    pyplot.loglog(disk.grid.r.value_in(units.au), disk.grid.column_density.value_in(units.g / units.cm**2), color='k', lw=2, label='t = 0.0 Myr')
+    pyplot.axvline(get_disk_radius(disk, density_limit=1E-8).value_in(units.au), color='red', lw=2)
+
+    disk.evolve_model(0.1 | units.Myr)
+
+    pyplot.loglog(disk.grid.r.value_in(units.au), disk.grid.column_density.value_in(units.g / units.cm**2), color='k', lw=2, ls=':', label='t = 0.1 Myr')
+    pyplot.axvline(get_disk_radius(disk, density_limit=1E-11).value_in(units.au), color='red', lw=2, ls=':')
+
+    pyplot.xlim([0, 1000])
+    pyplot.xlabel('Disk radius [au]')
+    pyplot.ylabel('Surface density [g / cm$^2$]')
+    pyplot.legend(loc='lower left')
+    pyplot.savefig('radii_density.png')
+    pyplot.show()
+
+
 def luminosity_fit(masses):
     """
     Return stellar luminosity (in LSun) for corresponding mass, as calculated with Martijn's fit
@@ -248,70 +289,6 @@ def luminosity_vs_mass(save_path, save):
     if save:
         pyplot.savefig('{0}/luminosity_fit.png'.format(save_path))
     pyplot.show()
-
-
-def g0_in_time(open_paths100, open_paths50, save_path, N, i):
-    #fig = pyplot.figure()
-    #ax = pyplot.gca()
-
-    times = numpy.arange(0.0, 5.05, 0.05)
-
-    g0s100, g0s30 = [], []
-    g0s100_low, g0s100_high = [], []
-    g0s30_low, g0s30_high = [], []
-
-    for t in times:
-        g0_in_time = []
-        for p in open_paths100:
-            f = '{0}/N{1}_t{2}.hdf5'.format(p, 100, t)
-            stars = io.read_set_from_file(f, 'hdf5', close_file=True)
-            small_stars = stars[stars.bright == False]
-            g0 = small_stars.g0
-
-            g0_in_time.append(numpy.mean(g0))
-
-        g0s100.append(numpy.mean(g0_in_time))
-        g0s100_low.append(numpy.min(g0_in_time))
-        g0s100_high.append(numpy.max(g0_in_time))
-
-    for t in times:
-        g0_in_time = []
-        for p in open_paths50:
-            f = '{0}/N{1}_t{2}.hdf5'.format(p, 50, t)
-            stars = io.read_set_from_file(f, 'hdf5', close_file=True)
-            small_stars = stars[stars.bright == False]
-            g0 = small_stars.g0
-
-            g0_in_time.append(numpy.mean(g0))
-
-        g0s30.append(numpy.mean(g0_in_time))
-        g0s30_low.append(numpy.min(g0_in_time))
-        g0s30_high.append(numpy.max(g0_in_time))
-
-    print numpy.mean(g0s100), numpy.min(g0s100_low[g0s100_low > 0]), numpy.max(g0s100_high)
-    print numpy.mean(g0s30), numpy.min(g0s30_low[g0s30_low > 0]), numpy.max(g0s30_high)
-
-    """ax.semilogy(times, g0s100, lw=3, color='black',
-                label=r'$\rho \sim 100 \mathrm{ \ M}_{\odot} \mathrm{ \ pc}^{-3}$')
-    ax.fill_between(times,
-                   g0s100_low,
-                   g0s100_high,
-                   facecolor='black', alpha=0.2)
-
-    ax.semilogy(times, g0s30, lw=3, ls='--', color='black',
-                label=r'$\rho \sim 30 \mathrm{ \ M}_{\odot} \mathrm{ \ pc}^{-3}$')
-    ax.fill_between(times,
-                   g0s30_low,
-                   g0s30_high,
-                   facecolor='black', alpha=0.2)
-
-    ax.set_xlabel('Time [Myr]')
-    ax.set_ylabel(r'$\mathrm{G}_0 \ [\mathrm{erg}/\mathrm{cm}^2$]')
-    ax.set_xlim([0.05, 5.0])
-    ax.legend(loc='upper right', framealpha=0.4)
-    if save:
-        pyplot.savefig('{0}/g0.png'.format(save_path))
-    pyplot.show()"""
 
 
 def mass_loss_in_time(open_paths100, open_paths50, save_path, tend, save, mass_limit=0.5):
@@ -604,959 +581,6 @@ def single_star(open_path, save_path, N, k, t_end, all_distances=0):
     #pyplot.show()
 
 
-def cdfs_with_observations_size(open_path100, open_path30, save_path, N, times, colors, labels, save, log=False):
-    """ Plot cumulative distributions of disk sizes (au) and masses (MJup).
-
-    :param open_path: list of folders to use
-    :param save_path: location where the figures are saved
-    :param N: number of stars
-    :param t: time to show in plot
-    :param log: if True, plot in logscale
-    """
-    fig = pyplot.figure()
-    axs00 = pyplot.subplot2grid((2, 6), (0, 0), colspan=2)
-    axs01 = pyplot.subplot2grid((2, 6), (0, 2), colspan=2)
-    axs02 = pyplot.subplot2grid((2, 6), (0, 4), colspan=2)
-    axs10 = pyplot.subplot2grid((2, 6), (1, 1), colspan=2)
-    axs11 = pyplot.subplot2grid((2, 6), (1, 3), colspan=2)
-
-    for t in times:
-        all_sorted_disk_sizes = []
-        for p in open_path100:
-            f = '{0}/N{1}_t{2}.hdf5'.format(p, 100, t)
-            stars = io.read_set_from_file(f, 'hdf5', close_file=True)
-
-            # Take only the small stars
-            small_stars = stars[stars.bright == False]
-            small_stars = small_stars[small_stars.dispersed == False]
-            #print small_stars.disk_mass.value_in(units.g) / (math.pi * small_stars.disk_radius.value_in(units.cm)**2)
-            small_stars = small_stars[1. < small_stars.disk_mass.value_in(units.g) / (math.pi * small_stars.disk_radius.value_in(units.cm)**2)]
-
-            if log: # 2. factor radii to diameter
-                sizes = numpy.log10(2. * small_stars.disk_radius.value_in(units.au))
-            else:
-                sizes = 2. * small_stars.disk_radius.value_in(units.au)
-
-            sorted_disk_sizes = numpy.sort(sizes)
-            all_sorted_disk_sizes.append(sorted_disk_sizes)
-
-        try:
-            disk_sizes = numpy.mean(all_sorted_disk_sizes, axis=0)
-            disk_sizes_stdev = numpy.std(all_sorted_disk_sizes, axis=0)
-        except ValueError:
-            max_len = 0
-            for a in all_sorted_disk_sizes:
-                if len(a) > max_len:
-                    max_len = len(a)
-
-            new_sorted = []
-            for a in all_sorted_disk_sizes:
-                b = numpy.pad(a, (max_len - len(a), 0), 'constant')
-                new_sorted.append(b)
-
-            disk_sizes = numpy.mean(new_sorted, axis=0)
-            disk_sizes_stdev = numpy.std(new_sorted, axis=0)
-
-        cumulative_sizes = 1. * numpy.arange(len(disk_sizes)) / (len(disk_sizes) - 1)
-
-        sizes_low = disk_sizes - disk_sizes_stdev
-        sizes_high = disk_sizes + disk_sizes_stdev
-
-        # Plotting together with observational data now, according to their age t
-
-        # For plots
-        xtext = 240
-        ytext = 0.05
-        textsize = 18
-        xlimits = [0, 500]
-        ylimits = [0.0, 1.0]
-        ticks = [0, 250, 500]
-        xlabel = '$d_{disk}$ [au]'
-        ylabel = '$f < d_{disk}$'
-
-        if t == 1.:
-            # ONC data (Eisner+ 2018)
-            # Data: dust radii
-            lines = open('data/ONC.txt', 'r').readlines()
-            onc_sizes, onc_sizes_error = [], []
-
-            for line in (line for line in lines if not line.startswith('#')):
-                data = line.split('&')[7]
-                b = data.split('$')[1]
-                c = b.split('\pm')
-                if len(c) == 2:  # Value + error
-                    onc_sizes.append(2. * 2. * float(c[0]))  # 2. factor for radius to diameter, 2. dust to gas
-                    onc_sizes_error.append(2. * 2. * float(c[1]))
-                else:  # Upper limit
-                    d = c[0].split('<')[1][1:]
-                    onc_sizes.append(2. * 2. * float(d))
-                    onc_sizes_error.append(0.0)
-
-            if log:
-                sorted_onc_sizes = numpy.sort(numpy.log10(onc_sizes))
-                sorted_onc_sizes_errors = numpy.array([numpy.log10(x) for _, x in sorted(zip(onc_sizes, onc_sizes_error))])
-            else:
-                sorted_onc_sizes = numpy.sort(onc_sizes)
-                sorted_onc_sizes_errors = numpy.array([x for _, x in sorted(zip(onc_sizes, onc_sizes_error))])
-
-            p = 1. * numpy.arange(len(sorted_onc_sizes)) / (len(sorted_onc_sizes) - 1)
-
-            onc_low = sorted_onc_sizes - sorted_onc_sizes_errors
-            onc_high = sorted_onc_sizes + sorted_onc_sizes_errors
-
-            axs00.plot(sorted_onc_sizes, p,
-                           ls='-', lw=3,
-                           color=colors[0],
-                           label=labels[0])
-            axs00.fill_betweenx(p,
-                                onc_low, onc_high,
-                                alpha='0.2', facecolor=colors[0])
-            axs00.set_title('ONC')
-            #axs00.legend()
-            axs00.set_xlabel(xlabel)
-            axs00.set_ylabel(ylabel)
-
-            # 100 MSun
-            axs00.plot(disk_sizes,
-                       cumulative_sizes,
-                       lw=3, color='black')
-            axs00.fill_betweenx(cumulative_sizes,
-                                 sizes_low, sizes_high,
-                                 alpha='0.2', facecolor='black')
-            axs00.text(xtext, ytext, 't = {0} Myr'.format(t), fontsize=textsize)
-            axs00.set_xlim(xlimits)
-            axs00.set_ylim(ylimits)
-            axs00.set_xticks(ticks)
-
-        elif t == 2.:
-            # Lupus data (Ansdell et al 2018)
-            # Data: gas radii
-            gas_disk_sizes, gas_disk_sizes_error = [], []
-
-            lines = open('data/Lupus_sizes.txt', 'r').readlines()
-            for line in (line for line in lines if not line.startswith('#')):
-                r_gas = line.split()[5]
-                r_gas_error = line.split()[6]
-                gas_disk_sizes.append(2. * float(r_gas))  # 2. factor radii to diameter
-                gas_disk_sizes_error.append(2. * float(r_gas_error))
-
-            if log:
-                sorted_lupus_disk_sizes = numpy.sort(numpy.log10(gas_disk_sizes))
-                sorted_lupus_disk_sizes_errors = numpy.array([numpy.log10(x) for _, x in sorted(zip(gas_disk_sizes, gas_disk_sizes_error))])
-
-            else:
-                sorted_lupus_disk_sizes = numpy.sort(gas_disk_sizes)
-                sorted_lupus_disk_sizes_errors = numpy.array([x for _, x in sorted(zip(gas_disk_sizes, gas_disk_sizes_error))])
-
-            p = 1. * numpy.arange(len(sorted_lupus_disk_sizes)) / (len(sorted_lupus_disk_sizes) - 1)
-
-            low_lupus = sorted_lupus_disk_sizes - sorted_lupus_disk_sizes_errors
-            high_lupus = sorted_lupus_disk_sizes + sorted_lupus_disk_sizes_errors
-
-            axs01.plot(sorted_lupus_disk_sizes, p,
-                           ls='-', lw=3,
-                           color=colors[1],
-                           label=labels[1])
-            axs01.fill_betweenx(p,
-                                    low_lupus, high_lupus,
-                                    alpha='0.2', facecolor=colors[1])
-            axs01.set_title('Lupus clouds')
-            #axs01.legend()
-            axs01.set_xlabel(xlabel)
-            axs01.set_ylabel(ylabel)
-
-            # 100 MSun
-            axs01.plot(disk_sizes,
-                       cumulative_sizes,
-                        lw=3, color='black')
-            axs01.fill_betweenx(cumulative_sizes,
-                                 sizes_low, sizes_high,
-                                 alpha='0.2', facecolor='black')
-            axs01.text(490, ytext, 't = {0} Myr'.format(t), fontsize=textsize)
-            axs01.set_xlim([0, 1050])
-            axs01.set_ylim(ylimits)
-            axs01.set_xticks([0, 500, 1000])
-
-        elif t == 2.5:
-            # Chamaeleon I data (Pascucci et al 2016)
-            # Data: dust major axes
-            lines = open('data/ChamI_sizes.txt', 'r').readlines()
-            cham_sizes_arsec = []
-
-            for line in (line for line in lines if not line.startswith('#')):
-                a = line.split()[7]
-                b = line.split()[8]
-                if a > b:
-                    cham_sizes_arsec.append(float(a))
-                else:
-                    cham_sizes_arsec.append(float(b))
-
-            cham_sizes_arsec = numpy.array(cham_sizes_arsec)
-            cham_sizes_arsec = cham_sizes_arsec[cham_sizes_arsec > 0.0]
-
-            cham_distance_pc = 160
-            cham_distance_au = 2.0626 * pow(10, 5) * cham_distance_pc
-            cham_sizes_au = (numpy.pi / 180) * (cham_sizes_arsec / 3600.) * cham_distance_au
-
-            if log:
-                cham_sorted_disk_sizes = numpy.sort(numpy.log10(2. * cham_sizes_au))  # 2. factor dust to gas
-            else:
-                cham_sorted_disk_sizes = numpy.sort(2. * cham_sizes_au)
-
-            p = 1. * numpy.arange(len(cham_sorted_disk_sizes)) / (len(cham_sorted_disk_sizes) - 1)
-
-            axs02.plot(cham_sorted_disk_sizes, p,
-                           ls='-', lw=3,
-                           color=colors[2],
-                           label=labels[2])
-            axs02.set_title('Chamaeleon I')
-            #axs02.legend()
-            axs02.set_xlabel(xlabel)
-            axs02.set_ylabel(ylabel)
-            axs02.set_xticks([0, 250, 500])
-
-            # 100 MSun
-            axs02.plot(disk_sizes,
-                       cumulative_sizes,
-                        lw=3, color='black')
-            axs02.fill_betweenx(cumulative_sizes,
-                                 sizes_low, sizes_high,
-                                 alpha='0.2', facecolor='black')
-            axs02.text(xtext, ytext, 't = {0} Myr'.format(t), fontsize=textsize)
-            axs02.set_xlim(xlimits)
-            axs02.set_ylim(ylimits)
-            axs02.set_xticks(ticks)
-
-        elif t == 4.:
-            # sigma Orionis data (Mauco et al 2016)
-            # Data: dust radii
-            lines = open('data/sigmaOrionis_sizes.txt', 'r').readlines()
-            sOrionis_sizes_au, sOrionis_sizes_low, sOrionis_sizes_high = [], [], []
-
-            for line in (line for line in lines if not line.startswith('#')):
-                a = line.split()[1]
-                b = line.split()[2][1:-1]
-                c, d = b.split('-')
-                sOrionis_sizes_au.append(2. * 2. * float(a))  # 2. factor radii to diameter, 2. factor dust to gas
-                sOrionis_sizes_low.append(2. * 2. * float(c))
-                sOrionis_sizes_high.append(2. * 2. * float(d))
-
-            if log:
-                sOrionis_sorted_disk_sizes = numpy.sort(numpy.array(numpy.log10(sOrionis_sizes_au)))
-                sOrionis_sorted_low = numpy.array([numpy.log10(x) for _, x in sorted(zip(sOrionis_sizes_au, sOrionis_sizes_low))])
-                sOrionis_sorted_high = numpy.array([numpy.log10(x) for _, x in sorted(zip(sOrionis_sizes_au, sOrionis_sizes_high))])
-
-            else:
-                sOrionis_sorted_disk_sizes = numpy.sort(numpy.array(sOrionis_sizes_au))
-                sOrionis_sorted_low = numpy.array([x for _, x in sorted(zip(sOrionis_sizes_au, sOrionis_sizes_low))])
-                sOrionis_sorted_high = numpy.array([x for _, x in sorted(zip(sOrionis_sizes_au, sOrionis_sizes_high))])
-
-            p = 1. * numpy.arange(len(sOrionis_sorted_disk_sizes)) / (len(sOrionis_sorted_disk_sizes) - 1)
-
-            axs10.plot(sOrionis_sorted_disk_sizes, p,
-                           ls='-', lw=3,
-                           color=colors[3],
-                           label=labels[3])
-            axs10.fill_betweenx(p,
-                                    sOrionis_sorted_low, sOrionis_sorted_high,
-                                    alpha='0.2', facecolor=colors[3])
-            axs10.set_title('$\sigma$ Orionis')
-            #axs10.legend()
-            axs10.set_xlabel(xlabel)
-            axs10.set_ylabel(ylabel)
-
-            # 100 MSun
-            axs10.plot(disk_sizes,
-                       cumulative_sizes,
-                        lw=3, color='black')
-            axs10.fill_betweenx(cumulative_sizes,
-                                 sizes_low, sizes_high,
-                                 alpha='0.2', facecolor='black')
-            axs10.text(490, ytext, 't = {0} Myr'.format(t), fontsize=textsize)
-            axs10.set_xlim([0, 1050])
-            axs10.set_ylim(ylimits)
-            axs10.set_xticks([0, 500, 1000])
-
-        elif t == 5.:
-            # UpperSco data (Barenfeld et al 2017)
-            # Data: gas radii
-            lines = open('data/UpperSco_sizes.txt', 'r').readlines()
-            uppersco_sizes, uppersco_errors_low, uppersco_errors_high = [], [], []
-
-            for line in (line for line in lines if not line.startswith('#')):
-                a = line.split()[7]
-                b = line.split()[8]
-                c = line.split()[9]
-                uppersco_sizes.append(2. * float(a))  # 2. factor radii to diameter
-                uppersco_errors_low.append(2. * float(b[2:-1]))
-                uppersco_errors_high.append(2. * float(c[1:-1]))
-
-            if log:
-                uppersco_sorted_disk_sizes = numpy.sort(numpy.log10(uppersco_sizes))
-                uppersco_low_sorted = numpy.array([numpy.log10(x) for _, x in sorted(zip(uppersco_sizes, uppersco_errors_low))])
-                uppersco_high_sorted = numpy.array([numpy.log10(x) for _, x in sorted(zip(uppersco_sizes, uppersco_errors_high))])
-            else:
-                uppersco_sorted_disk_sizes = numpy.sort(uppersco_sizes)
-                uppersco_low_sorted = numpy.array([x for _, x in sorted(zip(uppersco_sizes, uppersco_errors_low))])
-                uppersco_high_sorted = numpy.array([x for _, x in sorted(zip(uppersco_sizes, uppersco_errors_high))])
-
-            uppersco_low = uppersco_sorted_disk_sizes - uppersco_low_sorted
-            uppersco_high = uppersco_sorted_disk_sizes + uppersco_high_sorted
-
-            p = 1. * numpy.arange(len(uppersco_sorted_disk_sizes)) / (len(uppersco_sorted_disk_sizes) - 1)
-
-            axs11.plot(uppersco_sorted_disk_sizes, p,
-                           ls='-', lw=3,
-                           color=colors[4],
-                           label=labels[4])
-            axs11.fill_betweenx(p,
-                                    uppersco_low, uppersco_high,
-                                    alpha='0.2', facecolor=colors[4])
-            axs11.set_title('UpperSco')
-            #axs11.legend()
-            axs11.set_xlabel(xlabel)
-            axs11.set_ylabel(ylabel)
-
-            # 100 MSun
-            axs11.plot(disk_sizes,
-                       cumulative_sizes,
-                        lw=3, color='black')
-            axs11.fill_betweenx(cumulative_sizes,
-                                 sizes_low, sizes_high,
-                                 alpha='0.2', facecolor='black')
-            axs11.text(xtext, ytext, 't = {0} Myr'.format(t), fontsize=textsize)
-            axs11.set_xlim(xlimits)
-            axs11.set_ylim(ylimits)
-            axs11.set_xticks(ticks)
-
-    pyplot.tight_layout()
-
-    if save:
-        pyplot.savefig('{0}/CDF_data_size.png'.format(save_path))
-
-    pyplot.show()
-
-
-def cdfs_with_observations_mass(open_path, save_path, N, times, colors, labels, save, log=False):
-    """ Plot cumulative distributions of disk sizes (au) and masses (MJup).
-
-    :param open_path: list of folders to use
-    :param save_path: location where the figures are saved
-    :param N: number of stars
-    :param t: time to show in plot
-    :param log: if True, plot in logscale
-    """
-    fig = pyplot.figure()
-    axs00 = pyplot.subplot2grid((2, 6), (0, 0), colspan=2)  # 1 Myr: ONC, OMC-1, OMC-2
-    axs01 = pyplot.subplot2grid((2, 6), (0, 2), colspan=2)  # 2 Myr: Lupus
-    axs02 = pyplot.subplot2grid((2, 6), (0, 4), colspan=2)  # 2.5 Myr: ChamI, IC348
-    axs10 = pyplot.subplot2grid((2, 6), (1, 1), colspan=2)  # 4 Myr: sigmaOrionis
-    axs11 = pyplot.subplot2grid((2, 6), (1, 3), colspan=2)  # 5 Myr: UpperSco
-
-    for t in times:
-        all_sorted_disk_masses = []
-        for p in open_path:
-            f = '{0}/N{1}_t{2}.hdf5'.format(p, N, t)
-            stars = io.read_set_from_file(f, 'hdf5', close_file=True)
-
-            # Take only the small stars
-            small_stars = stars[stars.bright == False]
-            small_stars = small_stars[small_stars.dispersed == False]
-
-            if log:
-                disk_masses = numpy.log10(small_stars.disk_mass.value_in(units.MJupiter))
-            else:
-                disk_masses = small_stars.disk_mass.value_in(units.MJupiter)
-
-            sorted_disk_masses = numpy.sort(disk_masses)
-            all_sorted_disk_masses.append(sorted_disk_masses)
-
-        try:
-            disk_masses = numpy.median(all_sorted_disk_masses, axis=0)
-            disk_masses_stdev = numpy.std(all_sorted_disk_masses, axis=0)
-        except ValueError:
-            max_len = 0
-            for a in all_sorted_disk_masses:
-                if len(a) > max_len:
-                    max_len = len(a)
-
-            new_sorted = []
-            for a in all_sorted_disk_masses:
-                b = numpy.pad(a, (max_len - len(a), 0), 'constant')
-                new_sorted.append(b)
-
-            disk_masses = numpy.median(new_sorted, axis=0)
-            disk_masses_stdev = numpy.std(new_sorted, axis=0)
-
-        cumulative_masses = 1. * numpy.arange(len(disk_masses)) / (len(disk_masses) - 1)
-
-        masses_low = disk_masses - disk_masses_stdev
-        masses_high = disk_masses + disk_masses_stdev
-
-        # For plots
-        xlimits = [-2.5, 3.5]
-        ylimits = [0.0, 1.0]
-        ticks = [-2, 0, 2]
-        yticks = [0.0, 0.5, 1.0]
-        xtext = 0.65
-        ytext = 0.05
-        textsize = 18
-        xlabel = '$\log(M_{disk})$ [$M_{Jupiter}$]'
-        ylabel = '$f < M_{disk}$'
-
-        if t == 1.0:
-            # ONC data (Eisner+ 2018)
-            # Data: DUST masses in MEarth
-            lines = open('data/ONC.txt', 'r').readlines()
-            onc_masses, onc_masses_error = [], []
-
-            for line in (line for line in lines if not line.startswith('#')):
-                data = line.split('&')[6]
-                a = data.split('$\pm$')[0]
-                b = data.split('$\pm$')[1]
-
-                # Unit conversion
-                me = float(a) | units.MEarth
-                mj = me.value_in(units.MJupiter)
-
-                me_error = float(b) | units.MEarth
-                mj_error = me_error.value_in(units.MJupiter)
-
-                onc_masses.append(mj)
-                onc_masses_error.append(mj_error)
-
-            # 100. factor to turn dust mass into gas mass
-            onc_masses = 100. * numpy.asarray(onc_masses)
-            onc_masses_error = 100. * numpy.asarray(onc_masses_error)
-
-            if log:
-                onc_masses = onc_masses[onc_masses > 0.0]
-                sorted_onc_masses = numpy.sort(numpy.log10(onc_masses))
-                sorted_onc_masses_errors = numpy.array([numpy.log10(x) for _, x in sorted(zip(onc_masses, onc_masses_error))])
-            else:
-                sorted_onc_masses = numpy.sort(onc_masses)
-                sorted_onc_masses_errors = numpy.array([x for _, x in sorted(zip(onc_masses, onc_masses_error))])
-
-            p = 1. * numpy.arange(len(sorted_onc_masses)) / (len(sorted_onc_masses) - 1)
-
-            onc_low = sorted_onc_masses - sorted_onc_masses_errors
-            onc_high = sorted_onc_masses + sorted_onc_masses_errors
-
-            axs00.plot(sorted_onc_masses, p,
-                           ls='-', lw=3,
-                           color=colors[0],
-                           label='ONC')
-            axs00.fill_betweenx(p,
-                                onc_low, onc_high,
-                                alpha='0.2', facecolor=colors[0])
-            axs00.set_title('ONC')
-            #axs00.legend()
-            axs00.set_xlabel(xlabel)
-            axs00.set_ylabel(ylabel)
-
-            # OMC-1 data (Eisner+ 2016)
-            # Data: 100 * DUST masses in MJup
-            lines = open('data/OMC-1_masses.txt', 'r').readlines()
-            omc1_masses, omc1_masses_error = [], []
-
-            for line in (line for line in lines if not line.startswith('#')):
-                data = line.split()
-                a = data[12]
-                b = data[13]
-
-                # No unit conversion needed
-                omc1_masses.append(float(a))
-                omc1_masses_error.append(float(b))
-
-            omc1_masses = numpy.array(omc1_masses)
-            omc1_masses_error = numpy.array(omc1_masses_error)
-
-            if log:
-                omc1_masses = omc1_masses[omc1_masses > 0.0]
-                sorted_omc1_masses = numpy.sort(numpy.log10(omc1_masses))
-                sorted_omc1_masses_errors = numpy.array([numpy.log10(x) for _, x in sorted(zip(omc1_masses, omc1_masses_error))])
-            else:
-                sorted_omc1_masses = numpy.sort(omc1_masses)
-                sorted_omc1_masses_errors = numpy.array([x for _, x in sorted(zip(omc1_masses, omc1_masses_error))])
-
-            p = 1. * numpy.arange(len(sorted_omc1_masses)) / (len(sorted_omc1_masses) - 1)
-
-            omc1_low = sorted_omc1_masses - sorted_omc1_masses_errors
-            omc1_high = sorted_omc1_masses + sorted_omc1_masses_errors
-
-            axs00.plot(sorted_omc1_masses, p,
-                           ls='-', lw=3,
-                           color=colors[7],
-                           label='OMC-1')
-            axs00.fill_betweenx(p,
-                                omc1_low, omc1_high,
-                                alpha='0.2', facecolor=colors[7])
-            axs00.set_title('OMC-1')
-            #axs21.legend()
-            axs00.set_xlabel(xlabel)
-            axs00.set_ylabel(ylabel)
-
-            # OMC-2 data (van Terwisga+ 2019)
-            # Data: DUST masses in MEarth
-            lines = open('data/OMC-2_masses.txt', 'r').readlines()
-            omc2_masses, omc2_masses_error = [], []
-
-            for line in (line for line in lines if not line.startswith('#')):
-                data = line.split()
-                a = data[0]
-                b = data[2]
-
-                # Unit conversion
-                me = float(a) | units.MEarth
-                mj = me.value_in(units.MJupiter)
-
-                me_error = float(b) | units.MEarth
-                mj_error = me_error.value_in(units.MJupiter)
-
-                omc2_masses.append(mj)
-                omc2_masses_error.append(mj_error)
-
-            # 100. factor to turn dust mass into gas mass
-            omc2_masses = 100. * numpy.asarray(omc2_masses)
-            omc2_masses_error = 100. * numpy.asarray(omc2_masses_error)
-
-            if log:
-                omc2_masses = omc2_masses[omc2_masses > 0.0]
-                sorted_omc2_masses = numpy.sort(numpy.log10(omc2_masses))
-                sorted_omc2_masses_errors = numpy.array([numpy.log10(x) for _, x in sorted(zip(omc2_masses, omc2_masses_error))])
-            else:
-                sorted_omc2_masses = numpy.sort(omc2_masses)
-                sorted_omc2_masses_errors = numpy.array([x for _, x in sorted(zip(omc2_masses, omc2_masses_error))])
-
-            p = 1. * numpy.arange(len(sorted_omc2_masses)) / (len(sorted_omc2_masses) - 1)
-
-            omc2_low = sorted_omc2_masses - sorted_omc2_masses_errors
-            omc2_high = sorted_omc2_masses + sorted_omc2_masses_errors
-
-            axs00.plot(sorted_omc2_masses, p,
-                           ls='-', lw=3,
-                           color=colors[6],
-                           label='OMC-2')
-            axs00.fill_betweenx(p,
-                                omc2_low, omc2_high,
-                                alpha='0.2', facecolor=colors[6])
-            axs00.set_title('OMC-2')
-            #axs20.legend()
-            axs00.set_xlabel(xlabel)
-            axs00.set_ylabel(ylabel)
-
-            axs00.plot(disk_masses,
-                        cumulative_masses,
-                        lw=3, color='black')
-            axs00.fill_betweenx(cumulative_masses,
-                                 masses_low, masses_high,
-                                 alpha='0.2', facecolor='black')
-            axs00.text(xtext, ytext, 't = {0} Myr'.format(t), fontsize=textsize)
-            axs00.set_xlim(xlimits)
-            axs00.set_ylim(ylimits)
-            axs00.set_xticks(ticks)
-            axs00.set_yticks(yticks)
-            axs00.set_title('Orion region')
-            axs00.legend(loc='upper left', fontsize=14, handlelength=0.5, framealpha=0.2)
-
-        elif t == 2.0:
-            # Lupus data (Ansdell+ 2018 2018ApJ...859...21A)
-            # Data: GAS masses in MJup
-            lupus_masses, lupus_low, lupus_high = [], [], []
-
-            # No unit conversion needed
-            lines = open('data/Lupus_masses.txt', 'r').readlines()
-
-            for line in (line for line in lines if not line.startswith('#')):
-                a = line.split()[5]
-                b = line.split()[6]
-                c = line.split()[7]
-
-                try:
-                    lupus_masses.append(float(a))
-
-                    if b == '...':
-                        lupus_low.append(float(a))
-                    else:
-                        lupus_low.append(float(b))
-
-                    if c == '...':
-                        lupus_high.append(float(a))
-                    else:
-                        lupus_high.append(float(c))
-
-                except ValueError:
-                    lupus_masses.append(float(a[1:]))
-
-                    if b == '...':
-                        lupus_low.append(float(a[1:]))
-                    else:
-                        lupus_low.append(float(b))
-
-                    if c == '...':
-                        lupus_high.append(float(a[1:]))
-                    else:
-                        lupus_high.append(float(c))
-
-            lupus_masses = numpy.array(lupus_masses)
-
-            if log:
-                lupus_masses = lupus_masses[lupus_masses > 0.0]
-                lupus_sorted_masses = numpy.sort(numpy.log10(lupus_masses))
-                lupus_sorted_low = numpy.array([numpy.log10(x) for _, x in sorted(zip(lupus_masses, lupus_low))])
-                lupus_sorted_high = numpy.array([numpy.log10(x) for _, x in sorted(zip(lupus_masses, lupus_high))])
-            else:
-                lupus_sorted_masses = numpy.sort(lupus_masses)
-                lupus_sorted_low = numpy.array([x for _, x in sorted(zip(lupus_masses, lupus_low))])
-                lupus_sorted_high = numpy.array([x for _, x in sorted(zip(lupus_masses, lupus_high))])
-
-            p = 1. * numpy.arange(len(lupus_sorted_masses)) / (len(lupus_sorted_masses) - 1)
-            axs01.plot(lupus_sorted_masses, p,
-                           ls='-', lw=3,
-                           color=colors[1],
-                           label=labels[1])
-            axs01.fill_betweenx(p,
-                                    lupus_sorted_low, lupus_sorted_high,
-                                    alpha='0.2', facecolor=colors[1])
-            axs01.set_title('Lupus clouds')
-            #axs01.legend()
-            axs01.set_xlabel(xlabel)
-            axs01.set_ylabel(ylabel)
-
-            axs01.plot(disk_masses,
-                        cumulative_masses,
-                        lw=3, color='black')
-            axs01.fill_betweenx(cumulative_masses,
-                                 masses_low, masses_high,
-                                 alpha='0.2', facecolor='black')
-            axs01.text(xtext, ytext, 't = {0} Myr'.format(t), fontsize=textsize)
-            axs01.set_xlim(xlimits)
-            axs01.set_ylim(ylimits)
-            axs01.set_xticks(ticks)
-
-        elif t == 2.5:
-            # Chamaeleon I data (Mulders et al 2017 2017ApJ...847...31M)
-            # Data: DUST masses in LOG(MEarth)
-            lines = open('data/ChamI_masses.txt', 'r').readlines()
-            cham_masses, cham_masses_error = [], []
-
-            for line in (line for line in lines if not line.startswith('#')):  # DUST masses
-                a = line.split()[8]
-                b = line.split()[9]
-
-                # MEarth to MJup conversion
-                me = numpy.power(10, float(a)) | units.MEarth  # Data is in log
-                mj = me.value_in(units.MJupiter)
-
-                me_error = numpy.power(10, float(b)) | units.MEarth
-                mj_error = me_error.value_in(units.MJupiter)
-
-                # Saving data 10^
-                cham_masses.append(mj)
-                cham_masses_error.append(mj_error)
-
-            # 100. factor to turn dust mass into gas mass
-            cham_masses = 100. * numpy.asarray(cham_masses)
-            cham_masses_error = 100. * numpy.asarray(cham_masses_error)
-
-            if log:
-                cham_masses = cham_masses[cham_masses > 0]
-                cham_sorted_masses = numpy.sort(numpy.log10(cham_masses))
-                cham_sorted_error = numpy.array([numpy.log10(x) for _, x in sorted(zip(cham_masses, cham_masses_error))])
-            else:
-                cham_sorted_masses = numpy.sort(cham_masses)
-                cham_sorted_error = numpy.array([x for _, x in sorted(zip(cham_masses, cham_masses_error))])
-
-            p = 1. * numpy.arange(len(cham_sorted_masses)) / (len(cham_sorted_masses) - 1)
-            cham_low = cham_sorted_masses - cham_sorted_error
-            cham_high = cham_sorted_masses + cham_sorted_error
-
-            axs02.plot(cham_sorted_masses, p,
-                           ls='-', lw=3,
-                           color=colors[2],
-                           label='ChamI')
-            axs02.fill_betweenx(p,
-                                cham_low, cham_high,
-                                alpha='0.2', facecolor=colors[2])
-            axs02.set_title('Chamaeleon I')
-            #axs02.legend()
-            axs02.set_xlabel(xlabel)
-            axs02.set_ylabel(ylabel)
-
-            # IC 348 data (Ruiz-Rodriguez et al 2018  2018MNRAS.478.3674R )
-            # Data: DUST masses in MEarth
-            lines = open('data/IC348_masses.txt', 'r').readlines()
-            ic348_masses, ic348_masses_error = [], []
-
-            for line in (line for line in lines if not line.startswith('#')):
-                if len(line.split()) == 11:
-                    a = line.split()[8]
-                    b = line.split()[10]
-                else:
-                    a = line.split()[10]
-                    b = line.split()[12]
-
-                # MEarth to MJup conversion
-                me = float(a) | units.MEarth
-                mj = me.value_in(units.MJupiter)
-
-                me_error = float(b) | units.MEarth
-                mj_error = me_error.value_in(units.MJupiter)
-
-                ic348_masses.append(mj)
-                ic348_masses_error.append(mj_error)
-
-            # 100. factor to turn dust mass into gas mass
-            ic348_masses = 100. * numpy.asarray(ic348_masses)
-            ic348_masses_error = 100. * numpy.asarray(ic348_masses_error)
-
-            if log:
-                ic348_masses = ic348_masses[ic348_masses > 0.0]
-                ic348_sorted_masses = numpy.sort(numpy.log10(ic348_masses))
-                ic348_sorted_error = numpy.array([numpy.log10(x) for _, x in sorted(zip(ic348_masses, ic348_masses_error))])
-            else:
-                ic348_sorted_masses = numpy.sort(ic348_masses)
-                ic348_sorted_error = numpy.array([x for _, x in sorted(zip(ic348_masses, ic348_masses_error))])
-
-            p = 1. * numpy.arange(len(ic348_sorted_masses)) / (len(ic348_sorted_masses) - 1)
-            ic348_low = ic348_sorted_masses - ic348_sorted_error
-            ic348_high = ic348_sorted_masses + ic348_sorted_error
-
-            axs02.plot(ic348_sorted_masses, p,
-                        ls='-', lw=3,
-                        color=colors[5],
-                        label='IC 348')
-            axs02.fill_betweenx(p,
-                                ic348_low, ic348_high,
-                                alpha='0.2', facecolor=colors[5])
-            axs02.set_title('IC 348')
-            #axs02.legend()
-            axs02.set_xlabel(xlabel)
-            axs02.set_ylabel(ylabel)
-
-            axs02.plot(disk_masses,
-                        cumulative_masses,
-                        lw=3, color='black')
-            axs02.fill_betweenx(cumulative_masses,
-                                 masses_low, masses_high,
-                                 alpha='0.2', facecolor='black')
-            axs02.text(xtext, ytext, 't = {0} Myr'.format(t), fontsize=textsize)
-            axs02.set_xlim(xlimits)
-            axs02.set_ylim(ylimits)
-            axs02.set_xticks(ticks)
-            axs02.set_title('ChamI \& IC 348')
-            axs02.legend(loc='upper left', fontsize=14, handlelength=0.5, framealpha=0.2)
-
-        elif t == 4.0:
-            # sigma Orionis data (Ansdell+ 2017  2017AJ....153..240A)
-            # Data: DUST masses in MEarth
-            lines = open('data/sigmaOrionis_masses.txt', 'r').readlines()
-            sOrionis_masses, sOrionis_masses_error = [], []
-
-            for line in (line for line in lines if not line.startswith('#')):
-                a = line.split()[15]
-                b = line.split()[16]
-
-                # MEarth to MJup conversion
-                me = float(a) | units.MEarth
-                mj = me.value_in(units.MJupiter)
-
-                me_error = float(b) | units.MEarth
-                mj_error = me_error.value_in(units.MJupiter)
-
-                sOrionis_masses.append(mj)
-                sOrionis_masses_error.append(mj_error)
-
-            # 100. factor to turn dust mass into gas mass
-            sOrionis_masses = 100. * numpy.asarray(sOrionis_masses)
-            sOrionis_masses_error = 100. * numpy.asarray(sOrionis_masses_error)
-
-            if log:
-                sOrionis_masses = sOrionis_masses[sOrionis_masses > 0.0]
-                sOrionis_sorted_masses = numpy.sort(numpy.array(numpy.log10(sOrionis_masses)))
-                sOrionis_sorted_error = numpy.array([numpy.log10(x) for _, x in sorted(zip(sOrionis_masses, sOrionis_masses_error))])
-            else:
-                sOrionis_sorted_masses = numpy.sort(numpy.array(sOrionis_masses))
-                sOrionis_sorted_error = numpy.array([x for _, x in sorted(zip(sOrionis_masses, sOrionis_masses_error))])
-
-            p = 1. * numpy.arange(len(sOrionis_sorted_masses)) / (len(sOrionis_sorted_masses) - 1)
-            sOrionis_low = sOrionis_sorted_masses - sOrionis_sorted_error
-            sOrionis_high = sOrionis_sorted_masses + sOrionis_sorted_error
-
-            axs10.plot(sOrionis_sorted_masses, p,
-                           ls='-', lw=3,
-                           color=colors[3],
-                           label=labels[3])
-            axs10.fill_betweenx(p,
-                                    sOrionis_low, sOrionis_high,
-                                    alpha='0.2', facecolor=colors[3])
-            axs10.set_title('$\sigma$ Orionis')
-            #axs10.legend()
-            axs10.set_xlabel(xlabel)
-            axs10.set_ylabel(ylabel)
-
-            axs10.plot(disk_masses,
-                        cumulative_masses,
-                        lw=3, color='black')
-            axs10.fill_betweenx(cumulative_masses,
-                                 masses_low, masses_high,
-                                 alpha='0.2', facecolor='black')
-            axs10.text(xtext, ytext, 't = {0} Myr'.format(t), fontsize=textsize)
-            axs10.set_xlim(xlimits)
-            axs10.set_ylim(ylimits)
-            axs10.set_xticks(ticks)
-
-        elif t == 5.0:
-            # UpperSco data (Barenfeld et al 2016 2016ApJ...827..142B)
-            # data: DUST masses in MEarth
-            lines = open('data/UpperSco_masses.txt', 'r').readlines()
-            uppersco_masses, uppersco_masses_error = [], []
-
-            for line in (line for line in lines if not line.startswith('#')):
-                a = line.split()[1]
-                b = line.split()[2]
-
-                try:
-                    me = float(a) | units.MEarth  # MEarth to MJup conversion
-                    mj = me.value_in(units.MJupiter)
-                    uppersco_masses.append(mj)
-                except ValueError:
-                    me = float(a[1:]) | units.MEarth  # MEarth to MJup conversion
-                    mj = me.value_in(units.MJupiter)
-                    uppersco_masses.append(mj)
-
-                if b == "...":
-                    uppersco_masses_error.append(0.0)
-                else:
-                    me_error = float(b) | units.MEarth
-                    mj_error = me_error.value_in(units.MJupiter)
-                    uppersco_masses_error.append(mj_error)
-
-            # 100. factor to turn dust mass into gas mass
-            uppersco_masses = 100. * numpy.asarray(uppersco_masses)
-            uppersco_masses_error = 100. * numpy.asarray(uppersco_masses_error)
-
-            if log:
-                uppersco_masses = uppersco_masses[uppersco_masses > 0.0]
-                uppersco_sorted_masses = numpy.sort(numpy.log10(uppersco_masses))
-                uppersco_sorted_error = numpy.array([numpy.log10(x) for _, x in sorted(zip(uppersco_masses, uppersco_masses_error))])
-            else:
-                uppersco_sorted_masses = numpy.sort(uppersco_masses)
-                uppersco_sorted_error = numpy.array([x for _, x in sorted(zip(uppersco_masses, uppersco_masses_error))])
-
-            p = 1. * numpy.arange(len(uppersco_sorted_masses)) / (len(uppersco_sorted_masses) - 1)
-            uppersco_low = uppersco_sorted_masses - uppersco_sorted_error
-            uppersco_high = uppersco_sorted_masses + uppersco_sorted_error
-
-            axs11.plot(uppersco_sorted_masses, p,
-                           ls='-', lw=3,
-                           color=colors[4],
-                           label=labels[4])
-            axs11.fill_betweenx(p,
-                                    uppersco_low, uppersco_high,
-                                    alpha='0.2', facecolor=colors[4])
-            axs11.set_title('UpperSco')
-            #axs11.legend()
-            axs11.set_xlabel(xlabel)
-            axs11.set_ylabel(ylabel)
-
-            axs11.plot(disk_masses,
-                        cumulative_masses,
-                        lw=3, color='black')
-            axs11.fill_betweenx(cumulative_masses,
-                                 masses_low, masses_high,
-                                 alpha='0.2', facecolor='black')
-            axs11.text(xtext, ytext, 't = {0} Myr'.format(t), fontsize=textsize)
-            axs11.set_xlim(xlimits)
-            axs11.set_ylim(ylimits)
-            axs11.set_xticks(ticks)
-
-    pyplot.tight_layout()
-
-    if save:
-         pyplot.savefig('{0}/CDF_data_mass.png'.format(save_path))
-
-    pyplot.show()
-
-
-def dist_disk_mass(open_paths100, open_paths50, save_path, t_end, save):
-    fig = pyplot.figure()
-
-    dt = 1.
-    times = numpy.arange(0.0, t_end + dt, dt)
-
-    p =open_paths100[2]
-
-    for t in times:
-        total_in_t = []
-        #for p in open_paths100:
-        f = '{0}/N{1}_t{2}.hdf5'.format(p, 100, t)
-        stars = io.read_set_from_file(f, 'hdf5', close_file=True)
-        # Take only the small stars
-        small_stars = stars[stars.bright == False]
-        small_stars = small_stars[small_stars.dispersed == False]
-
-        disk_masses = small_stars.disk_mass.value_in(units.MJupiter)
-        #total_in_t.append(disk_masses)
-
-        if t == 0.:
-            print small_stars.disk_mass.value_in(units.MSun)
-            print small_stars.stellar_mass.value_in(units.MSun)
-        #    y, bins = numpy.histogram(0.1 * stars.stellar_mass.value_in(units.MJupiter))
-        #    bincenters = 0.5 * (bins[1:] + bins[:-1])
-        #    pyplot.plot(bincenters, y, lw=3, label="IMF")
-
-        #else:
-        y, bins = numpy.histogram(disk_masses)
-        bincenters = 0.5 * (bins[1:] + bins[:-1])
-        pyplot.plot(bincenters, y, lw=3, label="{0} Myr".format(t))
-
-
-    pyplot.xlabel('Disk mass [M$_{Jup}$]')
-    #pyplot.ylabel(r'$f_{> 10 \mathrm{\ M}_{\oplus}}$')
-    pyplot.legend()
-    #pyplot.xlim([0.0, 80.0])
-    #pyplot.ylim([0.0, 100.0])
-    if save:
-         pyplot.savefig('{0}/mass_distribution.png'.format(save_path))
-    pyplot.show()
-
-
-def dist_disk_size(open_paths100, open_paths50, save_path, t_end, save):
-    fig = pyplot.figure()
-
-    dt = 1.
-    times = numpy.arange(0.0, t_end + dt, dt)
-
-    p = open_paths100[1]
-
-    for t in times:
-        total_in_t = []
-        #for p in open_paths100:
-        f = '{0}/N{1}_t{2}.hdf5'.format(p, 100, t)
-        stars = io.read_set_from_file(f, 'hdf5', close_file=True)
-        # Take only the small stars
-        small_stars = stars[stars.bright == False]
-        small_stars = small_stars[small_stars.dispersed == False]
-
-        disk_masses = numpy.sort(small_stars.disk_radius.value_in(units.au))
-        #total_in_t.append(disk_masses)
-
-        y, bins = numpy.histogram(disk_masses)
-        bincenters = 0.5 * (bins[1:] + bins[:-1])
-        pyplot.plot(bincenters, y, lw=3, label="{0} Myr".format(t))
-
-
-    pyplot.xlabel('Disk size [au]')
-    #pyplot.ylabel(r'$f_{> 10 \mathrm{\ M}_{\oplus}}$')
-    pyplot.legend()
-    #pyplot.xlim([0.0, 80.0])
-    #pyplot.ylim([0.0, 100.0])
-    if save:
-        pyplot.savefig('{0}/size_distribution.png'.format(save_path))
-    pyplot.show()
-
-
 def disk_mass(open_paths100, open_paths50, save_path, t_end, save):
     """ Figure 7
 
@@ -1794,7 +818,7 @@ def disk_fractions(open_paths100, open_paths50, t_end, save_path, save, mass_lim
     label1 = "Ribas et al (2014)"
     label2 = "Richert et al (2018)"
 
-    print matplotlib.matplotlib_fname()
+    fig = pyplot.figure(figsize=(10, 10))
 
     for l in lines:
         li = l.strip()
@@ -1804,7 +828,8 @@ def disk_fractions(open_paths100, open_paths50, t_end, save_path, save, mass_lim
             ages_errors.append(float(x[2]))
             N = float(x[7])
             Nobs.append(N)
-            relax_times.append(N / (6 * numpy.log(N)))
+            relax_times.append(N / (6 * numpy.log(N)))  # "Instantaneous" relaxation time
+            #relax_times.append(0.138 * (N / numpy.log(0.11 * N)) * 1.0)
 
             if int(x[6]) == 1:
                 src1_count += 1
@@ -1837,7 +862,6 @@ def disk_fractions(open_paths100, open_paths50, t_end, save_path, save, mass_lim
     df_errors1 = numpy.array((df_lower1, df_higher1))
     df_errors2 = numpy.array((df_lower2, df_higher2))
 
-    fig = pyplot.figure(figsize=(10, 10))
     markers1, caps1, bars1 = pyplot.errorbar(ages1 / relax1,
                                              disk_fraction1 / 100.,
                                              xerr=ages_errors1 / relax1,
@@ -1858,21 +882,23 @@ def disk_fractions(open_paths100, open_paths50, t_end, save_path, save, mass_lim
     times = numpy.arange(0.0, t_end + 0.05, 0.05)
     all_fractions = []
     all_t_relax = []
-    all_density = []
 
-    Rvir = 0.3 | units.parsec
-    g = 0.11
+    Rvir = 0.5 | units.parsec
+    g = 0.4
 
     for p in open_paths100:
         fractions = []
         t_relax = []
         print p
+
         for t in times:
             f = '{0}/N{1}_t{2}.hdf5'.format(p, 100, t)
             stars = io.read_set_from_file(f, 'hdf5', close_file=True)
+
             if t == 0.:  # Have to do this to plot in terms of initial stellar mass, not considering accreted mass
                 init_mass = stars.stellar_mass
-            # if open_paths100.index(p) == 2:
+
+            # Half mass relaxation time calculation
             converter = nbody_system.nbody_to_si(stars.stellar_mass.sum(), Rvir)
             lr = stars.LagrangianRadii(unit_converter=converter, mf=[0.5])[0][0]  # Half mass radius
             bound = stars.bound_subset(tidal_radius=lr, unit_converter=converter)
@@ -1880,12 +906,7 @@ def disk_fractions(open_paths100, open_paths50, t_end, save_path, save, mass_lim
             N = len(bound)
             trh = 0.138 * (N / numpy.log(g * N)) * tdyn
             t_relax.append(1E-6 * trh.value_in(units.yr))
-            #    v = [numpy.sqrt(numpy.mean(stars.vx.value_in(units.parsec / units.yr)**2)),
-            #         numpy.sqrt(numpy.mean(stars.vy.value_in(units.parsec / units.yr)**2)),
-            #         numpy.sqrt(numpy.mean(stars.vz.value_in(units.parsec / units.yr)**2))]
-            #    vm = numpy.mean(numpy.array(v))
-            #    t_relax.append(1e-6 * ((0.1 * 100 * (lr / vm)) / numpy.log(100))) # yr to Myr
-            # density.append(count_stars(stars, lr))
+
             stars.stellar_mass = init_mass
             small_stars = stars[stars.bright == False]
             small_stars = small_stars[small_stars.stellar_mass.value_in(units.MSun) >= mass_limit]
@@ -1894,7 +915,7 @@ def disk_fractions(open_paths100, open_paths50, t_end, save_path, save, mass_lim
             if t == 0.:
                 print stars[stars.bright == True].stellar_mass.value_in(units.MSun)
 
-            fraction = 100. * (float(len(disked_stars)) / float(len(small_stars)))
+            fraction = float(len(disked_stars)) / float(len(small_stars))
             fractions.append(fraction)
 
         all_fractions.append(fractions)
@@ -1906,32 +927,35 @@ def disk_fractions(open_paths100, open_paths50, t_end, save_path, save, mass_lim
     disk_fractions_stdev = numpy.std(all_fractions, axis=0)
 
     pyplot.plot(times / numpy.mean(all_t_relax, axis=0),  # / (100. / (6 * numpy.log(100))),
-                all_disk_fractions / 100.,
+                all_disk_fractions,
                 #yerr=2 * disk_fractions_stdev / 100.,
                 color='k', lw=3,
                 label=r'$\rho \sim 100 \mathrm{ \ M}_{\odot} \mathrm{ \ pc}^{-3}$')
-    print (100. / numpy.log(100))
+
     pyplot.fill_between(times / numpy.mean(all_t_relax, axis=0),#times / (100. / (6 * numpy.log(100))),
-                        disk_fractions_high / 100.,
-                        disk_fractions_low / 100.,
+                        disk_fractions_high,
+                        disk_fractions_low,
                         facecolor='black', alpha=0.2)
 
     all_fractions = []
     all_t_relax = []
 
-    Rvir = 1.0 | units.parsec
-    g = 0.11
+    Rvir = 0.2 | units.parsec
+    g = 0.4
 
     for p in open_paths50:
         fractions = []
         t_relax = []
         print p
+
         for t in times:
             f = '{0}/N{1}_t{2}.hdf5'.format(p, 50, t)
             stars = io.read_set_from_file(f, 'hdf5', close_file=True)
+
             if t == 0.:  # Have to do this to plot in terms of initial stellar mass, not considering accreted mass
                 init_mass = stars.stellar_mass
-            # if open_paths50.index(p) == 2:
+
+            # Half mass relaxation time calculation
             converter = nbody_system.nbody_to_si(stars.stellar_mass.sum(), Rvir)
             lr = stars.LagrangianRadii(unit_converter=converter, mf=[0.5])[0][0]
             bound = stars.bound_subset(tidal_radius=lr, unit_converter=converter)
@@ -1939,11 +963,7 @@ def disk_fractions(open_paths100, open_paths50, t_end, save_path, save, mass_lim
             N = len(bound)
             trh = 0.138 * (N / numpy.log(g * N)) * tdyn
             t_relax.append(1E-6 * trh.value_in(units.yr))
-            #    v = [numpy.sqrt(numpy.mean(stars.vx.value_in(units.parsec / units.yr)**2)),
-            #         numpy.sqrt(numpy.mean(stars.vy.value_in(units.parsec / units.yr)**2)),
-            #         numpy.sqrt(numpy.mean(stars.vz.value_in(units.parsec / units.yr)**2))]
-            #    vm = numpy.mean(numpy.array(v))
-            #    t_relax.append(1e-6 * ((0.1 * 30 * (lr / vm)) / numpy.log(30))) # yr to Myr
+
             stars.stellar_mass = init_mass
             small_stars = stars[stars.bright == False]
             small_stars = small_stars[small_stars.stellar_mass.value_in(units.MSun) >= mass_limit]
@@ -1952,7 +972,7 @@ def disk_fractions(open_paths100, open_paths50, t_end, save_path, save, mass_lim
             if t == 0.:
                 print stars[stars.bright == True].stellar_mass.value_in(units.MSun)
 
-            fraction = 100. * (float(len(disked_stars)) / float(len(small_stars)))
+            fraction = float(len(disked_stars)) / float(len(small_stars))
             fractions.append(fraction)
 
         all_fractions.append(fractions)
@@ -1964,15 +984,15 @@ def disk_fractions(open_paths100, open_paths50, t_end, save_path, save, mass_lim
     disk_fractions_stdev = numpy.std(all_fractions, axis=0)
 
     pyplot.plot(times / numpy.mean(all_t_relax, axis=0),  # (30. / (6 * numpy.log(30))),
-                all_disk_fractions / 100.,
+                all_disk_fractions,
                 #yerr=2 * disk_fractions_stdev / 100.,
                 color='k',
                 ls='--', lw=3,
-                label=r'$\rho \sim 30 \mathrm{ \ M}_{\odot} \mathrm{ \ pc}^{-3}$')
-    print (30. / numpy.log(30))
+                label=r'$\rho \sim 50 \mathrm{ \ M}_{\odot} \mathrm{ \ pc}^{-3}$')
+
     pyplot.fill_between(times / numpy.mean(all_t_relax, axis=0),
-                        disk_fractions_high / 100.,
-                        disk_fractions_low / 100.,
+                        disk_fractions_high,
+                        disk_fractions_low,
                         facecolor='black', alpha=0.2)
 
     pyplot.legend(framealpha=0.5)
