@@ -1,28 +1,19 @@
+""" To reproduce the tests and figures of the appendix """
+
 from amuse.lab import *
 import numpy
-from amuse.couple.bridge import Bridge
-from amuse.community.fractalcluster.interface import new_fractal_cluster_model
 from matplotlib import pyplot
-import gzip
-import copy
-from scipy import interpolate
 from decorators import timer
-import os
 import time
 
 from matplotlib import rc
 import matplotlib as mpl
-import matplotlib.lines as mlines
 
 rc('font', **{'family': 'serif', 'serif': ['Computer Modern'], 'size': 24, })
 rc('text', usetex=True)
 rc('axes', labelsize=26)  # fontsize of the x and y labels
 mpl.rcParams['xtick.major.pad'] = 8  # to avoid overlapping x/y labels
 mpl.rcParams['ytick.major.pad'] = 8  # to avoid overlapping x/y labels
-
-# Had to do this for now as a workaround, will try to get rid of it soon
-global plot_colors
-plot_colors = {"gas": "#ca5670", "no_gas": "#638ccc", "gas_expulsion": "#72a555"}
 
 
 def column_density(grid, r0, mass, lower_density=1E-12 | units.g / units.cm**2):
@@ -35,21 +26,22 @@ def column_density(grid, r0, mass, lower_density=1E-12 | units.g / units.cm**2):
     return Sigma
 
 
-def get_disk_radius(disk, density_limit=1E-11):
+def get_disk_radius(disk, density_limit=1E-10):
     """ Calculate the radius of a disk in a vader grid.
 
     :param disk: Disk to calculate radius on.
     :param density_limit: Density limit to designate disk border.
     :return: Disk radius in units.AU
     """
-    prev_r = disk.grid.r[0]
+    prev_r = disk.grid[0].r
 
-    for cell, r in zip(disk.grid.column_density, disk.grid.r):
-        if cell.value_in(units.g / units.cm**2) <= density_limit:
-            return prev_r.value_in(units.AU) | units.AU
-        prev_r = r
+    for i in range(len(disk.grid.r)):
+        cell_density = disk.grid[i].column_density.value_in(units.g / units.cm ** 2)
+        if cell_density < density_limit:
+            return prev_r.value_in(units.au) | units.au
+        prev_r = disk.grid[i].r
 
-    return prev_r.value_in(units.AU) | units.AU
+    return prev_r.value_in(units.au) | units.au
 
 
 def get_disk_mass(disk, radius):
@@ -68,7 +60,7 @@ def get_disk_mass(disk, radius):
     return total_mass | units.MJupiter
 
 
-def initialize_vader_code(disk_radius, disk_mass, alpha, r_min=0.05 | units.AU, r_max=2000 | units.AU, n_cells=50, linear=True):
+def initialize_vader_code(disk_radius, disk_mass, alpha, r_min=0.05 | units.AU, r_max=2000 | units.AU, n_cells=100, linear=True):
     """ Initialize vader code for given parameters.
 
     :param disk_radius: disk radius. Must have units.Au
@@ -102,52 +94,31 @@ def initialize_vader_code(disk_radius, disk_mass, alpha, r_min=0.05 | units.AU, 
     disk.grid.pressure = sigma * constants.kB * T / (2.33 * mH)
 
     disk.parameters.inner_pressure_boundary_type = 1
-    #disk.parameters.inner_boundary_function = True
     disk.parameters.inner_pressure_boundary_torque = 0.0 | units.g * units.cm ** 2 / units.s ** 2
     disk.parameters.alpha = alpha
     disk.parameters.maximum_tolerated_change = 1E99
-    disk.set_parameter(0, False)  # Disk parameter for non-convergence. True: disk diverged
 
     return disk
 
 
 @timer
 def main():
-    cells = [10, 50, 100, 150, 200, 250, 500]
-    rout = [2500, 5000] | units.au
+    cells = [10, 50, 100, 150, 200, 250]
+    rout = 5000 | units.au
 
     profiles = {}
-    radii = {}
+    areas = {}
+    grids = {}
     disk_radii = {}
-
-    #disk = initialize_vader_code(100 | units.au, 0.1 | units.MSun, 1E-6, r_max=5000 | units.au, n_cells=100, linear=False)
-
-    #while t < t_end:
-    #    t += dt
-    #    disk.evolve_model(t)
-    #    print get_disk_radius(disk)
-    #disk.stop()
-
-    path = "tests_results"
-    try:
-        os.makedirs(path)
-        print "Results path created"
-    except OSError, e:
-        if e.errno != 17:
-            raise
-        # time.sleep might help here
-        pass
 
     times = []
     t = 0 | units.Myr
-    dt = 0.05 | units.Myr
-    t_end = 10 | units.Myr
+    dt = 0.001 | units.Myr
+    t_end = 1 | units.Myr
 
     while t < t_end:
         t += dt
         times.append(t.value_in(units.Myr))
-
-    dl = 1E-3  # density limit for radius
 
     c_times = []
 
@@ -157,23 +128,29 @@ def main():
         start_time = time.time()
 
         profiles[c] = []
-        radii[c] = []
+        areas[c] = []
+        grids[c] = []
         disk_radii[c] = []
-        for r in rout:
-            disk = initialize_vader_code(100 | units.au, 0.1 | units.MSun, 5E-3, r_max=r, n_cells=c, linear=False)
-            t = 0 | units.Myr
-            dt = 0.05 | units.Myr
-            radius = []
-            while t < t_end:
-                t += dt
-                disk.evolve_model(t)
-                radius.append(get_disk_radius(disk, density_limit=dl).value_in(units.au))
-            p = disk.grid.column_density
-            r = disk.grid.r
-            disk.stop()
-            profiles[c].append(p)
-            radii[c].append(r)
-            disk_radii[c].append(radius)
+
+        disk = initialize_vader_code(100 | units.au, 0.1 | units.MSun, 1E-4, r_max=rout, n_cells=c, linear=False)
+        t = 0 | units.Myr
+        radius = []
+
+        while t < t_end:
+           t += dt
+           disk.evolve_model(t)
+           radius.append(get_disk_radius(disk, density_limit=1E-8).value_in(units.au))
+        
+        p = disk.grid.column_density
+        a = disk.grid.area
+        r = disk.grid.r
+
+        disk.stop()
+
+        profiles[c].append(p)
+        areas[c].append(a)
+        grids[c].append(r)
+        disk_radii[c].append(radius)
 
         elapsed = int(time.time() - start_time)
         print "Ended."
@@ -182,49 +159,59 @@ def main():
         minutes = elapsed % 3600 // 60
         c_times.append(minutes)
 
-    for key, val in profiles.items():
-        name = "{0}/{1}cells.txt".format(path, key)
-        v0 = val[0].value_in(units.g / units.cm ** 2)
-        v1 = val[1].value_in(units.g / units.cm ** 2)
-        numpy.savetxt(name, numpy.transpose([v0, v1]))
+    avr = []
 
-    for c in cells:
-        r_2500 = radii[c][0].value_in(units.au)
-        r_5000 = radii[c][1].value_in(units.au)
-        d_2500 = profiles[c][0].value_in(units.g / units.cm ** 2)
-        d_5000 = profiles[c][1].value_in(units.g / units.cm ** 2)
+    # Figure A1
+    for r in cells:
+        if r > 50:
+            avr.append(disk_radii[r][0])
+        pyplot.plot(times,
+                    disk_radii[r][0],
+                    label='{0} cells'.format(r), lw=2)
 
-        #fig = pyplot.figure(figsize=(12, 8))
-        #ax = pyplot.gca()
-        fig, (ax1, ax2) = pyplot.subplots(1, 2, figsize=(16, 8))
-        #pyplot.subplots_adjust(hspace=0.5)
-        #pyplot.tight_layout()
-        ax1.set_xlabel("Grid [au]")
-        ax1.set_ylabel("Column density [g / cm**2]")
-        ax1.set_title("{0} cells".format(c))
+    pyplot.legend()
+    pyplot.xlabel('Time [Myr]')
+    pyplot.ylabel('Disk radius [au]')
+    #pyplot.savefig('radii.png')
+    pyplot.show()
 
-        ax1.loglog(r_2500, d_2500, lw=3, label='2500 au')
-        ax1.plot(r_5000, d_5000, lw=3, label='5000 au')
-        ax1.axhline(y=dl, c='k', ls='--')
-        ax1.legend(loc='upper right')
 
-        ax2.set_xlabel("Time (Myr)")
-        ax2.set_ylabel("Disk radius (au)")
-        #print times
-        #print disk_radii[c]
-        ax2.plot(times, disk_radii[c][0], lw=3, label='2500 au')
-        ax2.plot(times, disk_radii[c][1], lw=3, label='5000 au')
+    # Figure A2
+    for p in cells:
+        profile = profiles[p][0].value_in(units.MJupiter / units.cm**2)
+        area = areas[p][0].value_in(units.cm**2)
 
-        fig.savefig('{0}/Density_{1}cells_4.png'.format(path, c))
+        prev_mass = 0.0
+        mass = []
 
-    # Plot times
-    fig2 = pyplot.figure(figsize=(12, 8))
-    ax = pyplot.gca()
-    ax.plot(cells, c_times, c='r', lw=3)
-    ax.set_title('Evolving disk for {0} Myr'.format(t_end.value_in(units.Myr)))
-    ax.set_xlabel('Number of cells of disk')
-    ax.set_ylabel('Time [minutes]')
-    fig2.savefig('{0}/timing.png'.format(path))
+        for i in range(len(profile)):
+            prev_mass += profile[i] * area[i]
+            mass.append(prev_mass)
+
+        pyplot.plot(grids[p][0].value_in(units.au),
+                    mass,
+                    label='{0} cells'.format(p), lw=2)
+
+    pyplot.xlim([0, 50])
+    pyplot.ylim([0, 150])
+    pyplot.xlabel('Disk radius [au]')
+    pyplot.ylabel('Cumulative mass [$M_{Jup}$]')
+    pyplot.legend()
+    #pyplot.savefig('cumulative_mass.png')
+    pyplot.show()
+
+
+    # Figure A3
+    for p in cells:
+        pyplot.loglog(grids[p][0].value_in(units.au),
+                      profiles[p][0].value_in(units.g / units.cm**2),
+                      label='{0} cells'.format(p))
+    pyplot.legend()
+    pyplot.xlim([0, 1000])
+    pyplot.xlabel('Disk radius [au]')
+    pyplot.ylabel('Surface density [g / cm$^2$]')
+    #pyplot.savefig('profiles.png')
+    pyplot.show()
 
 
 if __name__ == '__main__':
