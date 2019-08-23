@@ -16,22 +16,35 @@ mpl.rcParams['xtick.major.pad'] = 8  # to avoid overlapping x/y labels
 mpl.rcParams['ytick.major.pad'] = 8  # to avoid overlapping x/y labels
 
 
-def column_density(grid, r0, mass, lower_density=1E-12 | units.g / units.cm**2):
-    r = grid.value_in(units.AU) | units.AU
-    rd = r0
+def column_density(grid,
+                   rc,
+                   mass,
+                   lower_density=1E-12 | units.g / units.cm**2):
+    """ Disk column density definition as in Eqs. 1, 2, and 3 of the paper.
+        (Lynden-Bell & Pringle, 1974: Anderson et al. 2013)
+
+    :param grid: disk grid
+    :param rc: characteristic disk radius
+    :param mass: disk mass
+    :param lower_density: density limit for defining disk edge
+    :return: disk column density in g / cm**2
+    """
+    r = grid.value_in(units.au) | units.au
+    rd = rc  # Anderson et al. 2013
     Md = mass
 
-    Sigma_0 = Md / (2 * numpy.pi * r0 ** 2 * (1 - numpy.exp(-rd / r0)))
-    Sigma = Sigma_0 * (r0 / r) * numpy.exp(-r / r0) * (r <= r0) + lower_density
+    Sigma_0 = Md / (2 * numpy.pi * rc ** 2 * (1 - numpy.exp(-rd / rc)))
+    Sigma = Sigma_0 * (rc / r) * numpy.exp(-r / rc) * (r <= rc) + lower_density
     return Sigma
 
 
-def get_disk_radius(disk, density_limit=1E-10):
+def get_disk_radius(disk,
+                    density_limit=1E-10):
     """ Calculate the radius of a disk in a vader grid.
 
-    :param disk: Disk to calculate radius on.
-    :param density_limit: Density limit to designate disk border.
-    :return: Disk radius in units.AU
+    :param disk: vader disk
+    :param density_limit: density limit to designate disk border
+    :return: disk radius in units.au
     """
     prev_r = disk.grid[0].r
 
@@ -44,10 +57,11 @@ def get_disk_radius(disk, density_limit=1E-10):
     return prev_r.value_in(units.au) | units.au
 
 
-def get_disk_mass(disk, radius):
+def get_disk_mass(disk,
+                  radius):
     """ Calculate the mass of a vader disk inside a certain radius.
 
-    :param disk: vader code of disk
+    :param disk: vader disk
     :param radius: disk radius to consider for mass calculation
     :return: disk mass in units.MJupiter
     """
@@ -60,14 +74,20 @@ def get_disk_mass(disk, radius):
     return total_mass | units.MJupiter
 
 
-def initialize_vader_code(disk_radius, disk_mass, alpha, r_min=0.05 | units.AU, r_max=2000 | units.AU, n_cells=100, linear=True):
+def initialize_vader_code(disk_radius,
+                          disk_mass,
+                          alpha,
+                          r_min=0.05 | units.au,
+                          r_max=2000 | units.au,
+                          n_cells=100,
+                          linear=True):
     """ Initialize vader code for given parameters.
 
-    :param disk_radius: disk radius. Must have units.Au
+    :param disk_radius: disk radius. Must have units.au
     :param disk_mass: disk mass. Must have units.MSun
-    :param alpha: turbulence parameter for viscosity
-    :param r_min: minimum radius of vader grid. Must have units.AU
-    :param r_max: maximum radius of vader grid. Must have units.AU
+    :param alpha: turbulence parameter for viscosity, adimensional
+    :param r_min: minimum radius of vader grid. Must have units.au
+    :param r_max: maximum radius of vader grid. Must have units.au
     :param n_cells: number of cells for vader grid
     :param linear: linear interpolation
     :return: instance of vader code
@@ -97,6 +117,8 @@ def initialize_vader_code(disk_radius, disk_mass, alpha, r_min=0.05 | units.AU, 
     disk.parameters.inner_pressure_boundary_torque = 0.0 | units.g * units.cm ** 2 / units.s ** 2
     disk.parameters.alpha = alpha
     disk.parameters.maximum_tolerated_change = 1E99
+    global diverged_disks
+    diverged_disks[disk] = False
 
     return disk
 
@@ -175,7 +197,6 @@ def main():
     #pyplot.savefig('radii.png')
     pyplot.show()
 
-
     # Figure A2
     for p in cells:
         profile = profiles[p][0].value_in(units.MJupiter / units.cm**2)
@@ -199,7 +220,6 @@ def main():
     pyplot.legend()
     #pyplot.savefig('cumulative_mass.png')
     pyplot.show()
-
 
     # Figure A3
     for p in cells:
