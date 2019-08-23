@@ -883,7 +883,7 @@ def disk_fractions(open_paths100, open_paths50, t_end, save_path, save, mass_lim
     all_fractions = []
     all_t_relax = []
 
-    Rvir = 0.5 | units.parsec
+    Rvir = 0.5 | units.parsec  # 100 MSun
     g = 0.4
 
     for p in open_paths100:
@@ -940,7 +940,7 @@ def disk_fractions(open_paths100, open_paths50, t_end, save_path, save, mass_lim
     all_fractions = []
     all_t_relax = []
 
-    Rvir = 0.2 | units.parsec
+    Rvir = 0.5 | units.parsec  # 50 MSun
     g = 0.4
 
     for p in open_paths50:
@@ -1152,10 +1152,10 @@ def main(save_path, time, N, distribution, ncells, i, all_distances, single, sav
     #           'results/final/plummer_N30_1/',
     #           'results/final/plummer_N30_3/']
 
-    paths50 = [#'results/c50/plummer_N50_1/0/',
-               'results/c50/plummer_N50_1/0/',
-               'results/c50/plummer_N50_3/0/',
-               'results/c50/plummer_N50_4/0/']
+    paths50 = ['results/c50/plummer_N50_1/0/',
+               'results/c50/plummer_N50_2/0/',
+               'results/c50/plummer_N50_3/0/']#,
+               #'results/c50/plummer_N50_4/0/']
 
     path = 'results/final/plummer_N100_1/'
 
@@ -1179,6 +1179,7 @@ def main(save_path, time, N, distribution, ncells, i, all_distances, single, sav
         #disk_stellar_mass_scatter(paths, N, time, save_path, save)
         #luminosity_vs_mass(save_path, save)
         #g0_in_time(paths100, paths50, save_path, 100, 0)
+
 
 def new_option_parser():
     from amuse.units.optparse import OptionParser
