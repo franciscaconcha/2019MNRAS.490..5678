@@ -342,10 +342,16 @@ def mass_loss_in_time(open_paths100, open_paths50, save_path, tend, save, mass_l
             stars = io.read_set_from_file(f, 'hdf5', close_file=True)
             stars = stars[stars.stellar_mass.value_in(units.MSun) >= mass_limit]
             small_stars = stars[stars.bright == False]
+            #small_stars = small_stars1[small_stars1.dispersed == False]
 
             photoevap_in_t.append(numpy.mean(small_stars.cumulative_photoevap_mass_loss.value_in(units.MJupiter)))
             trunc_in_t.append(numpy.mean(small_stars.cumulative_truncation_mass_loss.value_in(units.MJupiter)))
             mass_in_t.append(numpy.mean(small_stars.disk_mass.value_in(units.MJupiter)))
+
+            #if t == 0.05:
+            #    for s in small_stars1:
+            #        print s.initial_disk_mass.in_(units.MSun), s.dispersed
+            #    print "*"
 
         photoevap_mass_loss.append(numpy.mean(photoevap_in_t))
         photoevap_low.append(numpy.min(photoevap_in_t))
@@ -444,7 +450,7 @@ def mass_loss_in_time(open_paths100, open_paths50, save_path, tend, save, mass_l
               fontsize=20, framealpha=1.)
     ax.tick_params(which='minor', direction='out', length=6, width=1)
     ax.tick_params(which='major', direction='out', length=6, width=1)
-    pyplot.xticks([0.1, 1, 5], ['0.1', '1', '5'])
+    #pyplot.xticks([0.1, 1, 5], ['0.1', '1', '5'])
 
     #pyplot.tight_layout()
     if save:
@@ -829,7 +835,6 @@ def disk_fractions(open_paths100, open_paths50, t_end, save_path, save, mass_lim
             N = float(x[7])
             Nobs.append(N)
             relax_times.append(N / (6 * numpy.log(N)))  # "Instantaneous" relaxation time
-            #relax_times.append(0.138 * (N / numpy.log(0.11 * N)) * 1.0)
 
             if int(x[6]) == 1:
                 src1_count += 1
@@ -880,10 +885,12 @@ def disk_fractions(open_paths100, open_paths50, t_end, save_path, save, mass_lim
 
     # Plotting my data
     times = numpy.arange(0.0, t_end + 0.05, 0.05)
+
+    # 100 MSun
     all_fractions = []
     all_t_relax = []
 
-    Rvir = 0.5 | units.parsec  # 100 MSun
+    Rv = 0.5 | units.parsec
     g = 0.4
 
     for p in open_paths100:
@@ -899,10 +906,10 @@ def disk_fractions(open_paths100, open_paths50, t_end, save_path, save, mass_lim
                 init_mass = stars.stellar_mass
 
             # Half mass relaxation time calculation
-            converter = nbody_system.nbody_to_si(stars.stellar_mass.sum(), Rvir)
+            converter = nbody_system.nbody_to_si(stars.stellar_mass.sum(), Rv)
             lr = stars.LagrangianRadii(unit_converter=converter, mf=[0.5])[0][0]  # Half mass radius
             bound = stars.bound_subset(tidal_radius=lr, unit_converter=converter)
-            tdyn = numpy.sqrt(Rvir ** 3 / (constants.G * bound.stellar_mass.sum()))
+            tdyn = numpy.sqrt(Rv ** 3 / (constants.G * bound.stellar_mass.sum()))
             N = len(bound)
             trh = 0.138 * (N / numpy.log(g * N)) * tdyn
             t_relax.append(1E-6 * trh.value_in(units.yr))
@@ -913,7 +920,10 @@ def disk_fractions(open_paths100, open_paths50, t_end, save_path, save, mass_lim
             disked_stars = small_stars[small_stars.dispersed == False]
 
             if t == 0.:
+                print numpy.mean(stars[stars.bright == False].stellar_mass.value_in(units.MSun)), numpy.std(stars[stars.bright == False].stellar_mass.value_in(units.MSun))
                 print stars[stars.bright == True].stellar_mass.value_in(units.MSun)
+                print numpy.mean(stars[stars.bright == True].stellar_mass.value_in(units.MSun)), numpy.std(stars[stars.bright == True].stellar_mass.value_in(units.MSun))
+                print 100. * (float(len(stars[stars.bright == True])) / float(len(stars)))
 
             fraction = float(len(disked_stars)) / float(len(small_stars))
             fractions.append(fraction)
@@ -926,22 +936,20 @@ def disk_fractions(open_paths100, open_paths50, t_end, save_path, save, mass_lim
     disk_fractions_low = numpy.min(all_fractions, axis=0)
     disk_fractions_stdev = numpy.std(all_fractions, axis=0)
 
-    pyplot.plot(times / numpy.mean(all_t_relax, axis=0),  # / (100. / (6 * numpy.log(100))),
-                all_disk_fractions,
-                #yerr=2 * disk_fractions_stdev / 100.,
-                color='k', lw=3,
-                label=r'$\rho \sim 100 \mathrm{ \ M}_{\odot} \mathrm{ \ pc}^{-3}$')
+    pyplot.errorbar(times / numpy.mean(all_t_relax, axis=0),  # / (100. / (6 * numpy.log(100))),
+                    all_disk_fractions,
+                    #yerr=2 * disk_fractions_stdev,
+                    color='k', lw=3,
+                    label=r'$\rho \sim 100 \mathrm{ \ M}_{\odot} \mathrm{ \ pc}^{-3}$')
 
     pyplot.fill_between(times / numpy.mean(all_t_relax, axis=0),#times / (100. / (6 * numpy.log(100))),
                         disk_fractions_high,
                         disk_fractions_low,
                         facecolor='black', alpha=0.2)
 
+    # 50 MSun
     all_fractions = []
     all_t_relax = []
-
-    Rvir = 0.5 | units.parsec  # 50 MSun
-    g = 0.4
 
     for p in open_paths50:
         fractions = []
@@ -956,10 +964,10 @@ def disk_fractions(open_paths100, open_paths50, t_end, save_path, save, mass_lim
                 init_mass = stars.stellar_mass
 
             # Half mass relaxation time calculation
-            converter = nbody_system.nbody_to_si(stars.stellar_mass.sum(), Rvir)
+            converter = nbody_system.nbody_to_si(stars.stellar_mass.sum(), Rv)
             lr = stars.LagrangianRadii(unit_converter=converter, mf=[0.5])[0][0]
             bound = stars.bound_subset(tidal_radius=lr, unit_converter=converter)
-            tdyn = numpy.sqrt(Rvir ** 3 / (constants.G * bound.stellar_mass.sum()))
+            tdyn = numpy.sqrt(Rv ** 3 / (constants.G * bound.stellar_mass.sum()))
             N = len(bound)
             trh = 0.138 * (N / numpy.log(g * N)) * tdyn
             t_relax.append(1E-6 * trh.value_in(units.yr))
@@ -970,7 +978,10 @@ def disk_fractions(open_paths100, open_paths50, t_end, save_path, save, mass_lim
             disked_stars = small_stars[small_stars.dispersed == False]
 
             if t == 0.:
+                print numpy.mean(stars[stars.bright == False].stellar_mass.value_in(units.MSun)), numpy.std(stars[stars.bright == False].stellar_mass.value_in(units.MSun))
                 print stars[stars.bright == True].stellar_mass.value_in(units.MSun)
+                print numpy.mean(stars[stars.bright == True].stellar_mass.value_in(units.MSun)), numpy.std(stars[stars.bright == True].stellar_mass.value_in(units.MSun))
+                print 100. * (float(len(stars[stars.bright == True])) / float(len(stars)))
 
             fraction = float(len(disked_stars)) / float(len(small_stars))
             fractions.append(fraction)
@@ -983,12 +994,12 @@ def disk_fractions(open_paths100, open_paths50, t_end, save_path, save, mass_lim
     disk_fractions_low = numpy.min(all_fractions, axis=0)
     disk_fractions_stdev = numpy.std(all_fractions, axis=0)
 
-    pyplot.plot(times / numpy.mean(all_t_relax, axis=0),  # (30. / (6 * numpy.log(30))),
-                all_disk_fractions,
-                #yerr=2 * disk_fractions_stdev / 100.,
-                color='k',
-                ls='--', lw=3,
-                label=r'$\rho \sim 50 \mathrm{ \ M}_{\odot} \mathrm{ \ pc}^{-3}$')
+    pyplot.errorbar(times / numpy.mean(all_t_relax, axis=0),  # (30. / (6 * numpy.log(30))),
+                    all_disk_fractions,
+                    #yerr=2 * disk_fractions_stdev,
+                    color='k',
+                    ls='--', lw=3,
+                    label=r'$\rho \sim 50 \mathrm{ \ M}_{\odot} \mathrm{ \ pc}^{-3}$')
 
     pyplot.fill_between(times / numpy.mean(all_t_relax, axis=0),
                         disk_fractions_high,
@@ -1003,7 +1014,6 @@ def disk_fractions(open_paths100, open_paths50, t_end, save_path, save, mass_lim
 
     if save:
         pyplot.savefig('{0}/disk_fraction.png'.format(save_path))
-
 
     pyplot.show()
 
@@ -1138,7 +1148,598 @@ def disk_stellar_mass_scatter(open_paths, N, t, save_path, save):
     pyplot.show()
 
 
-def main(save_path, time, N, distribution, ncells, i, all_distances, single, save):
+def g0_in_time(open_paths100, open_paths30, save_path, N, i):
+    #fig = pyplot.figure()
+    #ax = pyplot.gca()
+
+    times = numpy.arange(0.0, 5.05, 0.05)
+
+    g0s100, g0s30 = [], []
+    g0s100_low, g0s100_high = [], []
+    g0s30_low, g0s30_high = [], []
+
+    for t in times:
+        g0_in_time = []
+        for p in open_paths100:
+            f = '{0}/N{1}_t{2}.hdf5'.format(p, 100, t)
+            stars = io.read_set_from_file(f, 'hdf5', close_file=True)
+            small_stars = stars[stars.bright == False]
+            g0 = small_stars.g0
+
+            g0_in_time.append(numpy.mean(g0))
+
+        g0s100.append(numpy.mean(g0_in_time))
+        g0s100_low.append(numpy.min(g0_in_time))
+        g0s100_high.append(numpy.max(g0_in_time))
+
+    for t in times:
+        g0_in_time = []
+        for p in open_paths30:
+            f = '{0}/N{1}_t{2}.hdf5'.format(p, 50, t)
+            stars = io.read_set_from_file(f, 'hdf5', close_file=True)
+            small_stars = stars[stars.bright == False]
+            g0 = small_stars.g0
+
+            g0_in_time.append(numpy.mean(g0))
+
+        g0s30.append(numpy.mean(g0_in_time))
+        g0s30_low.append(numpy.min(g0_in_time))
+        g0s30_high.append(numpy.max(g0_in_time))
+
+    print numpy.mean(g0s100), numpy.min(g0s100_low[g0s100_low > 0]), numpy.max(g0s100_high)
+    print numpy.mean(g0s30), numpy.min(g0s30_low[g0s30_low > 0]), numpy.max(g0s30_high)
+
+    """ax.semilogy(times, g0s100, lw=3, color='black',
+                label=r'$\rho \sim 100 \mathrm{ \ M}_{\odot} \mathrm{ \ pc}^{-3}$')
+    ax.fill_between(times,
+                   g0s100_low,
+                   g0s100_high,
+                   facecolor='black', alpha=0.2)
+    ax.semilogy(times, g0s30, lw=3, ls='--', color='black',
+                label=r'$\rho \sim 30 \mathrm{ \ M}_{\odot} \mathrm{ \ pc}^{-3}$')
+    ax.fill_between(times,
+                   g0s30_low,
+                   g0s30_high,
+                   facecolor='black', alpha=0.2)
+    ax.set_xlabel('Time [Myr]')
+    ax.set_ylabel(r'$\mathrm{G}_0 \ [\mathrm{erg}/\mathrm{cm}^2$]')
+    ax.set_xlim([0.05, 5.0])
+    ax.legend(loc='upper right', framealpha=0.4)
+    if save:
+        pyplot.savefig('{0}/g0.png'.format(save_path))
+    pyplot.show()"""
+
+
+def brightstars(open_paths100, open_paths50):
+    dt = 0.5  #| units.Myr
+    t_end = 5.0   # | units.Myr
+    times = numpy.arange(0.0, t_end + dt, dt)
+
+    colors = ["#638ccc",
+              "#ca5670",
+              "#72a555",
+              "#ab62c0",
+              "#c57c3c",
+              "black"]
+
+    for p in open_paths100:
+        all_dists = []
+        all_t = []
+
+        f = '{0}/N{1}_t{2}.hdf5'.format(p, 100, 0.0)
+        stars = io.read_set_from_file(f, 'hdf5', close_file=True)
+
+        small_stars = stars[stars.bright == False]
+        init_bright_stars = stars[stars.bright == True]
+        #disked_stars = small_stars[small_stars.stellar_mass.value_in(units.MSun) >= mass_limit]
+        disked_stars = small_stars[small_stars.dispersed == False]
+
+        # This is super slow but it's the only way my brain actually sees the steps in the correct order
+        for i in range(len(init_bright_stars)):
+            all_bright_i = []
+            for t in times:
+                f = '{0}/N{1}_t{2}.hdf5'.format(p, 100, t)
+                stars = io.read_set_from_file(f, 'hdf5', close_file=True)
+
+                small_stars = stars[stars.bright == False]
+                bright_stars = stars[stars.bright == True]
+                # disked_stars = small_stars[small_stars.stellar_mass.value_in(units.MSun) >= mass_limit]
+                disked_stars = small_stars[small_stars.dispersed == False]
+
+                distances = []
+
+                # All distances from bright star i to all disked stars at time t
+                for d in disked_stars:
+                    dist = distance(bright_stars[i], d).value_in(units.parsec)
+                    distances.append(dist)
+
+                all_bright_i.append(distances)
+
+            means = []
+            for b in all_bright_i:
+                means.append(numpy.mean(b))
+
+            pyplot.plot(times, means, color=colors[open_paths100.index(p)])
+
+
+    for p in open_paths50:
+        all_dists = []
+        all_t = []
+
+        f = '{0}/N{1}_t{2}.hdf5'.format(p, 50, 0.0)
+        stars = io.read_set_from_file(f, 'hdf5', close_file=True)
+
+        small_stars = stars[stars.bright == False]
+        init_bright_stars = stars[stars.bright == True]
+        #disked_stars = small_stars[small_stars.stellar_mass.value_in(units.MSun) >= mass_limit]
+        disked_stars = small_stars[small_stars.dispersed == False]
+
+        # This is super slow but it's the only way my brain actually sees the steps in the correct order
+        for i in range(len(init_bright_stars)):
+            all_bright_i = []
+            for t in times:
+                f = '{0}/N{1}_t{2}.hdf5'.format(p, 50, t)
+                stars = io.read_set_from_file(f, 'hdf5', close_file=True)
+
+                small_stars = stars[stars.bright == False]
+                bright_stars = stars[stars.bright == True]
+                # disked_stars = small_stars[small_stars.stellar_mass.value_in(units.MSun) >= mass_limit]
+                disked_stars = small_stars[small_stars.dispersed == False]
+
+                distances = []
+
+                # All distances from bright star i to all disked stars at time t
+                for d in disked_stars:
+                    dist = distance(bright_stars[i], d).value_in(units.parsec)
+                    distances.append(dist)
+
+                all_bright_i.append(distances)
+
+            means = []
+            for b in all_bright_i:
+                means.append(numpy.mean(b))
+
+            pyplot.plot(times, means, color=colors[3 + open_paths50.index(p)])
+
+    pyplot.show()
+
+
+def deltat(open_paths100, open_paths50, save_path, mass_limit=0.0, save=False):
+
+    colors = ["#638ccc",
+              "#ca5670",
+              "#72a555",
+              "#ab62c0",
+              "#c57c3c",
+              "black"]
+
+    dt = 0.5  #| units.Myr
+    t_end = 5.0   # | units.Myr
+    times = numpy.arange(0.0, t_end + 0.05, 0.05)
+
+    for p in open_paths100:
+        prev_mdot = 0.0
+        all_mdot = []
+        for t in times:
+            f = '{0}/N{1}_t{2}.hdf5'.format(p, 100, t)
+            stars = io.read_set_from_file(f, 'hdf5', close_file=True)
+
+            small_stars = stars[stars.bright == False]
+            small_stars = small_stars[small_stars.stellar_mass.value_in(units.MSun) >= mass_limit]
+            disked_stars = small_stars[small_stars.dispersed == False]
+
+            if t == 0.0:
+                init_mdot = disked_stars.cumulative_photoevap_mass_loss.value_in(units.MJupiter)
+                prev_mdot = len(init_mdot)
+
+            if t == 0.05:
+                print numpy.mean(10. * small_stars[small_stars.dispersed == True].initial_disk_mass.value_in(units.MSun))
+                print small_stars[small_stars.dispersed == True].initial_disk_size.value_in(units.au)
+
+            # Mass lost due to photoevaporation in dt
+            #mdot = disked_stars.cumulative_photoevap_mass_loss.value_in(units.MJupiter) - prev_mdot
+
+            mdot = disked_stars.cumulative_photoevap_mass_loss.value_in(units.MJupiter)# - init_mdot
+            init_mdot = mdot
+            prev_mdot = len(mdot)
+
+            # Disks that lost more than 5 MJup in dt
+            mdot_5MJup = mdot[mdot >= 5.0]
+            all_mdot.append(float(len(mdot_5MJup)) / float(len(small_stars)))  # Number of disks that lost more than 5MJup in t
+
+        cumulative = numpy.array(all_mdot).cumsum()
+
+        pyplot.plot(times, cumulative / cumulative[-1], lw=3, c='navy')
+
+    for p in open_paths50:
+        prev_mdot = 0.0
+        all_mdot = []
+        for t in times:
+            f = '{0}/N{1}_t{2}.hdf5'.format(p, 50, t)
+            stars = io.read_set_from_file(f, 'hdf5', close_file=True)
+
+            small_stars = stars[stars.bright == False]
+            small_stars = small_stars[small_stars.stellar_mass.value_in(units.MSun) >= mass_limit]
+            disked_stars = small_stars[small_stars.dispersed == False]
+            #print t
+            #print disked_stars.g0
+            #print disked_stars.photoevap_mass_loss.value_in(units.MJupiter)
+            #print disked_stars.cumulative_photoevap_mass_loss.value_in(units.MJupiter)
+
+            if t == 0.0:
+                init_mdot = disked_stars.cumulative_photoevap_mass_loss.value_in(units.MJupiter)
+                #prev_mdot = disked_stars.cumulative_photoevap_mass_loss.value_in(units.MJupiter)
+
+            if t == 0.05:
+                print numpy.mean(10. * small_stars[small_stars.dispersed == True].initial_disk_mass.value_in(units.MSun))
+                print small_stars[small_stars.dispersed == True].initial_disk_size.value_in(units.au)
+
+            # Mass lost due to photoevaporation in dt
+            #mdot = disked_stars.cumulative_photoevap_mass_loss.value_in(units.MJupiter) - prev_mdot
+
+            mdot = disked_stars.cumulative_photoevap_mass_loss.value_in(units.MJupiter)# - init_mdot
+            #prev_mdot = mdot
+
+            # Disks that lost more than 5 MJup in dt
+            mdot_5MJup = mdot[mdot >= 5.0]
+            all_mdot.append(float(len(mdot_5MJup)) / float(len(small_stars)))  # Number of disks that lost more than 5MJup in t
+
+            #print mdot
+
+            #pyplot.plot(times, all_mdot, 'o', alpha=0.2, color='k')
+            #pyplot.plot(t * numpy.ones((len(disked_stars))), mdot/dt)
+
+        #print all_mdot
+        cumulative = numpy.array(all_mdot).cumsum()
+        pyplot.plot(times, cumulative / cumulative[-1], '--', lw=3, c='navy')
+        #cumulative_mdot_5MJup)
+
+    pyplot.xlabel(r'$t$ [Myr]', fontsize=28)
+    pyplot.ylabel(r'$f_{\dot{M}(t) > 5 \mathrm{\ M_{Jup}}}$', fontsize=30)
+    pyplot.xlim([0.0, 5.0])
+    pyplot.ylim([0.0, 1.0])
+    #ax2.set_xticks(times)
+    pyplot.grid(True, alpha=0.2)
+
+    # Custom legend
+    custom_lines = [mlines.Line2D([0], [0], color='navy', lw=3),
+                    mlines.Line2D([0], [0], color='navy', lw=3, ls='--')]
+
+    pyplot.legend(custom_lines, [r'$\rho \sim 100 \mathrm{\ M}_\odot \mathrm{\ pc}^{-3}$',
+                              r'$\rho \sim 50 \mathrm{\ M}_\odot \mathrm{\ pc}^{-3}$'],
+                  loc='lower right', framealpha=0.4)
+
+    if save:
+        pyplot.savefig('{0}/mass_loss_cumulative.png'.format(save_path))
+    pyplot.show()
+
+
+def triplefigure(open_paths100, open_paths50, save_path, mass_limit=0.0, save=False):
+    f, (ax2, ax3) = pyplot.subplots(2, 1, figsize=(10, 15), sharex=True)
+    colors = ["#638ccc",
+              "#ca5670",
+              "#72a555",
+              "#ab62c0",
+              "#c57c3c",
+              "black"]
+
+    tend = 5.0
+    times = numpy.arange(0.0, tend + 0.05, 0.05)
+
+    """photoevap_mass_loss, trunc_mass_loss, photoevap_low, photoevap_high, trunc_low, trunc_high = [], [], [], [], [], []
+    disk_mass, mass_low, mass_high = [], [], []
+
+    for t in times:
+        photoevap_in_t, trunc_in_t = [], []
+        mass_in_t = []
+        for p in open_paths100:
+            f = '{0}/N{1}_t{2}.hdf5'.format(p, 100, t)
+            stars = io.read_set_from_file(f, 'hdf5', close_file=True)
+            stars = stars[stars.stellar_mass.value_in(units.MSun) >= mass_limit]
+            small_stars = stars[stars.bright == False]
+            #small_stars = small_stars1[small_stars1.dispersed == False]
+
+            photoevap_in_t.append(numpy.mean(small_stars.cumulative_photoevap_mass_loss.value_in(units.MJupiter)))
+            trunc_in_t.append(numpy.mean(small_stars.cumulative_truncation_mass_loss.value_in(units.MJupiter)))
+            mass_in_t.append(numpy.mean(small_stars.disk_mass.value_in(units.MJupiter)))
+
+            #if t == 0.05:
+            #    for s in small_stars1:
+            #        print s.initial_disk_mass.in_(units.MSun), s.dispersed
+            #    print "*"
+
+        photoevap_mass_loss.append(numpy.mean(photoevap_in_t))
+        photoevap_low.append(numpy.min(photoevap_in_t))
+        photoevap_high.append(numpy.max(photoevap_in_t))
+
+        trunc_mass_loss.append(numpy.mean(trunc_in_t))
+        trunc_low.append(numpy.min(trunc_in_t))
+        trunc_high.append(numpy.max(trunc_in_t))
+
+        disk_mass.append(numpy.mean(mass_in_t))
+        mass_low.append(numpy.min(mass_in_t))
+        mass_high.append(numpy.max(mass_in_t))
+
+    ax1.plot(times, photoevap_mass_loss, label="Photoevaporation", lw=3, color="#009bed")
+    ax1.fill_between(times,
+                    photoevap_low,
+                    photoevap_high,
+                    facecolor="#009bed",
+                    alpha=0.2)
+
+    ax1.plot(times, trunc_mass_loss, label="Dynamical truncations", lw=3, color="#d73027")
+    ax1.fill_between(times,
+                    trunc_low,
+                    trunc_high,
+                    facecolor="#d73027",
+                    alpha=0.2)
+
+    photoevap_mass_loss, trunc_mass_loss, photoevap_low, photoevap_high, trunc_low, trunc_high = [], [], [], [], [], []
+    disk_mass, mass_low, mass_high = [], [], []
+
+    for t in times:
+        photoevap_in_t, trunc_in_t = [], []
+        mass_in_t = []
+        for p in open_paths50:
+            f = '{0}/N{1}_t{2}.hdf5'.format(p, 50, t)
+            stars = io.read_set_from_file(f, 'hdf5', close_file=True)
+            stars = stars[stars.stellar_mass.value_in(units.MSun) >= mass_limit]
+            small_stars = stars[stars.bright == False]
+
+            photoevap_in_t.append(numpy.mean(small_stars.cumulative_photoevap_mass_loss.value_in(units.MJupiter)))
+            trunc_in_t.append(numpy.mean(small_stars.cumulative_truncation_mass_loss.value_in(units.MJupiter)))
+            mass_in_t.append(numpy.mean(small_stars.disk_mass.value_in(units.MJupiter)))
+
+        photoevap_mass_loss.append(numpy.mean(photoevap_in_t))
+        photoevap_low.append(numpy.min(photoevap_in_t))
+        photoevap_high.append(numpy.max(photoevap_in_t))
+
+        trunc_mass_loss.append(numpy.mean(trunc_in_t))
+        trunc_low.append(numpy.min(trunc_in_t))
+        trunc_high.append(numpy.max(trunc_in_t))
+
+        disk_mass.append(numpy.mean(mass_in_t))
+        mass_low.append(numpy.min(mass_in_t))
+        mass_high.append(numpy.max(mass_in_t))
+
+    ax1.plot(times, photoevap_mass_loss, label="Photoevaporation", ls="--", lw=3, color="#009bed")
+    ax1.fill_between(times,
+                    photoevap_low,
+                    photoevap_high,
+                    alpha=0.2, facecolor="#009bed", edgecolor='#009bed', hatch="/")
+
+    ax1.plot(times, trunc_mass_loss, label="Dynamical truncations", ls="--", lw=3, color="#d73027")
+    ax1.fill_between(times,
+                    trunc_low,
+                    trunc_high,
+                    alpha=0.2, facecolor="#d73027", edgecolor='#d73027', hatch="/")
+
+    ax1.set_xlim([0.0, 5.0])
+    box = ax1.get_position()
+    ax1.set_position([box.x0, box.y0 + box.height * 0.2,
+                     box.width, box.height * 0.9])
+
+    ax1.legend([PhotoevapObject(), TruncationObject(), M100shadedObject, M30shadedObject],
+               ['Photoevaporation', 'Dynamical truncations',
+                r'$\rho \sim 100 \mathrm{\ M}_\odot \mathrm{\ pc}^{-3}$',
+                r'$\rho \sim 50 \mathrm{\ M}_\odot \mathrm{\ pc}^{-3}$'],
+               handler_map={PhotoevapObject: PhotoevapObjectHandler(),
+                            TruncationObject: TruncationObjectHandler(),
+                            M100shadedObject: M100shadedObjectHandler(),
+                            M30shadedObject: M30shadedObjectHandler()},
+               loc='best', bbox_to_anchor=(0.85, -0.15), ncol=2,
+              fontsize=20, framealpha=1.)
+    ax1.tick_params(which='minor', direction='out', length=6, width=1)
+    ax1.tick_params(which='major', direction='out', length=6, width=1)
+    #pyplot.xticks([0.1, 1, 5], ['0.1', '1', '5'])
+
+    #pyplot.tight_layout()"""
+
+    times = numpy.arange(0.0, tend + 0.05, 0.05)
+
+    for p in open_paths100:
+        prev_mdot = 0.0
+        all_mdot = []
+        for t in times:
+            f = '{0}/N{1}_t{2}.hdf5'.format(p, 100, t)
+            stars = io.read_set_from_file(f, 'hdf5', close_file=True)
+
+            small_stars = stars[stars.bright == False]
+            #disked_stars = small_stars[small_stars.stellar_mass.value_in(units.MSun) >= mass_limit]
+            disked_stars = small_stars[small_stars.dispersed == False]
+
+            if t == 0.0:
+                init_mdot = disked_stars.cumulative_photoevap_mass_loss.value_in(units.MJupiter)
+                prev_mdot = len(init_mdot)
+
+            if t == 0.05:
+                print small_stars[small_stars.dispersed == True].initial_disk_mass.in_(units.MJupiter)
+
+            # Mass lost due to photoevaporation in dt
+            #mdot = disked_stars.cumulative_photoevap_mass_loss.value_in(units.MJupiter) - prev_mdot
+
+            mdot = disked_stars.cumulative_photoevap_mass_loss.value_in(units.MJupiter)# - init_mdot
+            init_mdot = mdot
+            prev_mdot = len(mdot)
+
+            # Disks that lost more than 5 MJup in dt
+            mdot_5MJup = mdot[mdot >= 5.0]
+            all_mdot.append(float(len(mdot_5MJup)) / float(len(small_stars)))  # Number of disks that lost more than 5MJup in t
+
+        cumulative = numpy.array(all_mdot).cumsum()
+
+        ax2.plot(times, cumulative / cumulative[-1], lw=2, c=colors[open_paths100.index(p)])
+
+    for p in open_paths50:
+        prev_mdot = 0.0
+        all_mdot = []
+        for t in times:
+            f = '{0}/N{1}_t{2}.hdf5'.format(p, 50, t)
+            stars = io.read_set_from_file(f, 'hdf5', close_file=True)
+
+            small_stars = stars[stars.bright == False]
+            #disked_stars = small_stars[small_stars.stellar_mass.value_in(units.MSun) >= mass_limit]
+            disked_stars = small_stars[small_stars.dispersed == False]
+            #print t
+            #print disked_stars.g0
+            #print disked_stars.photoevap_mass_loss.value_in(units.MJupiter)
+            #print disked_stars.cumulative_photoevap_mass_loss.value_in(units.MJupiter)
+
+            if t == 0.0:
+                init_mdot = disked_stars.cumulative_photoevap_mass_loss.value_in(units.MJupiter)
+                #prev_mdot = disked_stars.cumulative_photoevap_mass_loss.value_in(units.MJupiter)
+
+            if t == 0.05:
+                print small_stars[small_stars.dispersed == True].initial_disk_mass.in_(units.MJupiter)
+
+            # Mass lost due to photoevaporation in dt
+            #mdot = disked_stars.cumulative_photoevap_mass_loss.value_in(units.MJupiter) - prev_mdot
+
+            mdot = disked_stars.cumulative_photoevap_mass_loss.value_in(units.MJupiter)# - init_mdot
+            #prev_mdot = mdot
+
+            # Disks that lost more than 5 MJup in dt
+            mdot_5MJup = mdot[mdot >= 5.0]
+            all_mdot.append(float(len(mdot_5MJup)) / float(len(small_stars)))  # Number of disks that lost more than 5MJup in t
+
+            #print mdot
+
+            #pyplot.plot(times, all_mdot, 'o', alpha=0.2, color='k')
+            #pyplot.plot(t * numpy.ones((len(disked_stars))), mdot/dt)
+
+        #print all_mdot
+        cumulative = numpy.array(all_mdot).cumsum()
+        ax2.plot(times, cumulative / cumulative[-1], ':', lw=2, c=colors[3 + open_paths50.index(p)])
+        #cumulative_mdot_5MJup)
+
+    ax2.set_xlabel(r'$\delta_t$ [Myr]', fontsize=28)
+    ax2.set_ylabel(r'$\dot{M}(\delta_t) > 5 \mathrm{\ M_{Jup}}$', fontsize=30)
+    ax2.set_xlim([0.0, 5.0])
+    ax2.set_ylim([0.0, 1.0])
+    #ax2.set_xticks(times)
+    ax2.grid(True, alpha=0.2)
+
+    # Custom legend
+    custom_lines = [mlines.Line2D([0], [0], color='navy', lw=2),
+                    mlines.Line2D([0], [0], color='navy', lw=2, ls=':')]
+
+    ax2.legend(custom_lines, [r'$\rho \sim 100 \mathrm{\ M}_\odot \mathrm{\ pc}^{-3}$',
+                                 r'$\rho \sim 50 \mathrm{\ M}_\odot \mathrm{\ pc}^{-3}$'],
+                  loc='lower right', framealpha=0.4)
+
+    for p in open_paths100:
+        all_dists = []
+        all_t = []
+
+        f = '{0}/N{1}_t{2}.hdf5'.format(p, 100, 0.0)
+        stars = io.read_set_from_file(f, 'hdf5', close_file=True)
+
+        small_stars = stars[stars.bright == False]
+        init_bright_stars = stars[stars.bright == True]
+        # disked_stars = small_stars[small_stars.stellar_mass.value_in(units.MSun) >= mass_limit]
+        disked_stars = small_stars[small_stars.dispersed == False]
+
+        # This is super slow but it's the only way my brain actually sees the steps in the correct order
+        for i in range(len(init_bright_stars)):
+            all_bright_i = []
+            for t in times:
+                f = '{0}/N{1}_t{2}.hdf5'.format(p, 100, t)
+                stars = io.read_set_from_file(f, 'hdf5', close_file=True)
+
+                small_stars = stars[stars.bright == False]
+                bright_stars = stars[stars.bright == True]
+                # disked_stars = small_stars[small_stars.stellar_mass.value_in(units.MSun) >= mass_limit]
+                disked_stars = small_stars[small_stars.dispersed == False]
+
+                distances = []
+
+                # All distances from bright star i to all disked stars at time t
+                for d in disked_stars:
+                    dist = distance(bright_stars[i], d).value_in(units.parsec)
+                    distances.append(dist)
+
+                all_bright_i.append(distances)
+
+            means = []
+            for b in all_bright_i:
+                means.append(numpy.mean(b))
+
+            ax3.plot(times, means, color=colors[open_paths100.index(p)])
+
+    for p in open_paths50:
+        all_dists = []
+        all_t = []
+
+        f = '{0}/N{1}_t{2}.hdf5'.format(p, 50, 0.0)
+        stars = io.read_set_from_file(f, 'hdf5', close_file=True)
+
+        small_stars = stars[stars.bright == False]
+        init_bright_stars = stars[stars.bright == True]
+        # disked_stars = small_stars[small_stars.stellar_mass.value_in(units.MSun) >= mass_limit]
+        disked_stars = small_stars[small_stars.dispersed == False]
+
+        # This is super slow but it's the only way my brain actually sees the steps in the correct order
+        for i in range(len(init_bright_stars)):
+            all_bright_i = []
+            for t in times:
+                f = '{0}/N{1}_t{2}.hdf5'.format(p, 50, t)
+                stars = io.read_set_from_file(f, 'hdf5', close_file=True)
+
+                small_stars = stars[stars.bright == False]
+                bright_stars = stars[stars.bright == True]
+                # disked_stars = small_stars[small_stars.stellar_mass.value_in(units.MSun) >= mass_limit]
+                disked_stars = small_stars[small_stars.dispersed == False]
+
+                #if open_paths50.index(p) == 1 and i == 0:
+                #    print small_stars.cumulative_photoevap_mass_loss.value_in(units.MJupiter)
+
+                distances = []
+
+                # All distances from bright star i to all disked stars at time t
+                for d in disked_stars:
+                    dist = distance(bright_stars[i], d).value_in(units.parsec)
+                    distances.append(dist)
+
+                all_bright_i.append(distances)
+
+            means = []
+            for b in all_bright_i:
+                means.append(numpy.mean(b))
+
+            ax3.plot(times, means, color=colors[3 + open_paths50.index(p)])
+
+    pyplot.show()
+
+    if save:
+        pyplot.savefig('{0}/mass_loss.png'.format(save_path))
+    pyplot.show()
+
+
+def test(files, N):
+    times = numpy.arange(0.0, 5.0 + 0.05, 0.05)
+    i = 0
+    for p in files:
+        for t in times:
+            f = '{0}/N{1}_t{2}.hdf5'.format(p, N, t)
+            stars = io.read_set_from_file(f, 'hdf5', close_file=True)
+
+            small_stars = stars[stars.bright == False]
+            bright_stars = stars[stars.bright == True]
+            disked_stars = small_stars[small_stars.dispersed == False]
+
+            pyplot.clf()
+            pyplot.scatter(disked_stars.x.value_in(units.parsec),
+                           disked_stars.y.value_in(units.parsec),
+                           c='blue')
+            pyplot.scatter(bright_stars.x.value_in(units.parsec),
+                           bright_stars.y.value_in(units.parsec),
+                           c='red', s=bright_stars.stellar_mass.value_in(units.MSun))
+
+            pyplot.savefig('./test_plots4/{0}.png'.format(i))
+            i += 1
+
+
+def main(save_path, time, N, distribution, i, all_distances, single, save):
 
     # My own stylesheet, comment out if not needed
     pyplot.style.use('paper')
@@ -1147,13 +1748,8 @@ def main(save_path, time, N, distribution, ncells, i, all_distances, single, sav
                 'results/final/plummer_N100_2/',
                 'results/final/plummer_N100_3/']
 
-
-    #paths30 = ['results/final/plummer_N30_1/',
-    #           'results/final/plummer_N30_1/',
-    #           'results/final/plummer_N30_3/']
-
     paths50 = ['results/c50/plummer_N50_1/0/',
-               'results/c50/plummer_N50_2/0/',
+               'results/c50/plummer_N50_4/0/',
                'results/c50/plummer_N50_3/0/']#,
                #'results/c50/plummer_N50_4/0/']
 
@@ -1167,12 +1763,19 @@ def main(save_path, time, N, distribution, ncells, i, all_distances, single, sav
         single_star(path, save_path, N, i, time, all_distances)
         #tests(path, i, N, time)
     else:
-        times = [1.0, 2.0, 2.5, 4.0, 5.0]
-        colors = ["#638ccc", "#ca5670", "#c57c3c", "#72a555", "#ab62c0", '#0072B2', '#009E73', '#D55E00']  # colors from my prev paper
-        labels = ['Trapezium cluster', 'Lupus clouds', 'Chamaeleon I', '$\sigma$ Orionis', 'Upper Scorpio', 'IC 348',
-                  'ONC', "OMC-2"]
-        #mass_loss_in_time(paths100, paths50, save_path, time, save, mass_limit=0.0)
-        disk_fractions(paths100, paths50, time, save_path, save=False, mass_limit=0.0)
+        #mass_loss_in_time(paths100, paths50, save_path, time, save=False, mass_limit=0.0)
+
+        #brightstars(paths100, paths50)
+
+        #triplefigure(paths100, paths50, save_path)
+
+        #test(paths50, 50)
+
+        #disk_fractions(paths100, paths50, time, save_path, save=False, mass_limit=0.5)
+
+        deltat(paths100, paths50, save_path, save=False)
+
+
         #disk_mass(paths100, paths50, save_path, time, save)
         #disk_size(paths100, paths50, save_path, time, save)
         #disk_stellar_mass(paths100, paths50, time, 0.1, save_path, save)
@@ -1189,7 +1792,7 @@ def new_option_parser():
                       help="save plot? [%default]")
 
     # Simulation parameters
-    result.add_option("-s", dest="save_path", type="string", default='/media/fran/data1/photoevap/figures',
+    result.add_option("-s", dest="save_path", type="string", default='/media/fran/data1/photevap-paper/figures',
                       help="path to save the results [%default]")
     result.add_option("-t", dest="time", type="float", default='5.0',
                       help="time to use for plots [%default]")
@@ -1205,8 +1808,6 @@ def new_option_parser():
                       help="single star plots [%default]")
 
     # Disk parameters
-    result.add_option("-c", dest="ncells", type="int", default=100,
-                      help="Number of cells to be used in vader disk [%default]")
     result.add_option("-i", dest="i", type="int", default=0,
                       help="Individual star to plot [%default]")
 
