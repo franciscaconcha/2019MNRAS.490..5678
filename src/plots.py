@@ -100,13 +100,13 @@ class M100shadedObjectHandler(object):
         l1 = mlines.Line2D([x0, y0 + width + 5],
                            [0.5 * height, 0.5 * height],
                            lw=3,
-                           color='rebeccapurple')  # Have to change color by hand for other plots
+                           color='black')  # Have to change color by hand for other plots
         l2 = patches.Rectangle(
-            (x0 - 1, y0 + width - 46),  # (x,y)
+            (x0 - 1, y0 + width - 43),  # (x,y)
             1.2 * width,  # width
             1.4 * height,  # height
-            fill='rebeccapurple',
-            facecolor='rebeccapurple',
+            fill='black',
+            facecolor='black',
             #edgecolor="black",
             alpha=0.2,
             #hatch="/",
@@ -123,14 +123,14 @@ class M30shadedObjectHandler(object):
         l1 = mlines.Line2D([x0, y0 + width + 5],
                            [0.5 * height, 0.5 * height],
                            lw=3, ls="--",
-                           color='rebeccapurple')
+                           color='black')
         l2 = patches.Rectangle(
-            (x0 - 1, y0 + width - 46),  # (x,y)
+            (x0 - 1, y0 + width - 43),  # (x,y)
             1.15 * width,  # width
             1.4 * height,  # height
-            fill='rebeccapurple',
-            facecolor='rebeccapurple',
-            edgecolor='rebeccapurple',
+            fill='black',
+            facecolor='black',
+            edgecolor='black',
             alpha=0.2,
             hatch="/",
         )
@@ -291,7 +291,7 @@ def luminosity_vs_mass(save_path, save):
     pyplot.show()
 
 
-def mass_loss_in_time(open_paths100, open_paths50, save_path, tend, save, mass_limit=0.5):
+def mass_loss_in_time(open_paths100, open_paths50, save_path, tend, save, mass_limit=0.0):
     """ Cumulative mass loss in each time step due to photoevaporation and truncations.
 
     :param open_path:
@@ -365,14 +365,14 @@ def mass_loss_in_time(open_paths100, open_paths50, save_path, tend, save, mass_l
         mass_low.append(numpy.min(mass_in_t))
         mass_high.append(numpy.max(mass_in_t))
 
-    ax.semilogx(times, photoevap_mass_loss, label="Photoevaporation", lw=3, color="#009bed")
+    ax.plot(times, photoevap_mass_loss, label="Photoevaporation", lw=3, color="#009bed")
     ax.fill_between(times,
                     photoevap_low,
                     photoevap_high,
                     facecolor="#009bed",
                     alpha=0.2)
 
-    ax.semilogx(times, trunc_mass_loss, label="Dynamical truncations", lw=3, color="#d73027")
+    ax.plot(times, trunc_mass_loss, label="Dynamical truncations", lw=3, color="#d73027")
     ax.fill_between(times,
                     trunc_low,
                     trunc_high,
@@ -397,6 +397,7 @@ def mass_loss_in_time(open_paths100, open_paths50, save_path, tend, save, mass_l
             stars = io.read_set_from_file(f, 'hdf5', close_file=True)
             stars = stars[stars.stellar_mass.value_in(units.MSun) >= mass_limit]
             small_stars = stars[stars.bright == False]
+            #small_stars = small_stars1[small_stars1.dispersed == False]
 
             photoevap_in_t.append(numpy.mean(small_stars.cumulative_photoevap_mass_loss.value_in(units.MJupiter)))
             trunc_in_t.append(numpy.mean(small_stars.cumulative_truncation_mass_loss.value_in(units.MJupiter)))
@@ -414,13 +415,13 @@ def mass_loss_in_time(open_paths100, open_paths50, save_path, tend, save, mass_l
         mass_low.append(numpy.min(mass_in_t))
         mass_high.append(numpy.max(mass_in_t))
 
-    ax.semilogx(times, photoevap_mass_loss, label="Photoevaporation", ls="--", lw=3, color="#009bed")
+    ax.plot(times, photoevap_mass_loss, label="Photoevaporation", ls="--", lw=3, color="#009bed")
     ax.fill_between(times,
                     photoevap_low,
                     photoevap_high,
                     alpha=0.2, facecolor="#009bed", edgecolor='#009bed', hatch="/")
 
-    ax.semilogx(times, trunc_mass_loss, label="Dynamical truncations", ls="--", lw=3, color="#d73027")
+    ax.plot(times, trunc_mass_loss, label="Dynamical truncations", ls="--", lw=3, color="#d73027")
     ax.fill_between(times,
                     trunc_low,
                     trunc_high,
@@ -1330,9 +1331,9 @@ def deltat(open_paths100, open_paths50, save_path, mass_limit=0.0, save=False):
 
             if t == 0.0:
                 init_mdot = disked_stars.cumulative_photoevap_mass_loss.value_in(units.MJupiter)
-                prev_mdot = len(init_mdot)
+                prev_mdot = len(stars)
 
-            if t == 0.05:
+            if t == 0.1:
                 print numpy.mean(10. * small_stars[small_stars.dispersed == True].initial_disk_mass.value_in(units.MSun))
                 print small_stars[small_stars.dispersed == True].initial_disk_size.value_in(units.au)
 
@@ -1341,11 +1342,11 @@ def deltat(open_paths100, open_paths50, save_path, mass_limit=0.0, save=False):
 
             mdot = disked_stars.cumulative_photoevap_mass_loss.value_in(units.MJupiter)# - init_mdot
             init_mdot = mdot
-            prev_mdot = len(mdot)
+            #prev_mdot = len(mdot)
 
             # Disks that lost more than 5 MJup in dt
             mdot_5MJup = mdot[mdot >= 5.0]
-            all_mdot.append(float(len(mdot_5MJup)) / float(len(small_stars)))  # Number of disks that lost more than 5MJup in t
+            all_mdot.append(float(len(mdot_5MJup)) / float(prev_mdot))  # Number of disks that lost more than 5MJup in t
 
         cumulative = numpy.array(all_mdot).cumsum()
 
@@ -1368,9 +1369,9 @@ def deltat(open_paths100, open_paths50, save_path, mass_limit=0.0, save=False):
 
             if t == 0.0:
                 init_mdot = disked_stars.cumulative_photoevap_mass_loss.value_in(units.MJupiter)
-                #prev_mdot = disked_stars.cumulative_photoevap_mass_loss.value_in(units.MJupiter)
+                prev_mdot = len(stars)
 
-            if t == 0.05:
+            if t == 0.1:
                 print numpy.mean(10. * small_stars[small_stars.dispersed == True].initial_disk_mass.value_in(units.MSun))
                 print small_stars[small_stars.dispersed == True].initial_disk_size.value_in(units.au)
 
@@ -1382,7 +1383,7 @@ def deltat(open_paths100, open_paths50, save_path, mass_limit=0.0, save=False):
 
             # Disks that lost more than 5 MJup in dt
             mdot_5MJup = mdot[mdot >= 5.0]
-            all_mdot.append(float(len(mdot_5MJup)) / float(len(small_stars)))  # Number of disks that lost more than 5MJup in t
+            all_mdot.append(float(len(mdot_5MJup)) / float(prev_mdot))  # Number of disks that lost more than 5MJup in t
 
             #print mdot
 
@@ -1411,6 +1412,170 @@ def deltat(open_paths100, open_paths50, save_path, mass_limit=0.0, save=False):
 
     if save:
         pyplot.savefig('{0}/mass_loss_cumulative.png'.format(save_path))
+    pyplot.show()
+
+
+def cumulative_mass(open_paths100, open_paths50):
+    #f, (ax1, ax2) = pyplot.subplots(1, 2)#, figsize=(10, 15), sharex=True)
+
+    times = [0.0, 0.05, 2.5, 5.0]
+    colors = ['#E24A33', '#348ABD', '#988ED5', '#777777', '#FBC15E', '#8EBA42', '#FFB5B8']
+
+    i = 0
+    open_paths100 = [open_paths100[0]]
+    open_paths50 = [open_paths50[1]]
+
+    for t in times:
+        #all_pp = []
+        all_masses = []
+        for p in open_paths100:
+            f = '{0}/N{1}_t{2}.hdf5'.format(p, 100, t)
+            stars = io.read_set_from_file(f, 'hdf5', close_file=True)
+
+            small_stars = stars[stars.bright == False]
+            disked_stars = small_stars[small_stars.dispersed == False]
+            disks_mass = disked_stars.disk_mass.value_in(units.MJupiter)
+
+            sorted_disks_mass = numpy.sort(disks_mass)
+            #pp = 1. * numpy.arange(len(sorted_disks_mass)) / (len(stars) - 1)
+
+            #all_pp.append(pp)
+            all_masses.append(sorted_disks_mass)
+
+            cumulative = 1. * numpy.arange(len(sorted_disks_mass)) / (len(stars) - 1)
+
+            pyplot.plot(sorted_disks_mass, cumulative, c=colors[2 + i], lw=2, label='{0} Myr'.format(t))
+
+        i += 1
+
+        '''try:
+            disk_masses = numpy.mean(all_masses, axis=0)
+            disk_masses_stdev = numpy.std(all_masses, axis=0)
+        except ValueError:
+            max_len = 0
+            for a in all_masses:
+                if len(a) > max_len:
+                    max_len = len(a)
+
+            new_sorted = []
+            for a in all_masses:
+                b = numpy.pad(a, (max_len - len(a), 0), 'constant')
+                new_sorted.append(b)
+
+            disk_masses = numpy.mean(new_sorted, axis=0)
+            disk_masses_stdev = numpy.std(new_sorted, axis=0)'''
+
+    for p in open_paths50:
+        i = 0
+        for t in times:
+            f = '{0}/N{1}_t{2}.hdf5'.format(p, 50, t)
+            stars = io.read_set_from_file(f, 'hdf5', close_file=True)
+
+            small_stars = stars[stars.bright == False]
+            disked_stars = small_stars[small_stars.dispersed == False]
+            disks_mass = disked_stars.disk_mass.value_in(units.MJupiter)
+            sorted_disks_mass = numpy.sort(disks_mass)
+
+            pp = 1. * numpy.arange(len(sorted_disks_mass)) / (len(stars) - 1)
+            pyplot.plot(sorted_disks_mass, pp, '--', c=colors[2 + i], lw=2, label='{0} Myr'.format(t))
+            i += 1
+
+    pyplot.xlim([0.0, 140])
+    pyplot.ylim([0.0, 1.0])
+    pyplot.xlabel(r'Disk mass $[\mathrm{M_{Jup}}]$')
+    pyplot.ylabel(r'$f$')
+
+    # Custom legend
+    #custom_lines = [[mlines.Line2D([0], [0], color='navy', lw=3),
+    #                mlines.Line2D([0], [0], color='navy', lw=3, ls='--')]]
+
+    #pyplot.legend(custom_lines, [r'$\rho \sim 100 \mathrm{\ M}_\odot \mathrm{\ pc}^{-3}$',
+    #                          r'$\rho \sim 50 \mathrm{\ M}_\odot \mathrm{\ pc}^{-3}$'],
+    #              loc='lower right', framealpha=0.4)
+
+    """ax2.legend(loc='lower right')
+    ax2.set_xlim([0.0, 150])
+    ax2.set_ylim([0.0, 1.0])
+    ax2.set_xlabel(r'Disk mass $[\mathrm{M_{Jup}}]$')
+    ax2.set_ylabel(r'$f$')"""
+    pyplot.legend()
+    pyplot.show()
+
+
+def mdot(open_paths100, open_paths50):
+
+    tend = 5.0
+    times = numpy.arange(0.0, tend + 0.05, 0.05)
+
+    cm = pyplot.cm.get_cmap('RdYlBu')
+
+    for p in open_paths100:
+        f = '{0}/N{1}_t{2}.hdf5'.format(p, 100, 0.0)
+        stars = io.read_set_from_file(f, 'hdf5', close_file=True)
+        init_masses = stars.stellar_mass.value_in(units.MSun)
+        #stars = stars[stars.stellar_mass.value_in(units.MSun) >= mass_limit]
+        small_stars = stars[stars.bright == False]
+        #small_stars = small_stars[small_stars.dispersed == False]
+        prev_stars = stars.cumulative_photoevap_mass_loss.value_in(units.MJupiter)
+
+        N = len(small_stars)
+        max_mdots = []
+        max_times = []
+        star_mass = []
+
+        for i in range(N):
+            all_mdot = []
+            prev_mdot = prev_stars[i]
+            for t in times[1:]:
+                f = '{0}/N{1}_t{2}.hdf5'.format(p, 100, t)
+                stars = io.read_set_from_file(f, 'hdf5', close_file=True)
+                #stars = stars[stars.stellar_mass.value_in(units.MSun) >= mass_limit]
+                small_stars = stars[stars.bright == False]
+                #small_stars = small_stars[small_stars.dispersed == False]
+                #print i, len(small_stars)
+                #print small_stars[i]
+
+                all_mdot.append(small_stars[i].cumulative_photoevap_mass_loss.value_in(units.MJupiter) - prev_mdot)
+                prev_mdot = small_stars[i].cumulative_photoevap_mass_loss.value_in(units.MJupiter)
+                #print len(small_stars[i].cumulative_photoevap_mass_loss.value_in(units.MJupiter)), len(prev_stars)
+                #prev_stars = stars.cumulative_photoevap_mass_loss.value_in(units.MJupiter)
+
+            m = max(all_mdot)
+            max_mdots.append(float(m) / 50000)
+            max_times.append(times[all_mdot.index(m)])
+            star_mass.append(init_masses[i])
+
+        print max_mdots
+        pyplot.scatter(max_times, max_mdots,
+                       c=star_mass, cmap=cm,
+                       alpha=0.4)
+
+    '''for i in range(N):
+        all_mdot = []
+        prev_mdot = prev_stars[i]
+        for t in times[1:]:
+            f = '{0}/N{1}_t{2}.hdf5'.format(p, 100, t)
+            stars = io.read_set_from_file(f, 'hdf5', close_file=True)
+            # stars = stars[stars.stellar_mass.value_in(units.MSun) >= mass_limit]
+            small_stars = stars[stars.bright == False]
+            # small_stars = small_stars[small_stars.dispersed == False]
+            # print i, len(small_stars)
+            # print small_stars[i]
+
+            all_mdot.append(small_stars[i].cumulative_photoevap_mass_loss.value_in(units.MJupiter) - prev_mdot)
+            prev_mdot = small_stars[i].cumulative_photoevap_mass_loss.value_in(units.MJupiter)
+            # print len(small_stars[i].cumulative_photoevap_mass_loss.value_in(units.MJupiter)), len(prev_stars)
+            # prev_stars = stars.cumulative_photoevap_mass_loss.value_in(units.MJupiter)
+
+        m = max(all_mdot)
+        max_mdots.append(float(m) / 0.05)
+        max_times.append(times[all_mdot.index(m)])
+
+    print max_mdots
+    pyplot.scatter(max_times, max_mdots, alpha=0.4, c='k')'''
+
+    pyplot.xlabel(r'Time [Myr]')
+    pyplot.ylabel(r'$\max(\d\dot{M} / dt)$')
     pyplot.show()
 
 
@@ -1763,7 +1928,7 @@ def main(save_path, time, N, distribution, i, all_distances, single, save):
         single_star(path, save_path, N, i, time, all_distances)
         #tests(path, i, N, time)
     else:
-        #mass_loss_in_time(paths100, paths50, save_path, time, save=False, mass_limit=0.0)
+        #mass_loss_in_time(paths100, paths50, save_path, time, save=True, mass_limit=0.0)
 
         #brightstars(paths100, paths50)
 
@@ -1771,10 +1936,13 @@ def main(save_path, time, N, distribution, i, all_distances, single, save):
 
         #test(paths50, 50)
 
-        #disk_fractions(paths100, paths50, time, save_path, save=False, mass_limit=0.5)
+        #disk_fractions(paths100, paths50, time, save_path, save=False, mass_limit=0.3)
 
-        deltat(paths100, paths50, save_path, save=False)
+        #deltat(paths100, paths50, save_path, save=True)
 
+        #cumulative_mass(paths100, paths50)
+
+        mdot(paths100, paths50)
 
         #disk_mass(paths100, paths50, save_path, time, save)
         #disk_size(paths100, paths50, save_path, time, save)
