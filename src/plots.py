@@ -1415,7 +1415,7 @@ def deltat(open_paths100, open_paths50, save_path, mass_limit=0.0, save=False):
     pyplot.show()
 
 
-def cumulative_mass(open_paths100, open_paths50):
+def cumulative_mass(open_paths100, open_paths50, save_path):
     #f, (ax1, ax2) = pyplot.subplots(1, 2)#, figsize=(10, 15), sharex=True)
 
     times = [0.0, 0.05, 2.5, 5.0]
@@ -1499,6 +1499,7 @@ def cumulative_mass(open_paths100, open_paths50):
     ax2.set_xlabel(r'Disk mass $[\mathrm{M_{Jup}}]$')
     ax2.set_ylabel(r'$f$')"""
     pyplot.legend()
+    pyplot.savefig('{0}/cdf_disk_mass.png'.format(save_path))
     pyplot.show()
 
 
@@ -2110,9 +2111,9 @@ def main(save_path, time, N, distribution, i, all_distances, single, save):
 
         #deltat(paths100, paths50, save_path, save=True)
 
-        #cumulative_mass(paths100, paths50)
+        cumulative_mass(paths100, paths50, save_path)
 
-        mdot(paths100, paths50, save_path)
+        #mdot(paths100, paths50, save_path)
 
         #disk_mass(paths100, paths50, save_path, time, save)
         #disk_size(paths100, paths50, save_path, time, save)
