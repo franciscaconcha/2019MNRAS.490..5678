@@ -891,16 +891,24 @@ def disk_fractions(open_paths100, open_paths50, t_end, save_path, save, mass_lim
     sorted_tt = numpy.sort(tt)
     obs_disk_fractions = numpy.array(disk_fraction) / 100.
     sorted_disk_fractions = [x for _, x in sorted(zip(tt, obs_disk_fractions))]
+    print sorted_disk_fractions
 
     means = []
-    for i in range(len(sorted_tt)):
-        if i + 10 <= len(sorted_tt):
+    time_means = []
+    for i in range(len(sorted_disk_fractions)):
+        if len(sorted_disk_fractions) - (i + 10) > 0:
             means.append(numpy.mean(sorted_disk_fractions[i:i+10]))
+            time_means.append(numpy.mean(sorted_tt[i:i+10]))
             print "calculating mean between {0}, {1}".format(i, i + 10)
             print sorted_disk_fractions[i:i+10]
             print numpy.mean(sorted_disk_fractions[i:i+10])
         else:
+            print "end"
             means.append(numpy.mean(sorted_disk_fractions[i:]))
+            time_means.append(numpy.mean(sorted_tt[i:i+10]))
+            break
+    print means
+    print len(means), len(tt)
 
     """my_bin_edges.sort()
     my_bin_edges[0] = 0.0  # To start from the edge of the plot, not the edge of the data
@@ -917,11 +925,11 @@ def disk_fractions(open_paths100, open_paths50, t_end, save_path, save, mass_lim
     bins_color = '#fc9f5b'
     pyplot.hlines(bin_means, bin_edges[:-1], bin_edges[1:], color=bins_color, lw=2, linestyle="--", alpha=0.5)
     """
-    pyplot.plot(means, lw=3, color='#fc9f5b', label='Binned mean of observations', alpha=0.7)
+    pyplot.plot(time_means, means, lw=3, color='#fc9f5b', label='Binned mean of observations', alpha=0.7)
 
 
     # Plotting the simulations
-    """times = numpy.arange(0.0, t_end + 0.05, 0.05)
+    times = numpy.arange(0.0, t_end + 0.05, 0.05)
 
     # 100 MSun
     all_fractions = []
@@ -1026,7 +1034,7 @@ def disk_fractions(open_paths100, open_paths50, t_end, save_path, save, mass_lim
     pyplot.fill_between(times / numpy.mean(all_t_relax, axis=0),
                         disk_fractions_high,
                         disk_fractions_low,
-                        facecolor='black', alpha=0.2)"""
+                        facecolor='black', alpha=0.2)
 
     # Putting the "binned mean" label at the bottom of the legend...
     ax = pyplot.gca()
