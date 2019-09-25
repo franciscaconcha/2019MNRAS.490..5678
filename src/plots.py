@@ -890,7 +890,7 @@ def disk_fractions(open_paths100, open_paths50, t_end, save_path, save, mass_lim
     tt = list(numpy.array(ages) / numpy.array(relax_times))
     sorted_tt = numpy.sort(tt)
     obs_disk_fractions = numpy.array(disk_fraction) / 100.
-    sorted_disk_fractions = [x for _, x in sorted(zip(ages, obs_disk_fractions))]
+    sorted_disk_fractions = [x for _, x in sorted(zip(tt, obs_disk_fractions))]
 
     means = []
     for i in range(len(sorted_tt)):
@@ -920,7 +920,7 @@ def disk_fractions(open_paths100, open_paths50, t_end, save_path, save, mass_lim
 
 
     # Plotting the simulations
-    times = numpy.arange(0.0, t_end + 0.05, 0.05)
+    """times = numpy.arange(0.0, t_end + 0.05, 0.05)
 
     # 100 MSun
     all_fractions = []
@@ -1025,7 +1025,7 @@ def disk_fractions(open_paths100, open_paths50, t_end, save_path, save, mass_lim
     pyplot.fill_between(times / numpy.mean(all_t_relax, axis=0),
                         disk_fractions_high,
                         disk_fractions_low,
-                        facecolor='black', alpha=0.2)
+                        facecolor='black', alpha=0.2)"""
 
     # Putting the "binned mean" label at the bottom of the legend...
     ax = pyplot.gca()
