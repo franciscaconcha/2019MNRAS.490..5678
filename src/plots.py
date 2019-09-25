@@ -890,13 +890,13 @@ def disk_fractions(open_paths100, open_paths50, t_end, save_path, save, mass_lim
     tt = list(numpy.array(ages) / numpy.array(relax_times))
     sorted_tt = numpy.sort(tt)
     obs_disk_fractions = numpy.array(disk_fraction) / 100.
-    sorted_disk_fractions = [x for _, x in sorted(zip(tt, obs_disk_fractions))]
+    sorted_disk_fractions = [x for _, x in sorted(zip(ages, obs_disk_fractions))]
 
     means = []
     for i in range(len(sorted_tt)):
         if i + 10 <= len(sorted_tt):
             means.append(numpy.mean(sorted_disk_fractions[i:i+10]))
-            print "calculating mean between {0}, {1}",format(i, i+10)
+            print "calculating mean between {0}, {1}",format(i, i + 10)
             print sorted_disk_fractions[i:i+10]
         else:
             means.append(numpy.mean(sorted_disk_fractions[i:]))
