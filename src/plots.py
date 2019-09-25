@@ -917,7 +917,7 @@ def disk_fractions(open_paths100, open_paths50, t_end, save_path, save, mass_lim
     bins_color = '#fc9f5b'
     pyplot.hlines(bin_means, bin_edges[:-1], bin_edges[1:], color=bins_color, lw=2, linestyle="--", alpha=0.5)
     """
-    pyplot.plot(sorted_tt, means, lw=3, color='#fc9f5b', label='Binned mean of observations', alpha=0.7)
+    pyplot.plot(means, lw=3, color='#fc9f5b', label='Binned mean of observations', alpha=0.7)
 
 
     # Plotting the simulations
