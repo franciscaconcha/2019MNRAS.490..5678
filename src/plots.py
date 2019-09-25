@@ -898,7 +898,7 @@ def disk_fractions(open_paths100, open_paths50, t_end, save_path, save, mass_lim
             means.append(numpy.mean(sorted_disk_fractions[i:i+10]))
             print "calculating mean between {0}, {1}".format(i, i + 10)
             print sorted_disk_fractions[i:i+10]
-            print numpy.mean(sorted_disk_fractions[i:i+10]
+            print numpy.mean(sorted_disk_fractions[i:i+10])
         else:
             means.append(numpy.mean(sorted_disk_fractions[i:]))
 
