@@ -18,13 +18,13 @@ class TruncationObject(object):
 class M100Object(object):
     pass
 
-class M30Object(object):
+class M50Object(object):
     pass
 
 class M100shadedObject(object):
     pass
 
-class M30shadedObject(object):
+class M50shadedObject(object):
     pass
 
 class t000Object(object):
@@ -93,7 +93,7 @@ class M100ObjectHandler(object):
         return [l1]
 
 
-class M30ObjectHandler(object):
+class M50ObjectHandler(object):
     def legend_artist(self, legend, orig_handle, fontsize, handlebox):
         x0, y0 = handlebox.xdescent, handlebox.ydescent
         width, height = handlebox.width, handlebox.height
@@ -128,7 +128,7 @@ class M100shadedObjectHandler(object):
         return [l1, l2]
 
 
-class M30shadedObjectHandler(object):
+class M50shadedObjectHandler(object):
     def legend_artist(self, legend, orig_handle, fontsize, handlebox):
         x0, y0 = handlebox.xdescent, handlebox.ydescent
         width, height = handlebox.width, handlebox.height
@@ -571,15 +571,15 @@ def mass_loss_in_time(open_paths100, open_paths50, save_path, tend, mass_limit=0
     ax.set_position([box.x0, box.y0 + box.height * 0.2,
                      box.width, box.height * 0.9])
 
-    ax.legend([PhotoevapObject(), TruncationObject(), M100shadedObject, M30shadedObject],
-               ['Photoevaporation', 'Dynamical truncations',
+    ax.legend([PhotoevapObject(), TruncationObject(), M100shadedObject, M50shadedObject],
+              ['Photoevaporation', 'Dynamical truncations',
                 r'$\rho \sim 100 \mathrm{\ M}_\odot \mathrm{\ pc}^{-3}$',
                 r'$\rho \sim 50 \mathrm{\ M}_\odot \mathrm{\ pc}^{-3}$'],
-               handler_map={PhotoevapObject: PhotoevapObjectHandler(),
-                            TruncationObject: TruncationObjectHandler(),
-                            M100shadedObject: M100shadedObjectHandler(),
-                            M30shadedObject: M30shadedObjectHandler()},
-               loc='best', bbox_to_anchor=(0.85, -0.15), ncol=2,
+              handler_map={PhotoevapObject: PhotoevapObjectHandler(),
+                           TruncationObject: TruncationObjectHandler(),
+                           M100shadedObject: M100shadedObjectHandler(),
+                           M50shadedObject: M50shadedObjectHandler()},
+              loc='best', bbox_to_anchor=(0.85, -0.15), ncol=2,
               fontsize=20, framealpha=1.)
 
     ax.tick_params(which='minor', direction='out', length=6, width=1)
@@ -680,13 +680,13 @@ def disk_mass(open_paths100, open_paths50, save_path, t_end, save):
 
     pyplot.xlabel('Time [Myr]')
     pyplot.ylabel(r'$f_{\mathrm{M}_\mathrm{disk} > 10 \mathrm{\ M}_{\oplus}}$', fontsize=30)
-    pyplot.legend([M100shadedObject, M30shadedObject],
+    pyplot.legend([M100shadedObject, M50shadedObject],
                   [r'$\rho \sim 100 \mathrm{\ M}_\odot \mathrm{\ pc}^{-3}$',
                    r'$\rho \sim 50 \mathrm{\ M}_\odot \mathrm{\ pc}^{-3}$'],
-                handler_map={M100shadedObject: M100shadedObjectHandler(),
-                            M30shadedObject: M30shadedObjectHandler()},
-                loc='best',
-                fontsize=22, framealpha=1.)
+                  handler_map={M100shadedObject: M100shadedObjectHandler(),
+                               M50shadedObject: M50shadedObjectHandler()},
+                  loc='best',
+                  fontsize=22, framealpha=1.)
     pyplot.xlim([0.0, 5.0])
     pyplot.ylim([0.0, 1.0])
     if save:
@@ -782,13 +782,13 @@ def disk_size(open_paths100, open_paths50, save_path, t_end, save):
     pyplot.xlabel('Time [Myr]')
     pyplot.ylabel(r'$f_{\mathrm{R}_\mathrm{disk} > 50 \mathrm{\ au}}$', fontsize=30)
 
-    pyplot.legend([M100shadedObject, M30shadedObject],
+    pyplot.legend([M100shadedObject, M50shadedObject],
                   [r'$\rho \sim 100 \mathrm{\ M}_\odot \mathrm{\ pc}^{-3}$',
                    r'$\rho \sim 50 \mathrm{\ M}_\odot \mathrm{\ pc}^{-3}$'],
-                handler_map={M100shadedObject: M100shadedObjectHandler(),
-                            M30shadedObject: M30shadedObjectHandler()},
-                loc='best',# bbox_to_anchor=(0.73, -0.15), ncol=2,
-                fontsize=22, framealpha=1.)
+                  handler_map={M100shadedObject: M100shadedObjectHandler(),
+                               M50shadedObject: M50shadedObjectHandler()},
+                  loc='best',  # bbox_to_anchor=(0.73, -0.15), ncol=2,
+                  fontsize=22, framealpha=1.)
 
     pyplot.xlim([0.0, 5.0])
     pyplot.ylim([0.0, 1.0])
@@ -884,9 +884,6 @@ def disk_fractions(open_paths100, open_paths50, t_end, save_path, save, mass_lim
 
 
     # Building the comoving binned mean line for the observational data
-    # Each bin contains 10 observation points
-    from scipy import stats
-
     tt = list(numpy.array(ages) / numpy.array(relax_times))
     sorted_tt = numpy.sort(tt)
     obs_disk_fractions = numpy.array(disk_fraction) / 100.
@@ -907,24 +904,7 @@ def disk_fractions(open_paths100, open_paths50, t_end, save_path, save, mass_lim
             means.append(numpy.mean(sorted_disk_fractions[i:]))
             time_means.append(numpy.mean(sorted_tt[i:i+10]))
             break
-    print means
-    print len(means), len(tt)
 
-    """my_bin_edges.sort()
-    my_bin_edges[0] = 0.0  # To start from the edge of the plot, not the edge of the data
-    my_bin_edges = my_bin_edges + [3.0]  # To reach the end of the plot, not just the end of the data
-    print my_bin_edges
-
-    bin_means, bin_edges, binnumber = stats.binned_statistic(numpy.array(ages) / numpy.array(relax_times), # x
-                                                             numpy.array(disk_fraction) / 100.,            # values
-                                                             statistic='mean',
-                                                             bins=my_bin_edges)
-
-    bin_centers = 0.5 * (bin_edges[1:] + bin_edges[:-1])
-
-    bins_color = '#fc9f5b'
-    pyplot.hlines(bin_means, bin_edges[:-1], bin_edges[1:], color=bins_color, lw=2, linestyle="--", alpha=0.5)
-    """
     pyplot.plot(time_means, means, lw=3, color='#fc9f5b', label='Binned mean of observations', alpha=0.7)
 
 
@@ -1161,16 +1141,16 @@ def disk_stellar_mass(open_paths100, open_paths50, t_end, save_path, mass_limit=
     pyplot.xlim([0.0, 5.0])
     pyplot.ylim([0.0, 1.0])
 
-    ax.legend([LowMassObject(), HighMassObject(), M100shadedObject, M30shadedObject],
-               [r"$\mathrm{M}_* < \mathrm{\ }$" + "{0}".format(mass_limit.value_in(units.MSun)) +  r"$\mathrm{\ M}_{\odot}$",
+    ax.legend([LowMassObject(), HighMassObject(), M100shadedObject, M50shadedObject],
+              [r"$\mathrm{M}_* < \mathrm{\ }$" + "{0}".format(mass_limit.value_in(units.MSun)) +  r"$\mathrm{\ M}_{\odot}$",
                 r"$\mathrm{M}_* \geq \mathrm{\ }$" + "{0}".format(mass_limit.value_in(units.MSun)) +  r"$\mathrm{\ M}_{\odot}$",
                 r'$\rho \sim 100 \mathrm{\ M}_\odot \mathrm{\ pc}^{-3}$',
                 r'$\rho \sim 50 \mathrm{\ M}_\odot \mathrm{\ pc}^{-3}$'],
-               handler_map={LowMassObject: LowMassObjectHandler(),
-                            HighMassObject: HighMassObjectHandler(),
-                            M100shadedObject: M100shadedObjectHandler(),
-                            M30shadedObject: M30shadedObjectHandler()},
-               fontsize=20)#, framealpha=)
+              handler_map={LowMassObject: LowMassObjectHandler(),
+                           HighMassObject: HighMassObjectHandler(),
+                           M100shadedObject: M100shadedObjectHandler(),
+                           M50shadedObject: M50shadedObjectHandler()},
+              fontsize=20)#, framealpha=)
 
     if save:
         pyplot.savefig('{0}/stellar_mass.png'.format(save_path))
@@ -1178,7 +1158,7 @@ def disk_stellar_mass(open_paths100, open_paths50, t_end, save_path, mass_limit=
     pyplot.show()
 
 
-def deltat(open_paths100, open_paths50, save_path, mass_limit=0.0, save=False):
+def cumulative_mass_loss(open_paths100, open_paths50, save_path, mass_limit=0.0, save=False):
 
     t_end = 5.0   # | units.Myr
     times = numpy.arange(0.0, t_end + 0.05, 0.05)
@@ -1242,7 +1222,7 @@ def deltat(open_paths100, open_paths50, save_path, mass_limit=0.0, save=False):
     pyplot.show()
 
 
-def cumulative_mass(open_paths100, open_paths50, save_path):
+def cdf_disk_mass(open_paths100, open_paths50, save_path):
     """ Figure 8: cumulative distribution of disk mass at different moments in time.
 
     :param open_paths100: path to the rho ~ 100 MSun/pc results
@@ -1441,31 +1421,43 @@ def main(save_path, time, save):
     # My own stylesheet, comment out if not needed
     pyplot.style.use('paper')
 
-    paths100 = ['results/final/plummer_N100_1/',
-                'results/final/plummer_N100_2/',
-                'results/final/plummer_N100_3/']
+    paths100 = ['results/plummer_M100_1/',
+                'results/plummer_M100_2/',
+                'results/plummer_M100_3/']
 
-    paths50 = ['results/final/plummer_N50_1/',
-               'results/final/plummer_N50_2/',
-               'results/final/plummer_N50_3/']
+    paths50 = ['results/plummer_M50_1/',
+               'results/plummer_M50_2/',
+               'results/plummer_M50_3/']
 
-    #radius_plot()
-    #disk_stellar_mass(paths100, paths50, time, save_path, mass_limit=0.5, save=True)
-    #mass_loss_in_time(paths100, paths50, save_path, time, mass_limit=0.0, save=False)
+    # Figure 1
+    radius_plot()
 
-    disk_fractions(paths100, paths50, time, save_path, save=True)#, mass_limit=0.0)
+    # Figure 2
+    luminosity_vs_mass(save_path, save)
 
-    #deltat(paths100, paths50, save_path, save=True)
+    # Figure 5
+    mass_loss_in_time(paths100, paths50, save_path, time, mass_limit=0.0, save=False)
 
-    #cumulative_mass(paths100, paths50, save_path)
+    # Figure 6
+    cumulative_mass_loss(paths100, paths50, save_path, save=True)
 
-    #mdot(paths100, paths50, save_path)
+    # Figure 7
+    mdot(paths100, paths50, save_path)
 
-    #disk_mass(paths100, paths50, save_path, time, save=True)
-    #disk_size(paths100, paths50, save_path, time, save=True)
+    # Figure 8
+    cdf_disk_mass(paths100, paths50, save_path)
 
-    #disk_stellar_mass(paths100, paths50, time, save_path, mass_limit=0.5, save=True)
-    #luminosity_vs_mass(save_path, save)
+    # Figure 9
+    disk_fractions(paths100, paths50, time, save_path, save=True)
+
+    # Figure 10
+    disk_mass(paths100, paths50, save_path, time, save=True)
+
+    # Figure 11
+    disk_size(paths100, paths50, save_path, time, save=True)
+
+    # Figure 12
+    disk_stellar_mass(paths100, paths50, time, save_path, mass_limit=0.5, save=True)
 
 
 def new_option_parser():
