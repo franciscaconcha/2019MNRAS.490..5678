@@ -10,12 +10,3 @@
 *.fls
 *.bbl
 *.blg
-/vader
-/MJCWilhelm-amuse_vader_interface
-/photoevap-paper
-/SN
-/src_cart
-/results
-/test_results
-/src/vader_cluster_*
-/figures
