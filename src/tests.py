@@ -117,8 +117,6 @@ def initialize_vader_code(disk_radius,
     disk.parameters.inner_pressure_boundary_torque = 0.0 | units.g * units.cm ** 2 / units.s ** 2
     disk.parameters.alpha = alpha
     disk.parameters.maximum_tolerated_change = 1E99
-    global diverged_disks
-    diverged_disks[disk] = False
 
     return disk
 
