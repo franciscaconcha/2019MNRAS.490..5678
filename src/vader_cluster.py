@@ -572,7 +572,7 @@ def main(N, Rvir, Qvir, dist, alpha, ncells, t_ini, t_end, save_interval, run_nu
 
     ######## FRIED grid ########
     # Read FRIED grid
-    grid = numpy.loadtxt('photoevap/data/friedgrid.dat', skiprows=2)
+    grid = numpy.loadtxt('../photoevap/data/friedgrid.dat', skiprows=2)
 
     # Getting only the useful parameters from the grid (not including Mdot)
     FRIED_grid = grid[:, [0, 1, 2, 4]]
