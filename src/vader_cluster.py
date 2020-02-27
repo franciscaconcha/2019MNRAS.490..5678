@@ -37,6 +37,7 @@ def column_density(grid,
 
 def initialize_vader_code(disk_radius,
                           disk_mass,
+                          stellar_mass,
                           alpha,
                           r_min=0.05 | units.au,
                           r_max=2000 | units.au,
@@ -46,6 +47,7 @@ def initialize_vader_code(disk_radius,
 
     :param disk_radius: disk radius. Must have units.au
     :param disk_mass: disk mass. Must have units.MSun
+    :param stellar_mass: mass of the central star. Must have units.MSun
     :param alpha: turbulence parameter for viscosity, adimensional
     :param r_min: minimum radius of vader grid. Must have units.au
     :param r_max: maximum radius of vader grid. Must have units.au
@@ -60,7 +62,7 @@ def initialize_vader_code(disk_radius,
         linear,  # Linear?
         r_min,  # Grid Rmin
         r_max,  # Grid Rmax
-        disk_mass  # Disk mass
+        stellar_mass  # Mass of the central star
     )
 
     #disk.parameters.verbosity = 1
@@ -509,7 +511,12 @@ def main(N, Rvir, Qvir, dist, alpha, ncells, t_ini, t_end, save_interval, run_nu
     for s in stars:
         if s in small_stars:
             s.code = True
-            s_code = initialize_vader_code(s.disk_radius, s.disk_mass, alpha, n_cells=ncells, linear=False)
+            s_code = initialize_vader_code(s.disk_radius,
+                                           s.disk_mass,
+                                           s.stellar_mass,
+                                           alpha,
+                                           n_cells=ncells,
+                                           linear=False)
 
             s_code.parameters.inner_pressure_boundary_mass_flux = accretion_rate(s.stellar_mass)
 

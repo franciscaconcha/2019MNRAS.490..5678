@@ -76,6 +76,7 @@ def get_disk_mass(disk,
 
 def initialize_vader_code(disk_radius,
                           disk_mass,
+                          stellar_mass,
                           alpha,
                           r_min=0.05 | units.au,
                           r_max=2000 | units.au,
@@ -85,6 +86,7 @@ def initialize_vader_code(disk_radius,
 
     :param disk_radius: disk radius. Must have units.au
     :param disk_mass: disk mass. Must have units.MSun
+    :param stellar_mass: mass of the central star. Must have units.MSun
     :param alpha: turbulence parameter for viscosity, adimensional
     :param r_min: minimum radius of vader grid. Must have units.au
     :param r_max: maximum radius of vader grid. Must have units.au
@@ -99,7 +101,7 @@ def initialize_vader_code(disk_radius,
         linear,  # Linear?
         r_min,  # Grid Rmin
         r_max,  # Grid Rmax
-        disk_mass  # Disk mass
+        stellar_mass  # Mass of the central star
     )
 
     #disk.parameters.verbosity = 1
@@ -152,7 +154,13 @@ def main():
         grids[c] = []
         disk_radii[c] = []
 
-        disk = initialize_vader_code(100 | units.au, 0.1 | units.MSun, 1E-4, r_max=rout, n_cells=c, linear=False)
+        disk = initialize_vader_code(100 | units.au,
+                                     0.1 | units.MSun,
+                                     1 | units.MSun,
+                                     1E-4,
+                                     r_max=rout,
+                                     n_cells=c,
+                                     linear=False)
         t = 0 | units.Myr
         radius = []
 
