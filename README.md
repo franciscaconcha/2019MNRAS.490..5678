@@ -1,6 +1,6 @@
 # 2019MNRAS.490..5678C External photoevaporation of circumstellar disks constrains the timescale for planet formation
 #### Francisca Concha-Ramírez, Martijn J. C. Wilhelm, Simon Portegies Zwart, Thomas J. Haworth
-[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.3537676.svg)](https://doi.org/10.5281/zenodo.3537676) [![License: GPL v3](https://img.shields.io/badge/License-GPL%20v3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0) ![python](https://img.shields.io/badge/python-2.7-yellow.svg)
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.3537675.svg)](https://doi.org/10.5281/zenodo.3537675) [![License: GPL v3](https://img.shields.io/badge/License-GPL%20v3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0) ![python](https://img.shields.io/badge/python-2.7-yellow.svg)
 
 (Code to run the simulations and generate figures of the paper: [2019MNRAS.490..5678C External photoevaporation of circumstellar disks constrains the timescale for planet formation](https://doi.org/10.1093/mnras/stz2973).)
 
