@@ -8,7 +8,7 @@ For questions please contact Francisca Concha-Ramírez, fconcha at strw.leidenun
 
 ## Getting Started
 
-### Prerequisites
+### Requisites
 * Python 2.7. Should work fine with Python 3 but it has not been tested.
 * AMUSE: https://github.com/amusecode/amuse
 * vader: https://bitbucket.org/krumholz/vader/src
